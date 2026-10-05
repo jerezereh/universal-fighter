@@ -240,3 +240,20 @@ the synthetic architecture gate allows the first real-game adapter.
   pause/frame advance and host snapshot/replay remain separate acceptance gates.
   Native trigger equivalence for foreign owner contact age/get-hit variables also
   remains incomplete. Next: package 6 host snapshot/hash/debug/replay probes.
+
+### Skill installation and continued use
+
+- User explicitly requested skill-installer and confirmation that Universal Modder
+  and Ponytail remain in use. Ponytail was already installed and has been applied
+  to the project's coding/dependency decisions. Universal Modder was present as an
+  ignored pinned reference and used for recon/resource investigation, but its skills
+  had not been registered in the global Codex skills folder.
+- Installed all ten Universal Modder skills with the official skill-installer helper
+  from `rehan-remade/universal-modder` at the project's pinned revision
+  `0f5dcdfdcd8ed420f8413815bd6647586ab894a2`. Verified installed entrypoints and
+  supporting resources against pinned Git objects (the working checkout uses CRLF).
+  New skill discovery is available on the next turn.
+- Recorded continuing use of Ponytail for coding and relevant Universal Modder
+  workflows for recon, reverse engineering, asset conversion and validation in
+  `AGENTS.md`. This installs skills only; optional external services and the full
+  plugin/MCP configuration are not enabled by this step. No game/runtime changes.

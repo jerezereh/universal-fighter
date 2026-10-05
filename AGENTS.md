@@ -4,6 +4,14 @@ Follow `handoff_doc.txt` and `docs/WORK_PLAN.md`. Read the pinned IKEMEN impleme
 before changing runtime boundaries. Keep verified results separate from proposed behavior
 and pending interactive validation.
 
+Use Ponytail (full intensity by default) for coding, fixes, architecture and dependency
+choices. Use the relevant Universal Modder skills for installed-game reconnaissance,
+reverse engineering, file formats, asset conversion and game validation. Read each
+applicable SKILL.md before applying its workflow. Both are installed in the user's
+Codex skills folder; the pinned Universal Modder reference in
+`tools/references/universal-modder` is also available via `tools/bootstrap.ps1`.
+Keep Universal Modder as development tooling, never a shipped runtime dependency.
+
 The user authorized committing and pushing throughout the work plan on 2026-10-05.
 After each completed, validated work package or coherent implementation step:
 
