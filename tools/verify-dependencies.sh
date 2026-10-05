@@ -6,9 +6,10 @@ export GOMODCACHE="$GOPATH/pkg/mod"
 export GOCACHE="$1/local-cache/go-build"
 mkdir -p local-cache
 exec > >(tee local-cache/dependency-report.txt) 2>&1
-for tool in git make gcc pkg-config go nasm yasm; do
+for tool in git make gcc pkg-config go nasm yasm python; do
   command -v "$tool"
 done
+python -c 'import sys, PIL; print("Python", sys.version.split()[0], "Pillow", PIL.__version__)'
 export GOROOT=/mingw64/lib/go
 export GOEXPERIMENT=arenas
 required=$(sed -n 's/^go //p' backends/ikemen/go.mod | tr -d '\r')

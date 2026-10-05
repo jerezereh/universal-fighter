@@ -83,3 +83,37 @@ the synthetic architecture gate allows the first real-game adapter.
   general Lua execution and other PCS drawing modes are outside this slice.
 - Host runtime binding, input-driven locomotion and interactive acceptance remain
   pending. This import is not a completed foreign fighter or full KOF emulation.
+
+### KOF foreign runtime slice
+
+- Added a shared host scheduling boundary with native and KOF implementations.
+  Native methods remain behind their backend wrapper; foreign preparation, simulation,
+  finish, update and tick bypass native CNS behavior. Explicit DEF runtime binding
+  loads a local manifest. Kyo uses host-sampled input, imported velocities/frame clocks,
+  native stage/camera/rendering and size-based host pushing.
+- Added source-formula checks for the selected velocity constructors. Adapter code
+  selects idle/walk/crouch/normal-jump transitions; full original transitions, option
+  flags, effects/audio and combat are not emulated. Airborne facing remains locked.
+- Core tests pass on authored data and the installed Kyo manifest: forward/back,
+  crouch/release, jump/landing, held-up edge behavior, pause, exactly one frame of
+  advance, reset and deterministic restore/replay. They exposed and fixed stale
+  jump acceleration after landing. Host snapshots copy mutable runtime state while
+  sharing the immutable imported specification; full host rollback remains unverified.
+- Runtime is versioned in `runtime/`; host changes are captured in
+  `patches/0001-fighter-runtime.patch`. Apply/reverse checks passed on pristine pinned
+  source. Reapplication is idempotent, and the helper refuses a different host HEAD.
+- Patched host compiled successfully. Native KFM/KFM KO and multiple-round regression
+  passed again on the final build (`baseline-20261005-163948-378.txt`). Mixed KFM/Kyo
+  renderer smoke passed again (`foreign-20261005-164132-929.stderr.txt`): sampled
+  native AI input produced walking, crouch, directional jumps and landing, with
+  foreign sprite textures uploaded. The initial smoke observed all 13 imported
+  actions; the final random AI run observed 10. The mixed match ended
+  by timeout; native melee/projectile paths deliberately exclude the foreign shell.
+- Gathered project-local Python 3.14.8 / Pillow 12.3.0 and updated dependency setup and
+  verification. Importer checks pass with this toolchain; dependency `-CheckOnly`,
+  Bash and PowerShell syntax checks pass. The baseline builder does not apply/remove
+  runtime patches; use `build-runtime.sh` for the patched build.
+- Added `smoke-foreign.ps1` and an interactive `play-foreign.ps1` command. Pixel-level
+  renderer inspection, human controls and actual host pause/frame advance remain open.
+  Package 3 is implemented but not fully accepted; next implementation gate is the
+  mixed melee protocol, with source hurtboxes and one foreign normal.

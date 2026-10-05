@@ -10,7 +10,7 @@ From PowerShell at the project root:
 
 The default command downloads a stable official MSYS2 x64 archive, checks its published
 SHA256, extracts it under `local-cache/msys64`, updates packages, installs the MINGW64
-toolchain and IKEMEN libraries, obtains pinned upstream repositories, checks Go against
+toolchain, IKEMEN libraries and Python/Pillow for local KOF import, obtains pinned upstream repositories, checks Go against
 the host's `go.mod`, and downloads Go modules. `-Build` additionally runs the upstream
 Windows build, which gathers/builds FFmpeg and libvpx. The wrapper stages its binary,
 libraries and the pinned screenpack into `artifacts/host-baseline`, preserving existing
@@ -41,3 +41,6 @@ MSYS2 archive installation/checksum guidance:
 [official installer documentation](https://www.msys2.org/docs/installer/).
 IKEMEN package and build requirements: `backends/ikemen/BUILDING.md` at the pinned revision.
 The project does not gather commercial-game assets or install Universal Modder plugins.
+The separate KOF importer reads a user-specified local game installation; see
+`MODDING_PLAN.md`. Running `build-runtime.sh` applies the versioned host patch;
+the baseline builder alone does not apply it or remove existing patches.

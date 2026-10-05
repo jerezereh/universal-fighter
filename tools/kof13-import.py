@@ -283,7 +283,24 @@ def export(root, output, character):
             air.append(f'0,{sprite},0,0,{duration}')
         animations[action_id] = frames
         air.append('')
-    moves = {int(k) - 1: call[2] for k, call in values['moves'].items() if isinstance(call, tuple) and call[0] == 'call'}
+    used = {int(args[0]) for frames in animations.values() for frame in frames
+            for name, args in frame['calls'] if name in ('SetMoveVx', 'SetMoveVy')}
+    moves = {}
+    for selector in sorted(used):
+        call = values['moves'][selector + 1]
+        if call[0] != 'call' or call[1][0] != 'function':
+            raise ValueError('Unsupported move constructor')
+        constructor = proto['children'][call[1][1]]
+        formula = constructor['children'][1]
+        instructions = [(i & 63, i >> 6 & 255, i >> 23, i >> 14 & 511) for i in formula['code']]
+        constant = [(30, 0, 2, 0), (30, 0, 1, 0)]
+        zero = [(1, 0, 0, 0), *constant]
+        approach = [(4, 1, 0, 0), (13, 1, 1, 0), (4, 2, 1, 0), (14, 1, 1, 2), (12, 1, 0, 1), (30, 1, 2, 0), (30, 0, 1, 0)]
+        if instructions not in (constant, zero, approach) or call[2][-1] is not False:
+            raise ValueError('Unsupported source velocity formula')
+        if instructions == zero and (call[2][0] != 0 or formula['constants'] != [0]):
+            raise ValueError('Unsupported fixed-position move')
+        moves[selector] = call[2]
     output.mkdir(parents=True, exist_ok=True)
     spec = dict(schema=1, backend='kof13-locomotion', character=character, scale=0.4,
                 sources={str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},
@@ -293,7 +310,7 @@ def export(root, output, character):
     (output / 'kof13.air').write_text('\n'.join(air), encoding='utf-8')
     (output / 'kof13.cns').write_text('[Data]\nlife=1000\n[Size]\nxscale=.4\nyscale=.4\nground.back=18\nground.front=18\nheight=95\n', encoding='utf-8')
     (output / 'kof13.cmd').write_text('; Input is sampled by the host and consumed by the foreign runtime.\n', encoding='utf-8')
-    (output / 'kof13.def').write_text(f'[Info]\nname="KOF XIII {character} foreign slice"\ndisplayname="KOF XIII {character}"\nmugenversion=1.1\nlocalcoord=320,240\n[Files]\ncmd=kof13.cmd\ncns=kof13.cns\nsprite=kof13.sff\nanim=kof13.air\n', encoding='utf-8')
+    (output / 'kof13.def').write_text(f'[Info]\nname="KOF XIII {character} foreign slice"\ndisplayname="KOF XIII {character}"\nruntime=kof13-locomotion\nmugenversion=1.1\nlocalcoord=320,240\n[Files]\ncmd=kof13.cmd\ncns=kof13.cns\nsprite=kof13.sff\nanim=kof13.air\n', encoding='utf-8')
     sprites[0][0].save(output / 'preview.png')
     print(f'Exported {len(animations)} actions / {len(sprites)} frames to {output}')
 

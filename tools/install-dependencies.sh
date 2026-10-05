@@ -9,7 +9,8 @@ case "${1:-}" in
       mingw-w64-x86_64-pkg-config mingw-w64-x86_64-go \
       mingw-w64-x86_64-toolchain mingw-w64-x86_64-nasm \
       mingw-w64-x86_64-yasm mingw-w64-x86_64-tools-git \
-      mingw-w64-x86_64-libxmp mingw-w64-x86_64-SDL2
+      mingw-w64-x86_64-libxmp mingw-w64-x86_64-SDL2 \
+      mingw-w64-x86_64-python-pillow
     ;;
   *) echo 'Expected core or packages' >&2; exit 2 ;;
 esac

@@ -128,3 +128,21 @@ before finalizing the API. No real-game recon is needed for this phase.
 References: [IKEMEN source at analyzed revision](https://github.com/ikemen-engine/Ikemen-GO/tree/07558c8ca579ed2dff903c440c2aede006b3a2d4/src),
 [Universal Modder](https://github.com/rehan-remade/universal-modder). The latter is retained
 as a pinned tooling reference for later adapter recon; it is not part of the host seam.
+
+## Implemented package 3 seam
+
+The user selected KOF XIII as the first adapter. The current implementation is
+`runtime/host.go` plus `runtime/kof13.go`, applied by `tools/apply-runtime.py` and
+`patches/0001-fighter-runtime.patch`. The five host scheduling phases dispatch via
+`FighterBackend`; the native implementation calls the original methods unchanged.
+The KOF implementation runs a separate locomotion state machine, then projects
+its transform, coarse state type and animation element into the rendering shell.
+It consumes `CommandList.Buffer` after `CharList.commandUpdate`, so local, AI,
+replay and network sampling follow the existing path without another device poll.
+
+`FighterRuntime` currently supports step/reset/save/load for locomotion only. No
+combat protocol or foreign attack handling is implemented yet. Native collision
+results cannot enter the foreign shell; mixed pushing uses host size boxes and
+bypasses the native Clsn2 prerequisite for these pairs. Immutable imported specs
+are shared while `Char.Clone` copies mutable foreign state into a new runtime.
+This is a narrow prototype API; host-level rollback/combat replay remains unverified.

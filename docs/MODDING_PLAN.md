@@ -43,9 +43,47 @@ python tools/kof13-import.py --game 'C:\Program Files (x86)\Steam\steamapps\comm
 python tools/test-kof13-import.py
 ```
 
+Build and exercise the runtime after importing:
+
+```powershell
+$env:MSYSTEM = 'MINGW64'
+$env:CHERE_INVOKING = '1'
+& ./local-cache/msys64/usr/bin/bash.exe --login /c/Users/Novo-/source/repos/universal-fighter/tools/build-runtime.sh /c/Users/Novo-/source/repos/universal-fighter
+./tools/smoke-host.ps1
+./tools/smoke-foreign.ps1
+./tools/play-foreign.ps1
+```
+
+The Bash build script runs the focused Go checks, applies the versioned host patch,
+copies the project runtime into the pinned checkout, then rebuilds/stages IKEMEN.
+Applying it twice is safe; a changed upstream source rejects the patch. The staged
+executable now includes the foreign seam. Native characters still use the native
+backend. The interactive command gives player 1 Kyo against an AI KFM.
+
 Output is restricted to ignored `artifacts/`. Source hashes are stored in the
 local foreign manifest. Neither game files, extracted images nor derived frame
 data are committed. Export is not evidence of host simulation or combat fidelity.
+
+## Runtime limits
+
+`runtime/kof13.go` owns action/frame clocks, velocity selection, jump integration
+and mutable state. `runtime/host.go` bridges the host's already sampled input,
+presentation, stage bounds and size-based player pushing. The host scheduler uses
+the same backend boundary for native and foreign players; foreign players bypass
+CNS preparation/execution/finish/update/tick paths. The manifest opt-in is explicit
+in the generated DEF. Mutable runtime state is copied separately in host snapshots.
+
+The source move constructor's constant/approach velocity formulas are used for
+the selected locomotion subset. The input-to-action transitions are adapter code;
+the source game's complete transition system is not emulated. Source audio/effect
+calls and option flags are retained as data but currently unexecuted. Body bounds
+use the host's size convention; source collision rectangles are deferred to combat.
+Native HitDef/projectile paths exclude the foreign player until result negotiation
+is implemented. A timed mixed match verifies coexistence, not fighting or KOF fidelity.
+
+Core checks cover walking, crouch/release, jump/landing, held-up edge behavior,
+pause, one-frame advance, reset and deterministic restore/replay with the local
+manifest. Renderer smoke evidence and human/visual acceptance are separate gates.
 
 ## References
 
