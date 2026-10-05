@@ -1,0 +1,7 @@
+# Reproducible upstream working copies; see tools/bootstrap.ps1.
+/backends/ikemen/
+/tools/references/
+/local-cache/
+/extracted/
+/artifacts/
+*.exe

@@ -1,0 +1,17 @@
+{
+  "ikemen": {
+    "url": "https://github.com/ikemen-engine/Ikemen-GO.git",
+    "commit": "07558c8ca579ed2dff903c440c2aede006b3a2d4",
+    "path": "backends/ikemen"
+  },
+  "screenpack": {
+    "url": "https://github.com/ikemen-engine/Ikemen-GO-Screenpack.git",
+    "commit": "2d012f14f8fda6a8515879427adcfd422a20333d",
+    "path": "backends/ikemen/build/screenpack"
+  },
+  "universalModder": {
+    "url": "https://github.com/rehan-remade/universal-modder.git",
+    "commit": "0f5dcdfdcd8ed420f8413815bd6647586ab894a2",
+    "path": "tools/references/universal-modder"
+  }
+}

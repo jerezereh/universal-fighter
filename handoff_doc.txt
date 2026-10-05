@@ -1,0 +1,640 @@
+# Universal Fighting Game Compatibility Engine
+
+## Objective
+
+Prototype a universal fighting-game compatibility runtime capable of combining fighters from different 2D fighting games while preserving as much of each source game's original behavior, assets, frame data, and mechanics as practical.
+
+The intended end state is similar in spirit to MUGEN/IKEMEN, but source fighters should be imported or adapted from their original games rather than manually recreated as MUGEN characters.
+
+Examples of eventual target matchups:
+
+- Street Fighter III character vs. Guilty Gear Xrd character
+- Guilty Gear Xrd character vs. Ultimate Marvel vs. Capcom 3 character
+- Native MUGEN/IKEMEN character vs. an imported fighter
+
+Do **not** attempt broad game support initially. The first objective is proving the compatibility architecture.
+
+---
+
+## Reference Repositories
+
+Use these as primary references/dependencies:
+
+### Universal Modder
+
+Repository:
+
+`rehan-remade/universal-modder`
+
+Use its game-recon, reverse-engineering, modding, and mashup/passthrough knowledge and workflows when investigating source games.
+
+Do not make Universal Modder a runtime dependency. Treat it primarily as tooling and methodology for developing adapters.
+
+### IKEMEN GO
+
+Repository:
+
+`ikemen-engine/Ikemen-GO`
+
+Use IKEMEN GO as the initial host fighting engine.
+
+Reuse its existing:
+
+- match loop
+- rendering
+- animation
+- input
+- audio
+- stages
+- cameras
+- rounds
+- UI
+- training functionality
+- MUGEN compatibility
+- existing netplay/rollback infrastructure where practical
+
+Avoid rewriting these systems unless required by the compatibility architecture.
+
+---
+
+# Proposed Architecture
+
+Do **not** convert every source game directly into MUGEN CNS/ZSS.
+
+Instead, introduce a runtime abstraction between IKEMEN's match system and individual fighters.
+
+Target conceptual architecture:
+
+```text
+                 IKEMEN-derived Host
+        ┌─────────────────────────────┐
+        │ Match / rounds              │
+        │ Renderer / animations       │
+        │ Input                       │
+        │ Camera / stages             │
+        │ Audio                       │
+        │ UI / training               │
+        │ Netcode                     │
+        └──────────────┬──────────────┘
+                       │
+                Fighter Runtime API
+                       │
+       ┌───────────────┼─────────────────┐
+       │               │                 │
+       ▼               ▼                 ▼
+ IKEMEN/MUGEN      Test Runtime      Game Adapter
+    Backend                           e.g. SFIII
+```
+
+IKEMEN's existing character implementation should effectively become one backend implementing the same conceptual interface as future foreign-game adapters.
+
+Do not perform a major IKEMEN rewrite in the first iteration. Introduce the smallest seam necessary to demonstrate heterogeneous fighters.
+
+---
+
+# Core Interfaces
+
+Design a minimal API around approximately these concepts:
+
+```text
+FighterRuntime
+    initialize()
+    step(input, frameContext)
+    getState()
+    getEntities()
+    getColliders()
+    getAttacks()
+    receiveAttack()
+    applyCombatResult()
+
+    saveState()
+    loadState()
+    stateHash()
+```
+
+Exact language/API design should follow IKEMEN's existing architecture.
+
+A fighter runtime may internally be:
+
+- an IKEMEN/MUGEN character
+- translated original-game data/scripts
+- custom adapter code
+- an emulator-backed fighter
+- eventually a passthrough process
+
+The match engine should not need to know which implementation is being used.
+
+---
+
+# Universal Combat Protocol
+
+Create a small common representation for interactions between otherwise incompatible rulesets.
+
+Start with:
+
+```text
+Transform
+InputFrame
+Entity
+Collider
+Hitbox
+Hurtbox
+Attack
+DefenseResult
+CombatResult
+Resource
+StateTransition
+```
+
+Avoid attempting to represent every fighting-game mechanic directly.
+
+Allow game-specific extension metadata.
+
+Example:
+
+```text
+Attack
+    damage
+    hitstop
+    hitstun
+    attackType
+    launchVector
+    flags
+    extensions
+```
+
+Possible extension data:
+
+```text
+ggxrd.attackLevel
+ggxrd.riscGain
+mvc3.minimumDamage
+sf3.parryClass
+```
+
+The universal protocol should define interoperability boundaries, not replace each game's mechanics.
+
+---
+
+# Ruleset Model
+
+Separate behavior into three conceptual layers.
+
+## Character Rules
+
+Character-specific behavior:
+
+- moves
+- command inputs
+- cancel routes
+- special movement
+- stances
+- character-specific resources
+- summons/puppets
+
+## Game Rules
+
+Mechanics inherited from the source game:
+
+- blocking
+- parrying
+- Faultless Defense
+- Roman Cancels
+- Burst
+- pushblock
+- X-Factor
+- movement conventions
+- wakeup/recovery
+- combo scaling
+
+## Match Rules
+
+Rules controlled by the compatibility engine:
+
+- teams
+- rounds
+- timer
+- stage bounds
+- health normalization if desired
+- interaction policies
+- enabled system mechanics
+
+Rulesets may use configuration for simple properties, but complex mechanics should remain executable code rather than attempting to create an exhaustive configuration language.
+
+---
+
+# Cross-Game Combat Resolution
+
+Treat combat as negotiation between attacker and defender rulesets.
+
+Initial model:
+
+```text
+Attacker runtime
+    ↓
+Attack
+    ↓
+Defender runtime
+    ↓
+DefenseResult
+    ↓
+Combat Arbiter
+    ↓
+CombatResult
+    ↓
+Both runtimes update state
+```
+
+Default policy to investigate:
+
+- attacker rules determine attack characteristics
+- defender rules determine defensive options
+- attacker rules determine base damage/hit properties
+- defender rules determine defensive modifiers
+- defender rules determine its own gravity/wakeup behavior
+- each ruleset manages its own resources
+
+Make these policies configurable rather than hard-coding individual matchup behavior.
+
+---
+
+# Phase 1 — IKEMEN Architecture Recon
+
+Using IKEMEN GO:
+
+1. Identify the code paths responsible for:
+   - character simulation
+   - state updates
+   - input
+   - collision
+   - HitDef/hit processing
+   - rendering
+   - save/rollback state
+
+2. Document the narrowest point at which a `FighterRuntime` abstraction could be introduced.
+
+3. Avoid modifying behavior during this phase.
+
+Deliverable:
+
+`docs/IKEMEN_RUNTIME_ANALYSIS.md`
+
+Include a proposed interface and exact integration points.
+
+---
+
+# Phase 2 — Foreign Test Fighter
+
+Implement a deliberately simple non-MUGEN fighter runtime.
+
+It only needs:
+
+- idle
+- walk
+- jump
+- crouch
+- block
+- one normal attack
+- one projectile or special
+- hit reaction
+- knockdown
+- health
+
+Goal:
+
+```text
+Normal IKEMEN fighter
+        vs.
+ForeignTestFighter
+```
+
+Both must participate in the same match without the foreign fighter being implemented as an ordinary CNS character.
+
+This is the primary architectural proof.
+
+Do not begin reverse engineering another commercial game until this works.
+
+---
+
+# Phase 3 — Combat Protocol
+
+Move hit resolution between the two fighters through the new protocol.
+
+Demonstrate:
+
+- IKEMEN fighter attacking foreign fighter
+- foreign fighter attacking IKEMEN fighter
+- blocking
+- hitstun
+- hitstop
+- knockback
+- projectile collision
+- KO
+- round transitions
+
+Add debugging displays for:
+
+- hitboxes
+- hurtboxes
+- active attacks
+- runtime/backend type
+- current state
+- frame number
+
+---
+
+# Phase 4 — Ruleset Plugins
+
+Implement at least two deliberately different synthetic rulesets.
+
+Example:
+
+### Ruleset A
+
+Street-Fighter-like:
+
+- grounded movement
+- blocking
+- parry
+
+### Ruleset B
+
+Guilty-Gear-like:
+
+- air dash
+- gatling-style cancels
+- Faultless-Defense-like mechanic
+- Roman-Cancel-like mechanic
+
+Demonstrate that:
+
+```text
+Ruleset B attack
+        ↓
+Ruleset A fighter
+        ↓
+Ruleset A defensive mechanic
+```
+
+works without matchup-specific code.
+
+This is the main proof that the project is a compatibility layer rather than simply another configurable fighting engine.
+
+---
+
+# Phase 5 — First Real Game Adapter
+
+After the architecture works, choose one source game.
+
+Recommended first investigation:
+
+**Street Fighter III: 3rd Strike**
+
+Reasons:
+
+- relatively constrained game state
+- extensively researched
+- emulation is available as a possible reference/runtime backend
+- parry provides a useful test of cross-game defensive behavior
+- 2D asset pipeline is simpler than starting with a modern 3D fighter
+
+Use Universal Modder workflows to investigate:
+
+- asset formats
+- animation data
+- move/state data
+- hitboxes/hurtboxes
+- input definitions
+- physics constants
+- damage data
+- game-specific mechanics
+
+Initial target: **one character only**.
+
+A suitable first character is Ryu.
+
+Do not attempt a complete SFIII importer initially.
+
+---
+
+# Phase 6 — Second Real Game Adapter
+
+Once one imported character works, select a substantially different game.
+
+Recommended:
+
+**Guilty Gear Xrd Rev 2**
+
+Candidate fighter:
+
+**Sol Badguy**
+
+Target proof:
+
+```text
+SFIII Ryu
+    vs.
+GG Xrd Sol
+```
+
+Preserve enough source behavior to demonstrate:
+
+Ryu:
+
+- original movement/frame behavior
+- original attacks
+- parry
+- supers
+
+Sol:
+
+- original movement/frame behavior
+- original attacks
+- gatlings
+- tension
+- Faultless Defense
+- Roman Cancel
+
+Critical demonstration:
+
+**Ryu can parry an Xrd-originating attack through the universal combat protocol.**
+
+If this works without character-specific compatibility code, consider the core concept validated.
+
+---
+
+# State and Determinism Requirements
+
+Design for these operations from the beginning:
+
+```text
+stepFrame(inputs)
+saveState()
+loadState()
+stateHash()
+```
+
+Do not tightly couple the universal protocol to IKEMEN's current rollback implementation.
+
+Every foreign runtime should eventually support deterministic stepping or an equivalent reproducible state mechanism.
+
+This enables:
+
+- rollback
+- replays
+- frame advance
+- deterministic testing
+- automated matchup simulation
+- desync detection
+
+Rollback networking itself is not an MVP requirement.
+
+---
+
+# Asset Strategy
+
+Do not distribute copyrighted game assets.
+
+Adapters should assume the user owns/installs the source game and locally extract or convert required resources.
+
+Preferred flow:
+
+```text
+Installed game
+    ↓
+Game-specific importer
+    ↓
+Local generated cache
+    ↓
+Universal runtime
+```
+
+Separate:
+
+```text
+adapter code
+format definitions
+conversion tools
+metadata
+```
+
+from extracted proprietary content.
+
+---
+
+# Non-Goals for Initial Prototype
+
+Do not initially implement:
+
+- arbitrary-game automatic importing
+- full compatibility with every fighting game
+- online matchmaking
+- polished frontend
+- complete rollback networking
+- every IKEMEN game mode
+- full-game extraction
+- 3v3/tag systems
+- assists
+- complex puppet characters
+- source-game stage importing
+- perfect graphical reproduction
+- automatic ruleset translation using AI
+
+These can follow after the architectural proof.
+
+---
+
+# Repository Structure
+
+Suggested structure:
+
+```text
+/universal-fighter
+    /docs
+    /engine
+        /protocol
+        /combat
+        /runtime
+    /backends
+        /ikemen
+        /test
+    /rulesets
+        /test-a
+        /test-b
+    /adapters
+        /sf3
+        /ggxrd
+    /importers
+        /sf3
+        /ggxrd
+    /tools
+```
+
+If modifying IKEMEN directly proves much easier initially, maintain the project as a fork but keep new compatibility functionality logically separated so it can eventually become its own package/modules.
+
+---
+
+# Agent Working Principles
+
+1. Read IKEMEN's real implementation before designing abstractions around assumed behavior.
+2. Use Universal Modder for source-game recon and reverse engineering.
+3. Build vertical slices rather than broad infrastructure.
+4. Prefer adapters over modifications to original game logic.
+5. Do not force foreign mechanics into MUGEN abstractions merely because IKEMEN currently uses them.
+6. Keep the universal protocol intentionally small.
+7. Preserve game-specific behavior behind runtime interfaces.
+8. Never add matchup-specific compatibility unless the protocol genuinely cannot represent the interaction.
+9. Record reverse-engineering findings and architectural decisions as work proceeds.
+10. Keep the project usable after every major milestone.
+
+---
+
+# First Milestone / Definition of Done
+
+The first major milestone is complete when:
+
+```text
+IKEMEN character
+       vs.
+ForeignTestFighter
+```
+
+can play a complete match and both fighters use different runtime implementations.
+
+Required interactions:
+
+- movement
+- jumping
+- attacks
+- hit detection
+- blocking
+- projectiles
+- damage
+- hitstun
+- knockback
+- KO
+- round restart
+
+The ForeignTestFighter must **not** simply be implemented as another ordinary MUGEN character.
+
+Once this works, document the resulting runtime API before beginning work on a real game adapter.
+
+---
+
+# Ultimate Proof of Concept
+
+The project's first meaningful cross-game milestone is:
+
+```text
+Street Fighter III: 3rd Strike Ryu
+                    vs.
+Guilty Gear Xrd Rev 2 Sol
+```
+
+using assets and mechanically derived behavior from locally installed source games.
+
+The critical interaction test is:
+
+> Sol performs an original Xrd attack, the attack crosses the universal combat protocol, and Ryu successfully uses SFIII's parry rules against it.
+
+If that interaction works without Sol-specific logic in the SFIII adapter or Ryu-specific logic in the Xrd adapter, the universal compatibility architecture has succeeded.
