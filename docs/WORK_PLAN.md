@@ -3,7 +3,9 @@
 Authority: `handoff_doc.txt`. Gate: a complete IKEMEN versus ForeignTestFighter match.
 Phase 1 is a source-only investigation. Package 2 now has a successful Windows build and
 automated native/native KO and multi-round baseline; interactive validation remains open.
-Packages 3 through 7 remain open.
+Packages 3 through 7 remain open. User scope update (2026-10-05): use locally
+installed KOF XIII for package 3 instead of the synthetic ForeignTestFighter.
+See `MODDING_PLAN.md` for the bounded import and runtime route.
 
 | Package | Deliverable | Acceptance gate |
 |---|---|---|
@@ -17,7 +19,8 @@ Packages 3 through 7 remain open.
 
 After package 7, implement two synthetic rulesets (parry versus air dash/cancels/defensive
 resource spending). Prove their interactions without matchup-specific code. Only then
-begin one-character SFIII recon with Universal Modder, followed eventually by Xrd.
+begin further real-game adapters, including SFIII and eventually Xrd. KOF XIII is
+the user's explicitly selected exception to that original adapter order.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

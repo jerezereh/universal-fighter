@@ -62,3 +62,21 @@ the synthetic architecture gate allows the first real-game adapter.
 - Initial publication groups the architecture foundation and Windows dependency/baseline
   tooling into separate commits. Local toolchains, upstream checkouts and runtime assets
   remain ignored; their pinned manifests and setup scripts are versioned.
+
+### KOF XIII source import
+
+- User installed Ponytail and requested its use. Applied minimal implementation:
+  one local reader, existing Pillow, no Lua VM or process hooking dependency.
+- User selected installed KOF XIII for the foreign slice, overriding synthetic-first
+  sequencing. Used Universal Modder's scan/recon workflow and manual resource checks.
+  Its knowledge search could not load PyYAML; a bounded reference search found no
+  KOF entry. No extra dependency was installed for that lookup.
+- Located Steam app 222940/build 151721. Implemented encoded Lua chunk/table parsing,
+  restricted frame-call extraction, zlib PCS reading, DBLPLT tile reconstruction,
+  palette-layer composition and host SFFv2/AIR presentation export.
+- Exported Kyo (`03`): 13 locomotion actions / 110 frames. Visually inspected the
+  reconstructed idle image. Derived assets and source hashes remain ignored locally.
+- Authored parser/SFF checks pass. Unsupported opcodes/transforms fail export;
+  general Lua execution and other PCS drawing modes are outside this slice.
+- Host runtime binding, input-driven locomotion and interactive acceptance remain
+  pending. This import is not a completed foreign fighter or full KOF emulation.
