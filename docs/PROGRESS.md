@@ -159,3 +159,22 @@ the synthetic architecture gate allows the first real-game adapter.
   custom-state transfers, reversals, down hits and foreign projectile contacts are
   excluded. Next implementation work is package 5 projectiles and complete lifecycle;
   source KO presentation and cleanup are still pending.
+
+### Kyo sprite-facing correction and controls
+
+- User reported Kyo facing away from the opponent in game. Inspected the exported
+  idle image and pinned host draw path: IKEMEN facing +1 expects right-facing pixels;
+  Kyo's source pixels face left and supported SetImage calls specify X scale -1.
+  The importer validated that transform but omitted it during composition.
+- Export now mirrors the composed pixels and reflects the sprite axis together.
+  Reimported all 147 frames locally. Movement, collision rectangles and host facing
+  logic are unchanged; no executable rebuild or game-installation change was needed.
+- Authored asymmetric-pixel/axis regression, existing parser/SFF/rectangle checks and
+  local reimport passed. Inspected the corrected right-facing idle preview. Host sampled
+  AI locomotion and sprite-upload smoke passed:
+  `foreign-20261005-212751-618.stderr.txt`. Actual in-game visual confirmation after
+  restarting the match remains pending; smoke does not inspect rendered pixels.
+- Read the current local `save/config.ini` Player 1 mapping and documented arrows,
+  standing `Z` attack, directional jumping and back/down-back guards. Only host button
+  `a` (currently `Z`) has a Kyo attack in this slice; other mapped attack buttons,
+  crouching/air attacks and source command moves are not yet implemented.

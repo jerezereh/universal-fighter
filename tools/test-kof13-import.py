@@ -26,6 +26,13 @@ else:
     raise AssertionError('Control flow accepted as static data')
 
 from PIL import Image
+asymmetric = Image.new('RGBA', (4, 1))
+asymmetric.putpixel((0, 0), (255, 0, 0, 255))
+asymmetric.putpixel((3, 0), (0, 0, 255, 255))
+mirrored, origin = kof.mirror_sprite(asymmetric, (1, 2))
+assert origin == (3, 2)
+assert mirrored.getpixel((0, 0)) == (0, 0, 255, 255)
+assert mirrored.getpixel((3, 0)) == (255, 0, 0, 255)
 with tempfile.TemporaryDirectory() as directory:
     path = Path(directory) / 'fixture.sff'
     kof.write_sff(path, [(Image.new('RGBA', (2, 3), (255, 0, 0, 255)), (1, 2))])

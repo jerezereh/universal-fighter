@@ -215,6 +215,12 @@ class Pcs:
         return result, (-left, -top)
 
 
+def mirror_sprite(image, origin):
+    """Reflect pixels and the axis together for source SetImage X scale -1."""
+    from PIL import Image
+    return image.transpose(Image.Transpose.FLIP_LEFT_RIGHT), (image.width - origin[0], origin[1])
+
+
 def write_sff(path, sprites):
     """Host-native SFFv2 presentation only; runtime simulation lives elsewhere."""
     header = bytearray(512)
@@ -307,7 +313,9 @@ def export(root, output, character):
             for layer, origin in reversed(layers):
                 image.alpha_composite(layer, (-origin[0] - left, -origin[1] - top))
             sprite = len(sprites)
-            sprites.append((image, (-left, -top)))
+            # Every supported SetImage above has X scale -1. Bake that source
+            # transform into presentation; host facing still controls boxes/motion.
+            sprites.append(mirror_sprite(image, (-left, -top)))
             duration = int(frame[1])
             if duration <= 0:
                 raise ValueError('Nonpositive animation duration')

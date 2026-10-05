@@ -30,6 +30,8 @@ in ignored local-cache. Sprite layers use palette rows from `palette/0003_00.png
 
 The melee importer exports 19 actions and 147 frames, including idle, walk, crouch,
 jump startup/air, landing, close standing A and reaction presentation.
+The source SetImage X scale -1 is baked into pixels and sprite origins at export,
+so host facing +1 draws toward the right while motion and collision facing stay intact.
 Reconstructed Kyo's idle image was visually inspected in the locomotion step.
 SFF/AIR are presentation assets only; exported constants contain no CNS states.
 Velocity selectors reference the source `moves` table, rather than literal speeds.
@@ -62,6 +64,12 @@ Applying it twice is safe; a changed upstream source rejects the patch. The stag
 executable now includes the foreign seam. Native characters still use the native
 backend. The interactive command gives player 1 Kyo against an AI KFM. Host button `a`
 presses the close standing A normal; hold back to guard, down-back for low guard.
+The current saved Player 1 keyboard mapping is arrow keys for movement/jump/crouch
+and `Z` for host button `a`. `Z` attacks while standing on the ground; crouching/air
+attacks are not implemented. Up-left/up-right jump diagonally. Holding away from
+the opponent guards high; down plus away guards low. Other mapped attack buttons
+(`X`, `C`, `A`, `S`, `D`) currently have no Kyo action. Keyboard mappings can be
+changed in the host's input options; the local saved configuration is not versioned.
 Other normals, air guard and source cancels are not implemented. Reimport existing
 locomotion data: the melee binding requires schema 2 and `runtime=kof13-melee`.
 
