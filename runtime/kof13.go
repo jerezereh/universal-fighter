@@ -6,7 +6,7 @@ import (
 	"math"
 )
 
-type InputFrame struct{ Forward, Back, Up, Down, Punch bool }
+type InputFrame struct{ Forward, Back, Up, Down, Punch, Special bool }
 type FrameContext struct {
 	Advance, AcceptInput bool
 	Facing               float32
@@ -18,6 +18,8 @@ type FighterState struct {
 	YTarget, YRate                             float32
 	UpHeld                                     bool
 	PunchHeld, BackHeld, DownHeld              bool
+	SpecialHeld, Defeated                      bool
+	ProjectileID                               uint64
 	AttackID                                   uint64
 	Hitstop, Stun, RenderAction, RenderElement int
 	DownTime                                   int
@@ -40,6 +42,7 @@ type KOFFrame struct {
 	Duration int
 	Calls    []json.RawMessage
 	VX, VY   *int `json:"-"`
+	Spawn    bool `json:"-"`
 }
 type KOFSpec struct {
 	Schema  int
@@ -50,6 +53,13 @@ type KOFSpec struct {
 	Normal  struct {
 		Damage, Hitstop int
 		SourceHitback   float32 `json:"source_hitback"`
+	}
+	Projectile struct {
+		Damage, Hitstop, Lifetime, Animation int
+		RemoveAnimation                      int `json:"remove_animation"`
+		Speed                                float32
+		VelocityMul                          float32 `json:"velocity_mul"`
+		SpawnX                               float32 `json:"spawn_x"`
 	}
 }
 type KOFRuntime struct {
@@ -62,13 +72,19 @@ func loadKOFSpec(data []byte) (*KOFSpec, error) {
 	if err := json.Unmarshal(data, &spec); err != nil {
 		return nil, err
 	}
-	if spec.Schema != 2 || spec.Backend != "kof13-melee" || spec.Scale <= 0 || spec.Scale > 1 || math.IsNaN(float64(spec.Scale)) {
-		return nil, fmt.Errorf("unsupported foreign manifest; reimport the Kyo melee slice")
+	if spec.Schema != 3 || spec.Backend != "kof13" || spec.Scale <= 0 || spec.Scale > 1 || math.IsNaN(float64(spec.Scale)) {
+		return nil, fmt.Errorf("unsupported foreign manifest; reimport the Kyo projectile slice")
 	}
 	if spec.Normal.Damage < 1 || spec.Normal.Hitstop < 0 || spec.Normal.Hitstop > 60 {
 		return nil, fmt.Errorf("invalid imported normal")
 	}
-	for _, action := range []int{1, 2, 3, 5, 11, 12, 14, 15, 19, 20, 25, 26, 27, 34, 36, 68, 106, 112, 161} {
+	p := spec.Projectile
+	if p.Damage < 1 || p.Hitstop < 0 || p.Hitstop > 60 || p.Lifetime < 1 || p.Lifetime > 600 || p.Animation != 534 || p.RemoveAnimation != 538 ||
+		p.Speed <= 0 || math.IsInf(float64(p.Speed), 0) || math.IsNaN(float64(p.Speed)) || p.VelocityMul < 0 || p.VelocityMul > 1 || math.IsNaN(float64(p.VelocityMul)) || math.IsInf(float64(p.SpawnX), 0) || math.IsNaN(float64(p.SpawnX)) {
+		return nil, fmt.Errorf("invalid imported projectile")
+	}
+	spawns := 0
+	for _, action := range []int{1, 2, 3, 5, 11, 12, 14, 15, 19, 20, 25, 26, 27, 34, 36, 68, 106, 112, 161, 475, 534, 538} {
 		frames := spec.Actions[action]
 		if len(frames) == 0 {
 			return nil, fmt.Errorf("missing action %d", action)
@@ -88,6 +104,20 @@ func loadKOFSpec(data []byte) (*KOFSpec, error) {
 					return nil, err
 				}
 				switch name {
+				case "CreateObject":
+					var args []json.RawMessage
+					var object string
+					if json.Unmarshal(call[1], &args) != nil || len(args) != 5 || json.Unmarshal(args[0], &object) != nil || object != "闇払い" || action != 475 {
+						return nil, fmt.Errorf("unsupported foreign object spawn")
+					}
+					var x, y float32
+					var relativeX, relativeY bool
+					if json.Unmarshal(args[1], &x) != nil || json.Unmarshal(args[2], &y) != nil || json.Unmarshal(args[3], &relativeX) != nil || json.Unmarshal(args[4], &relativeY) != nil ||
+						x*spec.Scale != p.SpawnX || y != 0 || relativeX || relativeY {
+						return nil, fmt.Errorf("unsupported foreign object transform")
+					}
+					frame.Spawn = true
+					spawns++
 				case "SetMoveVx", "SetMoveVy":
 					var args []float64
 					if err := json.Unmarshal(call[1], &args); err != nil || len(args) != 1 || args[0] < 0 || args[0] != math.Trunc(args[0]) {
@@ -116,6 +146,9 @@ func loadKOFSpec(data []byte) (*KOFSpec, error) {
 				}
 			}
 		}
+	}
+	if spawns != 1 {
+		return nil, fmt.Errorf("expected one source projectile spawn")
 	}
 	return &spec, nil
 }
@@ -152,7 +185,7 @@ func (r *KOFRuntime) Step(input InputFrame, context FrameContext) FighterState {
 	if s.Action == 0 {
 		r.action(1)
 	}
-	if s.Stun > 0 || s.Knockdown || ((s.Action == 106 || s.Action == 112) && s.Y < 0) {
+	if s.Stun > 0 || s.Knockdown || s.Defeated || ((s.Action == 106 || s.Action == 112) && s.Y < 0) {
 		s.X += s.PushX
 		s.Y += s.PushY
 		s.PushX *= 0.85 // ponytail: compatibility friction; original hitback formula is not emulated.
@@ -172,7 +205,7 @@ func (r *KOFRuntime) Step(input InputFrame, context FrameContext) FighterState {
 		if s.Stun > 0 {
 			s.Stun--
 		}
-		if s.Stun == 0 && s.DownTime == 0 && s.Y == 0 {
+		if !s.Defeated && s.Stun == 0 && s.DownTime == 0 && s.Y == 0 {
 			s.Guarded, s.Knockdown = false, false
 			s.PushX, s.PushY, s.Gravity = 0, 0, 0
 			r.action(1)
@@ -181,13 +214,15 @@ func (r *KOFRuntime) Step(input InputFrame, context FrameContext) FighterState {
 		s.RenderAction, s.RenderElement = s.Action, s.Element
 		present := r.presentation()
 		r.advanceReaction()
-		s.PunchHeld, s.UpHeld = input.Punch, input.Up
+		s.PunchHeld, s.UpHeld, s.SpecialHeld = input.Punch, input.Up, input.Special
 		return present
 	}
 	airborne := s.Action == 12 || s.Action == 15 || s.Action == 20
-	locked := airborne || s.Action == 68 || s.Action == 11 || s.Action == 14 || s.Action == 19 || s.Action == 5 || s.Action == 25 || s.Action == 27
+	locked := airborne || s.Action == 68 || s.Action == 475 || s.Action == 11 || s.Action == 14 || s.Action == 19 || s.Action == 5 || s.Action == 25 || s.Action == 27
 	if !locked {
 		switch {
+		case input.Special && !s.SpecialHeld && !input.Down:
+			r.action(475)
 		case input.Punch && !s.PunchHeld && !input.Down:
 			s.AttackID++
 			r.action(68)
@@ -224,8 +259,12 @@ func (r *KOFRuntime) Step(input InputFrame, context FrameContext) FighterState {
 	}
 	s.UpHeld = input.Up
 	s.PunchHeld = input.Punch
+	s.SpecialHeld = input.Special
 	frame := r.Spec.Actions[s.Action][s.Element]
 	if s.Time == 0 {
+		if frame.Spawn && context.AcceptInput {
+			s.ProjectileID++
+		}
 		if frame.VX != nil {
 			s.VX, _, _ = r.move(*frame.VX)
 		}
@@ -257,7 +296,7 @@ func (r *KOFRuntime) Step(input InputFrame, context FrameContext) FighterState {
 				r.action(s.AirAction)
 			case 25:
 				r.action(26)
-			case 27, 5, 68:
+			case 27, 5, 68, 475:
 				r.action(1)
 			case 12, 15, 20:
 				s.Element-- // Hold final airborne pose until landing.

@@ -2,6 +2,62 @@ package main
 
 import "testing"
 
+func TestProjectileSpawnAndDefeat(t *testing.T) {
+	r := &KOFRuntime{Spec: testSpec()}
+	r.Spec.Actions[475] = []KOFFrame{{Duration: 15}, {Duration: 3, Spawn: true}, {Duration: 39}}
+	r.Reset(0, 0)
+	ctx := FrameContext{Advance: true, AcceptInput: true, Facing: 1}
+	for i := 0; i < 15; i++ {
+		r.Step(InputFrame{Special: true}, ctx)
+	}
+	if r.State.ProjectileID != 0 || r.State.Action != 475 {
+		t.Fatal("projectile spawned before the source spawn frame")
+	}
+	saved := r.SaveState()
+	paused := ctx
+	paused.Advance = false
+	r.Step(InputFrame{}, paused)
+	if r.State != saved {
+		t.Fatal("pause altered pending projectile spawn")
+	}
+	r.Step(InputFrame{Special: true}, ctx)
+	if r.State.ProjectileID != 1 {
+		t.Fatal("source spawn frame did not emit")
+	}
+	for i := 0; i < 100; i++ {
+		r.Step(InputFrame{Special: true}, ctx)
+	}
+	if r.State.ProjectileID != 1 {
+		t.Fatal("held special or multi-tick element duplicated spawn")
+	}
+	want := r.SaveState()
+	r.LoadState(saved)
+	for i := 0; i < 101; i++ {
+		r.Step(InputFrame{Special: true}, ctx)
+	}
+	if r.State != want {
+		t.Fatal("spawn restore/replay diverged")
+	}
+	r.CommitHit(HitResult{Accepted: true, Hitstop: [2]int{3, 3}, PushY: -4, Gravity: .5})
+	r.Defeat()
+	for i := 0; i < 3; i++ {
+		r.Step(InputFrame{Special: true}, ctx)
+	}
+	if r.State.Hitstop != 0 || r.State.Y != 0 {
+		t.Fatal("lethal hitstop did not freeze then drain")
+	}
+	for i := 0; i < 100; i++ {
+		r.Step(InputFrame{Special: true}, ctx)
+	}
+	if r.State.Action != 161 || r.State.Y != 0 || !r.State.Defeated || r.State.ProjectileID != 1 {
+		t.Fatal("KO recovered or spawned a new attack")
+	}
+	r.Reset(40, 0)
+	if r.State.Defeated || r.State.ProjectileID != 0 || r.State.SpecialHeld || r.State.Hitstop != 0 {
+		t.Fatal("round reset retained lifecycle state")
+	}
+}
+
 func TestDefenseNegotiation(t *testing.T) {
 	a := AttackSpec{Damage: 40, Chip: 3, Hitstun: 20, Blockstun: 12,
 		Hitstop: [2]int{7, 8}, Guardstop: [2]int{4, 5}, BlockHigh: true, PushX: 2, PushY: -4, Gravity: .35, Knockdown: true}

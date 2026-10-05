@@ -62,3 +62,7 @@ func (r *KOFRuntime) CommitHit(hit HitResult) {
 	r.action(action)
 	s.RenderAction, s.RenderElement = action, 0
 }
+
+func (r *KOFRuntime) Defeat() {
+	r.State.Defeated, r.State.Knockdown = true, true
+}

@@ -157,6 +157,7 @@ class Pcs:
             raise ValueError('Unsupported PCS header')
         end = struct.unpack_from('<Q', data, 8)[0] + 16
         self.textures, self.images = [], []
+        self.dxt_pixels = None
         pos = 16
         while pos < end:
             if data[pos:pos + 8] != b'TEXTURE\0' or data[pos + 20:pos + 24] != b'ZIP\0':
@@ -191,7 +192,7 @@ class Pcs:
     def image(self, number, palette):
         from PIL import Image
         kind, pieces = self.images[number]
-        if kind != b'DBLPLT\0\0':
+        if kind not in (b'DBLPLT\0\0', b'MAPPLT\0\0'):
             raise ValueError(f'Image {number} needs unsupported {kind!r} rendering')
         left = min(p[0] for p in pieces)
         top = min(p[1] for p in pieces)
@@ -200,9 +201,17 @@ class Pcs:
         result = Image.new('RGBA', (right - left, bottom - top))
         lookup = self.textures[0][1]
         for x, y, width, height, flags, map_id, texture, offset in pieces:
-            if flags or texture != 1 or width > 256 or height > 256:
-                raise ValueError('Unsupported DBLPLT primitive')
+            if flags or width > 256 or height > 256 or texture != (1 if kind == b'DBLPLT\0\0' else 2):
+                raise ValueError('Unsupported palette primitive')
             content = self.textures[texture][1]
+            if texture == 2:
+                if self.textures[texture][0] != b'DXT1' or len(content) % 128:
+                    raise ValueError('Unsupported MAPPLT texture')
+                if self.dxt_pixels is None:
+                    # MAPPLT is full-color content, unlike DBLPLT's palette index.
+                    self.dxt_pixels = Image.frombytes('RGBA', (256, len(content) // 128), bytes(content),
+                                                      'bcn', (1, 'DXT1')).tobytes()
+                content = self.dxt_pixels
             tilemap = (map_id // 16 * 16) * 256 + map_id % 16 * 16
             patch = Image.new('RGBA', (width, height))
             pixels = patch.load()
@@ -210,7 +219,13 @@ class Pcs:
                 for px in range(width):
                     tile = offset + lookup[tilemap + py // 16 * 256 + px // 16]
                     index = (tile // 16 * 16 + py % 16) * 256 + tile % 16 * 16 + px % 16
-                    pixels[px, py] = palette[content[index]]
+                    if texture == 2:
+                        r, g, b, a = content[index * 4:index * 4 + 4]
+                        # ponytail: black-keyed glow alpha for host compositing;
+                        # original effect shaders/blending are not emulated.
+                        pixels[px, py] = (r, g, b, min(a, max(r, g, b)))
+                    else:
+                        pixels[px, py] = palette[content[index]]
             result.alpha_composite(patch, (x - left, y - top))
         return result, (-left, -top)
 
@@ -250,7 +265,7 @@ def collision_rect(args, common):
     parameter = common[int(selector) + 1]
     kind = int(parameter['RectType'])
     # ponytail: only the selected normal and ordinary vulnerability; no throws/armor.
-    role = 'hurt' if kind in (445, 446, 447, 448) else 'attack' if kind == 428 else 'other'
+    role = 'hurt' if kind in (48, 439, 445, 446, 447, 448) else 'attack' if kind in (122, 428) else 'other'
     return dict(selector=int(selector), type=kind, role=role,
                 bounds=[x - rx, -y - ry, x + rx, -y + ry])
 
@@ -268,12 +283,14 @@ def export(root, output, character):
     values, _ = tables(proto)
     collision, _ = tables(Chunk(sources[3].read_bytes()).proto())
     common = collision['rect_param']['common']
+    parameters = dict(common)
+    parameters.update({len(common) + index: rule for index, rule in collision['rect_param']['fighter/03'].items()})
     normal = common[30]  # SetRect selector 29, source close standing A.
     if normal['RectType'] != 428:
         raise ValueError('Unsupported close standing A collision rule')
     pcs = Pcs(sources[1].read_bytes())
     colors = list(Image.open(sources[2]).convert('RGBA').get_flattened_data())
-    selected = (1, 2, 3, 5, 11, 12, 14, 15, 19, 20, 25, 26, 27, 34, 36, 68, 106, 112, 161)
+    selected = (1, 2, 3, 5, 11, 12, 14, 15, 19, 20, 25, 26, 27, 34, 36, 68, 106, 112, 161, 475, 534, 538)
     reactions = {34, 36, 106, 112, 161}
     animations, sprites, air = {}, [], []
     for action_id in selected:
@@ -300,7 +317,7 @@ def export(root, output, character):
                     modifiers.append(modifier)
                     layers.append(pcs.image(int(args[0]), colors[palette_row * 256:(palette_row + 1) * 256]))
                 elif method == 'SetRect':
-                    rectangles.append(collision_rect(args, common))
+                    rectangles.append(collision_rect(args, parameters))
                 elif method != 'OverrideTransition':
                     raise ValueError(f'Unsupported draw method {method}')
             if not layers:
@@ -349,17 +366,29 @@ def export(root, output, character):
             raise ValueError('Unsupported fixed-position move')
         moves[selector] = call[2]
     output.mkdir(parents=True, exist_ok=True)
-    spec = dict(schema=2, backend='kof13-melee', character=character, scale=0.4,
+    projectile_rule = parameters[117]  # 81 common rules + character rule 36; selector 116.
+    if projectile_rule['RectType'] != 122:
+        raise ValueError('Unsupported weak ground flame rule')
+    spawn = [args for frame in animations[475] for method, args in frame['calls'] if method == 'CreateObject']
+    if spawn != [['闇払い', 110, 0, False, False]]:
+        raise ValueError('Unsupported weak ground flame spawn')
+    if len(moves[321]) != 2 or moves[321][1] is not False:
+        raise ValueError('Unsupported ground flame motion')
+    speed = moves[321][0]
+    spec = dict(schema=3, backend='kof13', character=character, scale=0.4,
                 sources={str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},
                 actions=animations, moves=moves,
                 normal=dict(damage=int(float(normal['Attack'])), hitstop=int(float(normal['HitStop'])),
-                            source_hitback=float(normal['HitBack'])))
+                            source_hitback=float(normal['HitBack'])),
+                projectile=dict(damage=int(float(projectile_rule['Attack'])), hitstop=int(float(projectile_rule['HitStop'])),
+                                speed=speed * .4, velocity_mul=1, spawn_x=spawn[0][1] * .4,
+                                lifetime=sum(frame['duration'] for frame in animations[534]), animation=534, remove_animation=538))
     (output / 'foreign.json').write_text(json.dumps(spec, ensure_ascii=False, indent=2), encoding='utf-8')
     write_sff(output / 'kof13.sff', sprites)
     (output / 'kof13.air').write_text('\n'.join(air), encoding='utf-8')
     (output / 'kof13.cns').write_text('[Data]\nlife=1000\n[Size]\nxscale=.4\nyscale=.4\nground.back=18\nground.front=18\nheight=95\n', encoding='utf-8')
     (output / 'kof13.cmd').write_text('; Input is sampled by the host and consumed by the foreign runtime.\n', encoding='utf-8')
-    (output / 'kof13.def').write_text(f'[Info]\nname="KOF XIII {character} foreign slice"\ndisplayname="KOF XIII {character}"\nruntime=kof13-melee\nmugenversion=1.1\nlocalcoord=320,240\n[Files]\ncmd=kof13.cmd\ncns=kof13.cns\nsprite=kof13.sff\nanim=kof13.air\n', encoding='utf-8')
+    (output / 'kof13.def').write_text(f'[Info]\nname="KOF XIII {character} foreign slice"\ndisplayname="KOF XIII {character}"\nruntime=kof13\nmugenversion=1.1\nlocalcoord=320,240\n[Files]\ncmd=kof13.cmd\ncns=kof13.cns\nsprite=kof13.sff\nanim=kof13.air\n', encoding='utf-8')
     sprites[0][0].save(output / 'preview.png')
     print(f'Exported {len(animations)} actions / {len(sprites)} frames to {output}')
 

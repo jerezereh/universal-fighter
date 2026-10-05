@@ -2,8 +2,9 @@
 
 Analyzed 2026-10-05 against IKEMEN GO commit
 `07558c8ca579ed2dff903c440c2aede006b3a2d4`. All line references below refer to this
-revision in `backends/ikemen/src`. Findings are static source evidence; the proposed seam
-has not been implemented or demonstrated in a running match.
+revision in `backends/ikemen/src`. The initial reconnaissance below records static
+evidence and the proposed seam. Later implementation sections record the bounded
+runtime now exercised by automated host matches; acceptance limits remain explicit.
 
 ## Finding
 
@@ -179,3 +180,27 @@ human controls and actual host frame advance remain separate acceptance gates. E
 authored host scenarios pass for both hit directions, high/low guard and mismatches,
 knockdown, lethal hitstop/KO and foreign activation duplicate protection. This controlled
 matrix does not establish exhaustive original-fighter interaction coverage.
+
+## Implemented projectile and lifecycle subset
+
+The source casting frame emits a monotonic runtime projectile ID. The host bridge
+consumes each ID once and calls existing `spawnProjectile` / `commitProjectile` using
+the imported core/removal animations, boxes, velocity and damage/stop envelope. Host
+`Projectile` owns integration, bounds, finite removal timer, hit count and rendering;
+its existing snapshot clone includes the new scalar foreign entity ID. No parallel
+entity scheduler or projectile CNS behavior is introduced for the foreign backend.
+
+`hitDetectionProjectile` now admits foreign defenders. `hitResultCheck` forwards the
+projectile envelope into foreign result negotiation before native defender mutation.
+Projectile facing/local scale/captured attack multiplier are used independently of the
+owner's current transform. The original outer loop applies projectile contact/hitpause
+and its tick consumes hits. Foreign preparation clears pending native `stchtmp`, which
+would otherwise invalidate overlaps while waiting for a CNS transition never executed.
+
+Defeat is a foreign snapshot flag: drain contact stop, settle motion and hold the down
+pose; publish host KO and grounded completion flags. Foreign projectiles retire on
+owner KO or round exit. Existing `clearPlayerAssets` followed by `posReset` supplies
+round cleanup; reset clears all foreign activation/input/reaction/defeat state. Core
+restore tests remain separate from host projectile/round rollback acceptance.
+Foreign shell status remains coarse; complete native trigger equivalence for owner
+contact age and get-hit variables is not established for the foreign backend.

@@ -38,7 +38,7 @@ func (c *Char) bindForeign(def string) error {
 	if c.foreignName == "" {
 		return nil
 	}
-	if c.foreignName != "kof13-melee" {
+	if c.foreignName != "kof13" {
 		return fmt.Errorf("unsupported fighter runtime %s", c.foreignName)
 	}
 	data, err := os.ReadFile(filepath.Join(filepath.Dir(def), "foreign.json"))
@@ -55,7 +55,7 @@ func (c *Char) bindForeign(def string) error {
 	return nil
 }
 func (c *Char) foreignAutoTurn() {
-	if c.hitPause() || c.foreign.State.Hitstop > 0 || c.foreign.State.RenderAction == 68 {
+	if c.hitPause() || c.foreign.State.Hitstop > 0 || c.foreign.State.RenderAction == 68 || c.foreign.State.RenderAction == 475 {
 		return
 	}
 	action := c.foreign.State.Action
@@ -75,6 +75,7 @@ func (b kofBackend) Prepare() {
 	}
 	c.setCSF(CSF_stagebound | CSF_screenbound | CSF_depthbound | CSF_movecamera_x | CSF_movecamera_y | CSF_movecamera_z | CSF_playerpush)
 	c.resetClsnModifiers() // Host collision transforms default to zero until preparation resets them.
+	c.stchtmp = false      // Foreign simulation never commits a buffered native CNS transition.
 	c.setSCF(SCF_ctrl)
 	c.ss.moveType, c.ss.physics = MT_I, ST_N
 	if c.foreign.State.Stun > 0 || c.foreign.State.Knockdown || c.life <= 0 {
@@ -91,15 +92,19 @@ func (b kofBackend) Run() {
 	input := InputFrame{}
 	if len(c.cmd) > 0 {
 		buf := c.cmd[0].Buffer
-		input = InputFrame{Forward: buf.Fb > 0, Back: buf.Bb > 0, Up: buf.Ub > 0, Down: buf.Db > 0, Punch: buf.ab > 0}
+		input = InputFrame{Forward: buf.Fb > 0, Back: buf.Bb > 0, Up: buf.Ub > 0, Down: buf.Db > 0, Punch: buf.ab > 0, Special: buf.bb > 0}
 	}
 	// Opt-in local smoke policy exercises repeated normals. Normal play consumes
 	// only the sampled buffer above; this probe is disabled for human/network play.
-	if (foreignInputProbe == "melee" || foreignInputProbe == "receive" || foreignInputProbe == "guard-high" || foreignInputProbe == "guard-low") && c.controller < 0 && !sys.netplay() {
+	if (foreignInputProbe == "melee" || foreignInputProbe == "projectile" || foreignInputProbe == "receive" || foreignInputProbe == "guard-high" || foreignInputProbe == "guard-low") && c.controller < 0 && !sys.netplay() {
 		input = InputFrame{}
 		if enemy := c.enemyNearTrigger(0); enemy != nil {
 			input.Forward = Abs(c.distX(enemy, c)) > 38
 			input.Punch = foreignInputProbe == "melee" && c.foreign.State.Frame%40 == 0
+			if foreignInputProbe == "projectile" {
+				input.Forward = false
+				input.Special = c.foreign.State.Frame%80 == 0
+			}
 			if foreignInputProbe == "guard-high" || foreignInputProbe == "guard-low" {
 				input.Forward, input.Back = false, true
 				input.Down = foreignInputProbe == "guard-low"
@@ -109,9 +114,25 @@ func (b kofBackend) Run() {
 	// Stage bounds and player pushing are host policy; adopt their last committed transform.
 	c.foreign.State.X, c.foreign.State.Y = c.pos[0], c.pos[1]
 	// A lethal contact still drains its foreign hitstop before the host KO flag.
-	frame := c.foreign.Step(input, FrameContext{!c.hitPause() && (c.life > 0 || c.foreign.State.Hitstop > 0), sys.roundState() == 2 && c.life > 0, c.facing})
-	if c.hitPause() || c.life <= 0 {
+	if c.life <= 0 {
+		c.foreign.Defeat()
+	}
+	frame := c.foreign.Step(input, FrameContext{!c.hitPause(), sys.roundState() == 2 && c.life > 0, c.facing})
+	if c.hitPause() {
 		frame = c.foreign.presentation()
+	}
+	if c.foreignProjectile != frame.ProjectileID {
+		c.foreignProjectile = frame.ProjectileID
+		if sys.roundState() == 2 && c.life > 0 {
+			c.spawnForeignProjectile()
+		}
+	}
+	if sys.roundState() != 2 || c.life <= 0 {
+		for _, p := range sys.projs[c.playerNo] {
+			if p.ownerId == c.id && p.foreignEntity > 0 && p.isActive() {
+				p.hits, p.status = 0, ProjRem
+			}
+		}
 	}
 	c.setPosX(frame.X, false)
 	c.setPosY(frame.Y, false)
@@ -125,10 +146,10 @@ func (b kofBackend) Run() {
 		c.ss.no = 20
 	}
 	c.ss.time = int32(frame.Frame)
-	if frame.Action == 68 {
+	if frame.Action == 68 || frame.Action == 475 {
 		c.ss.moveType = MT_A
 		c.unsetSCF(SCF_ctrl)
-		if c.foreignAttack != frame.AttackID {
+		if frame.Action == 68 && c.foreignAttack != frame.AttackID {
 			c.foreignAttack = frame.AttackID
 			c.foreignNormal()
 		}
@@ -153,12 +174,15 @@ func (b kofBackend) Run() {
 		c.atktmp = 1
 	}
 	c.minus = 1
-	if traceForeign && sys.roundState() == 2 {
+	if traceForeign && (sys.roundState() == 2 || c.foreign.State.Defeated) {
 		rendered := c.anim != nil && c.anim.spr != nil && c.anim.spr.Tex != nil
 		LogMessage("[foreign-frame] frame=%d action=%d x=%.3f y=%.3f rendered=%t", frame.Frame, frame.Action, frame.X, frame.Y, rendered)
 		if frame.Frame%60 == 0 {
 			if enemy := c.enemyNearTrigger(0); enemy != nil {
 				LogMessage("[mixed-state] native_state=%d native_time=%d native_atk=%d gap=%.3f native_facing=%.0f foreign_facing=%.0f native_attr=%d native_clsn1=%d native_clsn2=%d foreign_clsn1=%d foreign_clsn2=%d", enemy.ss.no, enemy.ss.time, enemy.atktmp, c.distX(enemy, c), enemy.facing, c.facing, enemy.hitdef.attr, len(enemy.getClsnWorld(1)), len(enemy.getClsnWorld(2)), len(c.getClsnWorld(1)), len(c.getClsnWorld(2)))
+				for _, p := range sys.projs[enemy.playerNo] {
+					LogMessage("[mixed-projectile] id=%d x=%.3f hits=%d attr=%d p1state=%d p2state=%d eligible=%t overlap=%t boxes=%d", p.id, p.pos[0], p.hits, p.hitdef.attr, p.hitdef.p1stateno, p.hitdef.p2stateno, c.foreignEligible(enemy, &p.hitdef), c.projClsnCheck(p, p.hitdef.p2clsncheck, 1, true), len(p.getClsn(1)))
+				}
 			}
 		}
 	}
@@ -174,7 +198,13 @@ func (b kofBackend) Finish() {
 	}
 	c.inguarddist = false
 	if c.life <= 0 && !c.pauseBool && !c.hitPause() && c.foreign.State.Hitstop == 0 {
-		c.setSCF(SCF_ko | SCF_over_ko)
+		if traceForeign && !c.scf(SCF_ko) {
+			LogMessage("[foreign-ko] owner=%d round=%d action=%d y=%.3f", c.id, sys.roundNo, c.foreign.State.RenderAction, c.foreign.State.Y)
+		}
+		c.setSCF(SCF_ko)
+		if c.foreign.State.Y == 0 && c.foreign.State.RenderAction == 161 {
+			c.setSCF(SCF_over_ko)
+		}
 		c.unsetSCF(SCF_ctrl)
 	}
 	c.minus = 2
@@ -210,9 +240,14 @@ func (c *Char) foreignNormal() {
 	c.hitdef.reset(c, nil)
 	hd := &c.hitdef
 	hd.attr = int32(ST_S) | int32(AT_NA)
-	hd.hitdamage = int32(n.Damage)
+	foreignAttackParams(hd, n.Damage, n.Hitstop)
+	hd.finalizeParams(c, nil)
+}
+
+func foreignAttackParams(hd *HitDef, damage, hitstop int) {
+	hd.hitdamage = int32(damage)
 	hd.guarddamage = 0
-	hd.pausetime = [2]int32{int32(n.Hitstop), int32(n.Hitstop)}
+	hd.pausetime = [2]int32{int32(hitstop), int32(hitstop)}
 	hd.guard_pausetime = hd.pausetime
 	hd.guardflag = int32(HF_H | HF_L)
 	hd.ground_type, hd.air_type = HT_High, HT_High
@@ -225,13 +260,35 @@ func (c *Char) foreignNormal() {
 	hd.air_hittime, hd.air_fall = 20, 1
 	hd.hitonce, hd.numhits, hd.id = 1, 1, 68
 	hd.guard_dist_x = [2]float32{80, 0}
-	hd.finalizeParams(c, nil)
 }
 
-// Foreign defenders accept ordinary melee envelopes, never native custom-state
-// ownership, throws, reversals or projectile behavior in this package.
+func (c *Char) spawnForeignProjectile() {
+	p := c.spawnProjectile()
+	if p == nil {
+		return
+	}
+	spec := c.foreign.Spec.Projectile
+	p.foreignEntity = c.foreignProjectile
+	p.id, p.animNo = 475, int32(spec.Animation)
+	p.hitanim, p.remanim, p.cancelanim = int32(spec.RemoveAnimation), int32(spec.RemoveAnimation), int32(spec.RemoveAnimation)
+	p.scale, p.clsnScale = [2]float32{c.foreign.Spec.Scale, c.foreign.Spec.Scale}, [2]float32{c.foreign.Spec.Scale, c.foreign.Spec.Scale}
+	p.velocity[0], p.velmul[0] = spec.Speed, spec.VelocityMul
+	p.removetime = int32(spec.Lifetime) // ponytail: finite source timeline; no original Lua object lifecycle.
+	p.hitdef.attr = int32(ST_S) | int32(AT_SP)
+	foreignAttackParams(&p.hitdef, spec.Damage, spec.Hitstop)
+	p.hitdef.id = 475
+	p.hitdef.finalizeParams(c, p)
+	p.hitdef.statePN = c.playerNo
+	c.commitProjectile(p, PT_P1, spec.SpawnX, 0, 0, false, 1, 1, true)
+	if traceForeign {
+		LogMessage("[foreign-projectile] spawn owner=%d entity=%d round=%d x=%.3f facing=%.0f", c.id, p.foreignEntity, sys.roundNo, p.pos[0], p.facing)
+	}
+}
+
+// Foreign defenders accept ordinary melee/projectile envelopes, never native
+// custom-state ownership, throws or reversals.
 func (c *Char) foreignEligible(attacker *Char, hd *HitDef) bool {
-	if sys.roundState() != 2 || c.life <= 0 || hd.isprojectile || hd.reversal_attr > 0 || hd.attr&int32(AT_AT) != 0 ||
+	if sys.roundState() != 2 || c.life <= 0 || hd.reversal_attr > 0 || hd.attr&int32(AT_AT) != 0 ||
 		hd.p1stateno >= 0 || hd.p2stateno >= 0 || c.foreign.QueryDefense().Down || attacker.scf(SCF_disabled) {
 		return false
 	}
@@ -239,8 +296,15 @@ func (c *Char) foreignEligible(attacker *Char, hd *HitDef) bool {
 	return (s == ST_S && hd.hitflag&int32(HF_H) != 0) || (s == ST_C && hd.hitflag&int32(HF_L) != 0) ||
 		(s == ST_A && hd.hitflag&int32(HF_A) != 0)
 }
-func (attacker *Char) commitForeignHit(defender *Char) int32 {
+func (attacker *Char) commitForeignHit(defender *Char, projectile *Projectile) int32 {
 	hd := &attacker.hitdef
+	facing, scale, attackMul := attacker.facing, attacker.localscl, attacker.attackMul[0]
+	if projectile != nil {
+		if projectile.platform || attacker.ss.stateType == ST_L {
+			return 0
+		}
+		hd, facing, scale, attackMul = &projectile.hitdef, projectile.facing, projectile.localscl, projectile.parentAttackMul[0]
+	}
 	if !defender.foreignEligible(attacker, hd) {
 		return 0
 	}
@@ -248,14 +312,14 @@ func (attacker *Char) commitForeignHit(defender *Char) int32 {
 	if defender.pos[1] < 0 {
 		velocity, stun, fall = hd.air_velocity, hd.air_hittime, hd.air_fall != 0
 	}
-	ratio := attacker.localscl / defender.localscl
+	ratio := scale / defender.localscl
 	attack := AttackSpec{Damage: int(hd.hitdamage), Chip: int(hd.guarddamage), Hitstun: int(Max(1, stun)),
 		Blockstun: int(Max(1, hd.guard_ctrltime)), Hitstop: [2]int{int(Max(0, hd.pausetime[0])), int(Max(0, hd.pausetime[1]))},
 		Guardstop: [2]int{int(Max(0, hd.guard_pausetime[0])), int(Max(0, hd.guard_pausetime[1]))},
 		BlockHigh: hd.guardflag&int32(HF_H) != 0 && !attacker.asf(ASF_unguardable),
 		BlockLow:  hd.guardflag&int32(HF_L) != 0 && !attacker.asf(ASF_unguardable),
-		PushX:     -velocity[0] * attacker.facing * ratio, PushY: velocity[1] * ratio,
-		Gravity: hd.yaccel * ratio, GuardPush: -hd.guard_velocity[0] * attacker.facing * ratio, Knockdown: fall}
+		PushX:     -velocity[0] * facing * ratio, PushY: velocity[1] * ratio,
+		Gravity: hd.yaccel * ratio, GuardPush: -hd.guard_velocity[0] * facing * ratio, Knockdown: fall}
 	result := resolveContact(attack, defender.foreign.QueryDefense())
 	if !result.Accepted {
 		return 0
@@ -265,10 +329,12 @@ func (attacker *Char) commitForeignHit(defender *Char) int32 {
 		kill = hd.guard_kill
 	}
 	result.Damage = int(defender.computeDamage(float64(result.Damage), kill, false,
-		attacker.attackMul[0]*float32(attacker.gi().attackBase)/100, attacker, true))
+		attackMul*float32(attacker.gi().attackBase)/100, attacker, true))
 	defender.lifeAdd(-float64(result.Damage), kill, true)
 	defender.foreign.CommitHit(result)
-	attacker.hitdefTargetsBuffer = append(attacker.hitdefTargetsBuffer, defender.id)
+	if projectile == nil {
+		attacker.hitdefTargetsBuffer = append(attacker.hitdefTargetsBuffer, defender.id)
+	}
 	defender.receivedHits++
 	code := int32(1)
 	if result.Guarded {

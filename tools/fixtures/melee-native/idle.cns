@@ -1,0 +1,8 @@
+; Stationary target for foreign projectile contacts. Guard mode is staged separately.
+[Statedef 0]
+type = S
+movetype = I
+physics = S
+anim = 0
+ctrl = 1
+velset = 0,0

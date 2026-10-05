@@ -178,3 +178,65 @@ the synthetic architecture gate allows the first real-game adapter.
   standing `Z` attack, directional jumping and back/down-back guards. Only host button
   `a` (currently `Z`) has a Kyo attack in this slice; other mapped attack buttons,
   crouching/air attacks and source command moves are not yet implemented.
+
+### KOF projectile and lifecycle implementation
+
+- Continued package 5 with Ponytail: reused the pinned host's projectile storage,
+  integration, collision, hit consumption, rendering, removal and snapshot clone.
+  Source casting action 475 emits a runtime activation ID once at offset 15; the host
+  consumes that event once and creates a projectile without foreign CNS simulation.
+- Expanded local import to 22 actions / 290 frames, schema 3 / `runtime=kof13`.
+  Added weak ground-flame casting/core/removal (475/534/538), character collision
+  rules after the 81 common rules, source 60 damage / 11 hitstop, spawn offset 110
+  and constant velocity selector 321 (zero-based move table; source 14, host 5.6).
+  The core's 96-frame timeline supplies a bounded active lifetime. Original object
+  Lua lifecycle, secondary effects, cancels, command recognition and resources
+  remain unexecuted. `X` (host button b) casts the standing special as a prototype control.
+- Initial export stopped on unsupported MAPPLT; implemented full-color BC1/DXT1
+  tile reconstruction with existing Pillow. A preview exposed an incorrect palette
+  lookup assumption; corrected it to preserve RGB before publication. Black-keyed
+  glow alpha approximates host compositing. Inspected the orange/white flame preview;
+  original shader/blend fidelity and in-game pixel presentation remain unverified.
+- Native projectiles now negotiate foreign defense/results using projectile facing,
+  scale and captured attack multiplier. Original projectile contact/hitpause and
+  hit consumption remain host-owned. A failed native fixture exposed stale `stchtmp`
+  from a buffered native transition never executed by the foreign backend. Foreign
+  preparation now clears it; controlled native projectile hits then passed.
+- Added a foreign defeat flag: drain lethal hitstop, settle motion, hold the imported
+  down pose, and gate grounded KO completion on that pose. Retire foreign projectiles
+  on owner defeat/round exit. Existing host asset cleanup and position reset clear
+  entities and reset foreign action/input/reaction/activation/defeat state between rounds.
+  Extended traces through defeat after an initial KO-pose check lacked post-combat logs.
+- Final patched host built/staged successfully. All five focused Go tests pass:
+  authored and installed locomotion, defense negotiation, normal/reaction clocks,
+  source-timed projectile emission, held-button/element duplicate prevention, pause,
+  spawn-state restore/replay, lethal stop/down persistence and reset. Importer
+  parser/SFF/rectangle, sprite reflection and authored BC1 color/transparency checks
+  pass. Installed casting duration/spawn timing, core lifetime, damage, stop and speed
+  property checks pass. PowerShell/Python/changed Bash syntax and Go formatting pass.
+- Maintained patch covers host `char.go`, `state_clone.go` and the projectile removal
+  trace in `system.go`. Pristine pinned-source apply/reverse and idempotent reapplication
+  checks pass. No toolchains, source game files, extracted art or runtime outputs are
+  included in the repository step.
+- Final eight-case projectile matrix passed on the final executable: both hit/block
+  directions, high/low foreign guards, 12 missed shots with 12 removals/no contacts,
+  and KO followed by complete restarted rounds in both directions. Evidence:
+  `projectile-foreign-hit-20261005-215955-251.stderr.txt` through
+  `projectile-foreign-rounds-20261005-220323-771.stderr.txt` in the ignored host runtime.
+  Foreign entity keys include owner/round/activation; no duplicate contacts occurred.
+- Strengthened the round checks to require renewed projectile contacts after reset
+  and live idle/walk actions for the previously defeated foreign fighter. Focused
+  reruns passed: `projectile-native-rounds-20261005-220926-928.stderr.txt` and
+  `projectile-foreign-rounds-20261005-220956-500.stderr.txt`. CLI life overrides apply
+  initially; restarted rounds restore host health and may complete by timeout.
+- Final eight-case melee regression passed on that same executable:
+  `melee-foreign-hit-20261005-220353-591.stderr.txt` through
+  `melee-foreign-ko-20261005-220638-564.stderr.txt`.
+- Final native/native multi-round KO regression and ordinary sampled AI-input
+  foreign movement/sprite-upload smoke also passed:
+  `baseline-20261005-220651-838.txt` and `foreign-20261005-220806-390.stderr.txt`.
+- Projectile platform behavior, reflection, full original juggling and simultaneous
+  contacts remain outside this adapter subset. Human controls/pixels, actual host
+  pause/frame advance and host snapshot/replay remain separate acceptance gates.
+  Native trigger equivalence for foreign owner contact age/get-hit variables also
+  remains incomplete. Next: package 6 host snapshot/hash/debug/replay probes.

@@ -14,6 +14,15 @@ for level, guard, fall, yvel in (('high', 'H', '0', '0'), ('low', 'L', '0', '0')
         for key, value in replacements.items():
             text = text.replace('@' + key + '@', value)
         (output / (level + '.' + extension)).write_text(text)
+for mode in ('projectile', 'idle', 'guard', 'miss'):
+    definition = (source / 'probe.def').read_text().replace('@LEVEL@', mode)
+    (output / (mode + '.def')).write_text(definition)
+    states = (source / ('projectile.cns' if mode == 'projectile' else 'idle.cns')).read_text()
+    if mode == 'guard':
+        states += '\n[Statedef -2]\n[State -2, Guard]\ntype = AssertSpecial\ntrigger1 = 1\nflag = autoguard\n'
+    if mode == 'miss':
+        states += '\n[Statedef -2]\n[State -2, Invulnerable]\ntype = NotHitBy\ntrigger1 = 1\nvalue = SCA, SP\ntime = 1\n'
+    (output / (mode + '.cns')).write_text(states)
 (output / 'probe.cmd').write_bytes((source / 'probe.cmd').read_bytes())
 (output / 'probe.air').write_bytes((runtime / 'kfm/kfm.air').read_bytes() + b'\n' + (source / 'probe.air').read_bytes())
 print('Authored native melee probes staged')

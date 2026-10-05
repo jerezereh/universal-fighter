@@ -33,6 +33,20 @@ mirrored, origin = kof.mirror_sprite(asymmetric, (1, 2))
 assert origin == (3, 2)
 assert mirrored.getpixel((0, 0)) == (0, 0, 255, 255)
 assert mirrored.getpixel((3, 0)) == (255, 0, 0, 255)
+# MAPPLT preserves BC1 RGB instead of looking up DBLPLT palette indices.
+pcs = kof.Pcs.__new__(kof.Pcs)
+pcs.textures = [(b'L8\0\0', bytes(256)), (b'L8\0\0', b''),
+                (b'DXT1', struct.pack('<HHI', 0xffff, 0, 0) * 256)]
+pcs.images = [(b'MAPPLT\0\0', [(0, 0, 16, 16, 0, 0, 2, 0)])]
+pcs.dxt_pixels = None
+palette = [(0, 0, 0, 0)] * 256
+palette[255] = (255, 128, 0, 255)
+flame, axis = pcs.image(0, palette)
+assert axis == (0, 0) and flame.size == (16, 16)
+assert flame.getpixel((0, 0)) == flame.getpixel((15, 15)) == (255, 255, 255, 255)
+pcs.textures[2] = (b'DXT1', struct.pack('<HHI', 0, 0, 0) * 256)
+pcs.dxt_pixels = None
+assert pcs.image(0, palette)[0].getpixel((0, 0)) == (0, 0, 0, 0)
 with tempfile.TemporaryDirectory() as directory:
     path = Path(directory) / 'fixture.sff'
     kof.write_sff(path, [(Image.new('RGBA', (2, 3), (255, 0, 0, 255)), (1, 2))])
@@ -49,6 +63,7 @@ print('KOF importer checks passed')
 rect = kof.collision_rect([15, 10, 20, 3, 4], {16: {'RectType': 446}})
 assert rect['role'] == 'hurt' and rect['bounds'] == [7, -24, 13, -16]
 assert kof.collision_rect([29, 10, 20, 3, 4], {30: {'RectType': 428}})['role'] == 'attack'
+assert kof.collision_rect([116, 3, 37, 42, 37], {117: {'RectType': 122}})['role'] == 'attack'
 for args in ([15, 0, 0, -1, 4], [15.5, 0, 0, 1, 4], [15, float('nan'), 0, 1, 4]):
     try:
         kof.collision_rect(args, {16: {'RectType': 446}})

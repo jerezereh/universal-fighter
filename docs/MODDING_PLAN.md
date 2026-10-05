@@ -28,8 +28,9 @@ The installed `chip_clut.pso` and `chip_divide.vso` were disassembled read-only
 with Windows D3DDisassemble to resolve the lookup indirection. Those dumps stay
 in ignored local-cache. Sprite layers use palette rows from `palette/0003_00.png`.
 
-The melee importer exports 19 actions and 147 frames, including idle, walk, crouch,
-jump startup/air, landing, close standing A and reaction presentation.
+The importer exports 22 actions and 290 frames, including idle, walk, crouch,
+jump startup/air, landing, close standing A, reaction presentation and the weak
+ground-flame casting/core/removal animations (475/534/538).
 The source SetImage X scale -1 is baked into pixels and sprite origins at export,
 so host facing +1 draws toward the right while motion and collision facing stay intact.
 Reconstructed Kyo's idle image was visually inspected in the locomotion step.
@@ -55,6 +56,7 @@ $env:CHERE_INVOKING = '1'
 ./tools/smoke-host.ps1
 ./tools/smoke-foreign.ps1
 ./tools/smoke-melee.ps1
+./tools/smoke-projectile.ps1
 ./tools/play-foreign.ps1
 ```
 
@@ -65,13 +67,16 @@ executable now includes the foreign seam. Native characters still use the native
 backend. The interactive command gives player 1 Kyo against an AI KFM. Host button `a`
 presses the close standing A normal; hold back to guard, down-back for low guard.
 The current saved Player 1 keyboard mapping is arrow keys for movement/jump/crouch
-and `Z` for host button `a`. `Z` attacks while standing on the ground; crouching/air
-attacks are not implemented. Up-left/up-right jump diagonally. Holding away from
-the opponent guards high; down plus away guards low. Other mapped attack buttons
-(`X`, `C`, `A`, `S`, `D`) currently have no Kyo action. Keyboard mappings can be
+and `Z` for host button `a`, `X` for host button `b`. `Z` attacks while standing on
+the ground; crouching/air attacks are not implemented. Up-left/up-right jump
+diagonally. Holding away from
+the opponent guards high; down plus away guards low. `X` casts the weak ground
+flame while standing. This single-button trigger is a prototype control; original
+command recognition is not implemented. Other mapped attack buttons
+(`C`, `A`, `S`, `D`) currently have no Kyo action. Keyboard mappings can be
 changed in the host's input options; the local saved configuration is not versioned.
-Other normals, air guard and source cancels are not implemented. Reimport existing
-locomotion data: the melee binding requires schema 2 and `runtime=kof13-melee`.
+Other normals, air guard and source cancels are not implemented. Reimport older
+data: the projectile binding requires schema 3 and `runtime=kof13`.
 
 Output is restricted to ignored `artifacts/`. Source hashes are stored in the
 local foreign manifest. Neither game files, extracted images nor derived frame
@@ -91,8 +96,9 @@ the selected locomotion subset. The input-to-action transitions are adapter code
 the source game's complete transition system is not emulated. Source audio/effect
 calls and option flags are retained as data but currently unexecuted. Body pushing
 uses the host's size convention. Source SetRect parameter selectors are resolved
-through `fighter/collision_table.lua`: ordinary body/head/crouch/air vulnerability
-becomes Clsn2 and the selected close standing A attack becomes Clsn1. Rectangles
+through `fighter/collision_table.lua`: common rules followed by character rules.
+Ordinary body/head/crouch/air vulnerability becomes Clsn2 and the selected close
+standing A attack becomes Clsn1. Rectangles
 use center/half extents, positive source Y up, negative host Y up, facing and .4 scale.
 
 Action 68 supplies 4 startup, 4 active and 15 recovery frames. Its common rectangle
@@ -108,10 +114,30 @@ blockstun and fixed push for Kyo's normal against native fighters; native incomi
 envelopes supply their own damage, stop/stun, velocity, gravity and fall flags.
 Foreign friction is .85 per tick, with a 20-tick minimum down recovery. Original
 hitback/cancel/juggle/priority behavior is not fully emulated. Reaction Lua behavior
-is not executed; only its images/rectangles
-are imported. A guard-only image modifier (-3) is preserved in metadata but not mapped
+is not executed; only its images/rectangles are imported. A guard-only image
+modifier (-3) is preserved in metadata but not mapped
 to the host renderer; guard presentation needs visual comparison. Throws, reversals,
-custom-state transfers, down hits and projectile contacts with Kyo are excluded.
+custom-state transfers and down hits are excluded. Special startup counter-vulnerability
+boxes are imported as ordinary hurtboxes; their original damage multiplier is not applied.
+
+The weak ground flame spawns once at casting action 475's frame offset 15. Its
+source object core uses action 534, selector 116 (character rule 36 after 81 common
+rules), 60 damage, 11 hitstop and velocity selector 321 (source speed 14; host 5.6).
+Spawn offset is source 110 / host 44. The runtime owns its input edge, spawn timing
+and activation counter; the host owns the resulting projectile's transform, collision,
+hit/guard consumption, removal animation (538), bounds and snapshot. Its 96-tick
+maximum active lifetime is a compatibility bound derived from the core timeline;
+original object Lua transitions, secondary effects, resources and cancels are not run.
+MAPPLT effects use Pillow's BC1 decoder and full-color tile reconstruction. Black-keyed
+glow alpha approximates their presentation; source shader/blend fidelity is unverified.
+
+Incoming native projectiles use the same foreign defense/result protocol, with the
+projectile's facing, local scale and captured attack multiplier. The original host
+commits projectile hitpause and consumes its hits. Projectile platforms, reflection
+and full original juggling are outside the adapter subset. Foreign projectiles are
+retired on owner defeat or round exit; ordinary host round reset clears all projectile
+assets and resets the foreign runtime and activation counters. Defeat drains hitstop,
+settles launch motion and holds the imported down pose instead of recovering to idle.
 
 The melee smoke uses an authored native fixture whose states/rectangles are versioned
 under `tools/fixtures/melee-native`; staging reuses the baseline's local KFM presentation.
@@ -124,7 +150,16 @@ produce an unguarded hit or life loss. Separate KFM/native regression tests reta
 coverage of the original native fighter. These controlled boxes prove the bridge;
 they do not prove fidelity for every original KFM/KOF interaction.
 
-Foreign input probes (`melee`, `receive`, `guard-high`, `guard-low`) are explicit,
+`smoke-projectile.ps1` adds eight authored scenarios for hit/block contacts in both
+directions, high/low foreign guards, invulnerable misses/removal and two-round KO/reset
+in both directions. It requires one contact per foreign entity, matching spawn/removal
+counts and completed-match damage outcomes. Round checks require empty host projectile
+lists at foreign reset, a fresh foreign activation counter and renewed contacts after
+the KO at restored health. A targeted run can use
+`-Scenario native-hit`; without that parameter the full matrix runs. These checks do
+not establish full host snapshot/replay or source effect fidelity.
+
+Foreign input probes (`melee`, `projectile`, `receive`, `guard-high`, `guard-low`) are explicit,
 off by default, and disabled for human and network play. `smoke-foreign.ps1` continues
 to exercise the ordinary sampled AI-input path.
 
