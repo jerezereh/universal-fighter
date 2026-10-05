@@ -1,17 +1,18 @@
 diff --git a/src/char.go b/src/char.go
-index 68c16e1..3d7b17e 100644
+index 68c16e1..2971426 100644
 --- a/src/char.go
 +++ b/src/char.go
-@@ -3648,6 +3648,8 @@ type ForceFeedbackParams struct {
+@@ -3648,6 +3648,9 @@ type ForceFeedbackParams struct {
  }
  
  type Char struct {
 +	foreignName string
 +	foreign *KOFRuntime
++	foreignAttack uint64
  	name                string
  	palfx               *PalFX
  	anim                *Animation
-@@ -4130,6 +4132,7 @@ func (c *Char) resetModifyPlayer() {
+@@ -4130,6 +4133,7 @@ func (c *Char) resetModifyPlayer() {
  }
  
  func (c *Char) load(def string, gi *CharGlobalInfo) error {
@@ -19,7 +20,7 @@ index 68c16e1..3d7b17e 100644
  	// We keep the SFF so that loadSff() can reuse it if the same character is selected/reloaded
  	oldSff := gi.sff
  
-@@ -4217,6 +4220,7 @@ func (c *Char) load(def string, gi *CharGlobalInfo) error {
+@@ -4217,6 +4221,7 @@ func (c *Char) load(def string, gi *CharGlobalInfo) error {
  				}
  				info = false
  
@@ -27,7 +28,7 @@ index 68c16e1..3d7b17e 100644
  				gi.name, _, _ = is.getText("name")
  				c.name = gi.name
  				var ok bool
-@@ -4739,7 +4743,7 @@ func (c *Char) load(def string, gi *CharGlobalInfo) error {
+@@ -4739,7 +4744,7 @@ func (c *Char) load(def string, gi *CharGlobalInfo) error {
  			return nil
  		})
  	}
@@ -36,7 +37,7 @@ index 68c16e1..3d7b17e 100644
  }
  
  // Loads all of the character's palettes. Selectable or not
-@@ -6758,6 +6762,7 @@ func (c *Char) playSound(params *PlaySndParams) {
+@@ -6758,6 +6763,7 @@ func (c *Char) playSound(params *PlaySndParams) {
  }
  
  func (c *Char) autoTurn() {
@@ -44,15 +45,35 @@ index 68c16e1..3d7b17e 100644
  	if c.helperIndex == 0 && !c.asf(ASF_noautoturn) && sys.stage.autoturn && c.shouldFaceP2() {
  		switch c.ss.stateType {
  		case ST_S:
-@@ -7788,6 +7793,7 @@ func (c *Char) posReset() {
+@@ -7788,6 +7794,7 @@ func (c *Char) posReset() {
  	c.vel[0] = 0
  	c.vel[1] = 0
  	c.vel[2] = 0
-+	if c.foreign != nil { c.foreign.Reset(c.pos[0], c.pos[1]) }
++	if c.foreign != nil { c.foreign.Reset(c.pos[0], c.pos[1]); c.foreignAttack = 0 }
  }
  
  func (c *Char) setPosX(x float32, all bool) {
-@@ -13852,7 +13858,7 @@ func (cl *CharList) commandUpdate() {
+@@ -11166,6 +11173,7 @@ func (c *Char) hasBoxHitBy() bool {
+ 
+ // Check if the enemy's (c) HitDef should lose to the player's (getter), if applicable
+ func (c *Char) hittableByChar(getter *Char, ghd *HitDef, gst StateType, proj bool) bool {
++	if c.foreign != nil { return !proj && c.foreignEligible(getter, ghd) }
+ 
+ 	// Enemy (c) always wins if they can't be hit by the player's (getter) HitDef attributes at all
+ 	if !c.attrCheck(getter, ghd, gst) {
+@@ -11356,6 +11364,11 @@ func (c *Char) hitspark(getter *Char, proj *Projectile,
+ }
+ 
+ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) {
++	if traceForeign && (c.foreign != nil || getter.foreign != nil) {
++		defer func() { if hitResult != 0 { LogMessage("[mixed-contact] attacker=%d foreign=%t defender=%d foreign=%t result=%d life=%d activation=%d", c.id, c.foreign != nil, getter.id, getter.foreign != nil, hitResult, getter.life, c.foreignAttack) } }()
++	}
++	if getter.foreign != nil && proj == nil { return c.commitForeignHit(getter) }
++
+ 
+ 	// Player hit check
+ 	hd := &c.hitdef
+@@ -13852,7 +13865,7 @@ func (cl *CharList) commandUpdate() {
  		// Select a random command for AI cheating
  		// The way this only allows one command to be cheated at a time may be the cause of issue #2022
  		cheat := int32(-1)
@@ -61,7 +82,7 @@ index 68c16e1..3d7b17e 100644
  			if sys.roundState() == 2 && RandF32(0, sys.aiLevel[i]/2+32) > 32 { // TODO: Balance AI scaling
  				cheat = Rand(0, int32(len(root.cmd[root.ss.sb.playerNo].Commands))-1)
  			}
-@@ -13989,19 +13995,19 @@ func (cl *CharList) action() {
+@@ -13989,19 +14002,19 @@ func (cl *CharList) action() {
  
  	// Prepare characters before performing their actions
  	for _, c := range cl.runOrder {
@@ -84,7 +105,7 @@ index 68c16e1..3d7b17e 100644
  	}
  }
  
-@@ -14028,7 +14034,7 @@ func (cl *CharList) update() {
+@@ -14028,7 +14041,7 @@ func (cl *CharList) update() {
  	// Run update() for the remaining characters
  	for _, c := range cl.runOrder {
  		if !c.scf(SCF_disabled) {
@@ -93,24 +114,7 @@ index 68c16e1..3d7b17e 100644
  			c.track()
  		}
  	}
-@@ -14036,6 +14042,7 @@ func (cl *CharList) update() {
- 
- // Check player vs player hits
- func (cl *CharList) hitDetectionPlayer(c *Char) {
-+	if c.foreign != nil { return } // Combat is outside the locomotion slice.
- 	// Stop outer loop if enemy is disabled
- 	if c.scf(SCF_standby) || c.scf(SCF_disabled) {
- 		return
-@@ -14054,7 +14061,7 @@ func (cl *CharList) hitDetectionPlayer(c *Char) {
- 
- 	// Iterate every other player to collect potential HitDef targets
- 	for _, getter := range cl.runOrder {
--		if c == getter {
-+		if c == getter || getter.foreign != nil {
- 			continue
- 		}
- 
-@@ -14316,6 +14323,7 @@ func (cl *CharList) hitDetectionPlayer(c *Char) {
+@@ -14316,6 +14329,7 @@ func (cl *CharList) hitDetectionPlayer(c *Char) {
  
  // Check projectile vs player hits
  func (cl *CharList) hitDetectionProjectile(getter *Char) {
@@ -118,7 +122,7 @@ index 68c16e1..3d7b17e 100644
  
  	// Stop outer loop if enemy is disabled
  	if getter.scf(SCF_standby) || getter.scf(SCF_disabled) {
-@@ -14617,7 +14625,7 @@ func (cl *CharList) pushDetection(c *Char) {
+@@ -14617,7 +14631,7 @@ func (cl *CharList) pushDetection(c *Char) {
  
  		// Check for Clsn2 overlap
  		// A significant difference between Mugen and commercial games is that only the former does this
@@ -127,7 +131,7 @@ index 68c16e1..3d7b17e 100644
  			continue
  		}
  
-@@ -14932,7 +14940,7 @@ func (cl *CharList) collisionDetection() {
+@@ -14932,7 +14946,7 @@ func (cl *CharList) collisionDetection() {
  
  func (cl *CharList) tick() {
  	for _, c := range cl.runOrder {

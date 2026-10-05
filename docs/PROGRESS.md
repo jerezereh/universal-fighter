@@ -117,3 +117,45 @@ the synthetic architecture gate allows the first real-game adapter.
   renderer inspection, human controls and actual host pause/frame advance remain open.
   Package 3 is implemented but not fully accepted; next implementation gate is the
   mixed melee protocol, with source hurtboxes and one foreign normal.
+
+### KOF mixed melee implementation
+
+- Applied Ponytail to reuse the pinned host's collision, native defense and current-HitDef
+  target bookkeeping. Added a small attack/defense/result protocol for foreign defense;
+  native fighters retain their original result routine. Foreign state owns reaction,
+  stop/stun/down clocks, input edges and activation IDs; host life remains canonical.
+- Reimported local Kyo data as schema 2: 19 actions / 147 frames, source vulnerability
+  rectangles, close standing A (4 startup / 4 active / 15 recovery), 25 damage and
+  7 hitstop frames. Common rectangle selectors are resolved through the installed
+  collision table. Game files, reconstructed assets and frame data remain ignored.
+- Added standing/crouching guard and hit presentation, knockback, launch/down recovery,
+  and lethal-hitstop draining before host KO flags. Reaction motion and recovery use
+  documented compatibility rules, not the complete original KOF behavior. Guard image
+  modifier -3 remains metadata whose renderer semantics are not implemented.
+- Random AI contacts did not provide reliable acceptance coverage. Authored native
+  high/low/launch fixtures and explicit local input probes exposed a real host-boundary
+  bug: foreign preparation skipped the native collision-transform reset, leaving box
+  scales zero. Foreign preparation now calls that shared reset. Earlier incidental
+  contacts are not evidence that imported rectangle geometry was working correctly.
+- Corrected a HitDef attribute type mismatch during compilation, then built and staged
+  the patched host successfully. All four focused Go tests pass, including the installed
+  locomotion manifest, defense negotiation, pause/hitstop/stun clocks, knockback,
+  launch/down/recovery, reset and core contact-state restore/replay. Importer parser,
+  SFF and rectangle checks pass; installed normal timing/active-box data was inspected.
+- Final eight-case host matrix passed: both hit directions, high/low blocks without
+  life loss, incorrect guard-height hits, knockdown, lethal hitstop/KO and no duplicate
+  foreign activation/defender contacts. Evidence in `artifacts/host-baseline`:
+  `melee-foreign-hit-20261005-211818-908.stderr.txt` through
+  `melee-foreign-ko-20261005-212104-823.stderr.txt` (one named log per scenario).
+- Final native/native multi-round KO regression passed:
+  `baseline-20261005-212127-277.txt`. Ordinary sampled AI-input locomotion and sprite
+  upload regression also passed: `foreign-20261005-212222-433.stderr.txt`.
+  Python, PowerShell and changed Bash scripts pass
+  syntax checks; runtime Go files pass formatting checks. The maintained host patch
+  passed pristine apply/reverse and idempotent reapplication checks.
+- These fixtures establish bounded melee integration, not exhaustive source interaction
+  fidelity. Human controls, pixel presentation, actual host pause/frame advance,
+  simultaneous-contact coverage and full host rollback remain unverified. Throws,
+  custom-state transfers, reversals, down hits and foreign projectile contacts are
+  excluded. Next implementation work is package 5 projectiles and complete lifecycle;
+  source KO presentation and cleanup are still pending.

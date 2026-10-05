@@ -25,8 +25,8 @@ while (!$process.WaitForExit(1000)) {
 if ($process.ExitCode -ne 0) { throw "Host exited $($process.ExitCode); inspect $tracePath" }
 if (!(Test-Path (Join-Path $runtime $matchLog))) { throw "No completed mixed match; inspect $tracePath" }
 $statistics = Get-Content -LiteralPath (Join-Path $runtime $matchLog) -Raw
-if ($statistics -notmatch '\["LastRound"\]\s*=>\s*1' -or $statistics -notmatch '\["WinTime"\]\s*=>\s*true') {
-    throw "The expected completed timeout round was not recorded: $matchLog"
+if ($statistics -notmatch '\["LastRound"\]\s*=>\s*1') {
+    throw "A completed round was not recorded: $matchLog"
 }
 $trace = Get-Content -LiteralPath $tracePath -Raw
 if ($trace -notmatch '\[foreign\] bound') { throw 'Foreign runtime was not bound.' }
@@ -34,4 +34,4 @@ if ($trace -notmatch 'action=(2|3) ') { throw 'Sampled host AI input did not pro
 if ($trace -notmatch 'action=(12|15|20) .*y=-') { throw 'Sampled host AI input did not produce a foreign jump.' }
 if ($trace -notmatch '\[foreign-frame\].*rendered=true') { throw 'Foreign sprite was not uploaded for rendering.' }
 Write-Output "Mixed native/foreign locomotion smoke passed: $tracePath"
-Write-Output 'Checks runtime binding, sampled AI input, locomotion and sprite upload. Combat and human/visual acceptance remain open.'
+Write-Output 'Checks runtime binding, sampled AI input, locomotion and sprite upload. Use smoke-melee.ps1 for combat evidence; human/visual acceptance remains open.'

@@ -14,7 +14,7 @@ func testSpec() *KOFSpec {
 		4: {json.RawMessage("8"), json.RawMessage("-8"), json.RawMessage("0.2"), json.RawMessage("false")},
 	}}
 	zero, one, two, four := 0, 1, 2, 4
-	for _, a := range []int{1, 2, 3, 5, 11, 12, 14, 15, 19, 20, 25, 26, 27} {
+	for _, a := range []int{1, 2, 3, 5, 11, 12, 14, 15, 19, 20, 25, 26, 27, 34, 36, 68, 106, 112, 161} {
 		s.Actions[a] = []KOFFrame{{Duration: 2, VX: &zero, VY: &zero}}
 	}
 	s.Actions[2][0].VX = &one

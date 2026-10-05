@@ -5,7 +5,10 @@ Phase 1 is a source-only investigation. Package 2 now has a successful Windows b
 automated native/native KO and multi-round baseline; interactive validation remains open.
 Package 3 has an implemented KOF locomotion backend and passing automated checks;
 interactive visual/controls and host pause/frame-advance acceptance remain open.
-Packages 4 through 7 remain open. User scope update (2026-10-05): use locally
+Package 4 has a bounded mixed-melee implementation with passing controlled host checks
+for both hit directions, guard heights, knockdown and KO. Exhaustive source interactions,
+host rollback and interactive acceptance remain open. Packages 5 through 7 remain open.
+User scope update (2026-10-05): use locally
 installed KOF XIII for package 3 instead of the synthetic ForeignTestFighter.
 See `MODDING_PLAN.md` for the bounded import and runtime route.
 

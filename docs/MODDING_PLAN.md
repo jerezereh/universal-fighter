@@ -11,8 +11,8 @@ not waive the runtime, mixed-combat or determinism gates.
   about online behavior. No process attachment, game patch or online operation.
 - Route: read the local character resource files and implement a bounded foreign
   runtime in IKEMEN. The original installation and saves remain untouched.
-- Default character: Kyo, resource `03`. Other characters are explicit importer
-  choices but have not been validated for this subset.
+- Current supported character: Kyo, resource `03`. The melee importer rejects other
+  characters until their action/rectangle mappings are validated.
 
 ## Verified resource path
 
@@ -28,8 +28,9 @@ The installed `chip_clut.pso` and `chip_divide.vso` were disassembled read-only
 with Windows D3DDisassemble to resolve the lookup indirection. Those dumps stay
 in ignored local-cache. Sprite layers use palette rows from `palette/0003_00.png`.
 
-The importer exported 13 actions and 110 frames, including idle, walk, crouch,
-jump startup/air and landing. Reconstructed Kyo's idle image was visually inspected.
+The melee importer exports 19 actions and 147 frames, including idle, walk, crouch,
+jump startup/air, landing, close standing A and reaction presentation.
+Reconstructed Kyo's idle image was visually inspected in the locomotion step.
 SFF/AIR are presentation assets only; exported constants contain no CNS states.
 Velocity selectors reference the source `moves` table, rather than literal speeds.
 The slice uses a documented 0.4 coordinate conversion into the host arena.
@@ -51,6 +52,7 @@ $env:CHERE_INVOKING = '1'
 & ./local-cache/msys64/usr/bin/bash.exe --login /c/Users/Novo-/source/repos/universal-fighter/tools/build-runtime.sh /c/Users/Novo-/source/repos/universal-fighter
 ./tools/smoke-host.ps1
 ./tools/smoke-foreign.ps1
+./tools/smoke-melee.ps1
 ./tools/play-foreign.ps1
 ```
 
@@ -58,7 +60,10 @@ The Bash build script runs the focused Go checks, applies the versioned host pat
 copies the project runtime into the pinned checkout, then rebuilds/stages IKEMEN.
 Applying it twice is safe; a changed upstream source rejects the patch. The staged
 executable now includes the foreign seam. Native characters still use the native
-backend. The interactive command gives player 1 Kyo against an AI KFM.
+backend. The interactive command gives player 1 Kyo against an AI KFM. Host button `a`
+presses the close standing A normal; hold back to guard, down-back for low guard.
+Other normals, air guard and source cancels are not implemented. Reimport existing
+locomotion data: the melee binding requires schema 2 and `runtime=kof13-melee`.
 
 Output is restricted to ignored `artifacts/`. Source hashes are stored in the
 local foreign manifest. Neither game files, extracted images nor derived frame
@@ -76,14 +81,50 @@ in the generated DEF. Mutable runtime state is copied separately in host snapsho
 The source move constructor's constant/approach velocity formulas are used for
 the selected locomotion subset. The input-to-action transitions are adapter code;
 the source game's complete transition system is not emulated. Source audio/effect
-calls and option flags are retained as data but currently unexecuted. Body bounds
-use the host's size convention; source collision rectangles are deferred to combat.
-Native HitDef/projectile paths exclude the foreign player until result negotiation
-is implemented. A timed mixed match verifies coexistence, not fighting or KOF fidelity.
+calls and option flags are retained as data but currently unexecuted. Body pushing
+uses the host's size convention. Source SetRect parameter selectors are resolved
+through `fighter/collision_table.lua`: ordinary body/head/crouch/air vulnerability
+becomes Clsn2 and the selected close standing A attack becomes Clsn1. Rectangles
+use center/half extents, positive source Y up, negative host Y up, facing and .4 scale.
+
+Action 68 supplies 4 startup, 4 active and 15 recovery frames. Its common rectangle
+rule supplies 25 damage and 7 hitstop frames. The native defender uses the existing
+IKEMEN HitDef query/commit path; this is an adapter envelope, not foreign CNS execution.
+Native attacks against Kyo translate into `AttackSpec`, a foreign defense query and
+one `HitResult`; host life receives damage and the foreign runtime owns reaction clocks.
+Native hit flags, team/depth filtering and current-HitDef target bookkeeping remain in
+the collision path. Foreign normals reset that ledger once per activation and use hitonce.
+
+Reaction motion/timing is a compatibility policy: 15-frame ground hitstun, 14-frame
+blockstun and fixed push for Kyo's normal against native fighters; native incoming
+envelopes supply their own damage, stop/stun, velocity, gravity and fall flags.
+Foreign friction is .85 per tick, with a 20-tick minimum down recovery. Original
+hitback/cancel/juggle/priority behavior is not fully emulated. Reaction Lua behavior
+is not executed; only its images/rectangles
+are imported. A guard-only image modifier (-3) is preserved in metadata but not mapped
+to the host renderer; guard presentation needs visual comparison. Throws, reversals,
+custom-state transfers, down hits and projectile contacts with Kyo are excluded.
+
+The melee smoke uses an authored native fixture whose states/rectangles are versioned
+under `tools/fixtures/melee-native`; staging reuses the baseline's local KFM presentation.
+No game art is included in the fixtures. Native inputs are unnecessary: it approaches
+and executes one normal with declared high, low or launch behavior. Eight scenarios
+exercise both contact directions, high/low blocking, incorrect guard height, knockdown
+and lethal hitstop/host KO. Each checks trace contacts and completed-match life results;
+foreign activation/defender keys must not repeat. A blocked fixture attack must not
+produce an unguarded hit or life loss. Separate KFM/native regression tests retain
+coverage of the original native fighter. These controlled boxes prove the bridge;
+they do not prove fidelity for every original KFM/KOF interaction.
+
+Foreign input probes (`melee`, `receive`, `guard-high`, `guard-low`) are explicit,
+off by default, and disabled for human and network play. `smoke-foreign.ps1` continues
+to exercise the ordinary sampled AI-input path.
 
 Core checks cover walking, crouch/release, jump/landing, held-up edge behavior,
 pause, one-frame advance, reset and deterministic restore/replay with the local
-manifest. Renderer smoke evidence and human/visual acceptance are separate gates.
+manifest. Combat checks cover high/low defense, chip, stop/stun clocks, knockback,
+launch/down/recovery, contact-state restore and reset. Renderer smoke evidence,
+exhaustive host interaction coverage and human/visual acceptance are separate gates.
 
 ## References
 

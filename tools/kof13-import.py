@@ -4,6 +4,7 @@ from collections import Counter
 import json
 import hashlib
 import io
+import math
 from pathlib import Path
 import struct
 import zlib
@@ -233,18 +234,41 @@ def write_sff(path, sprites):
     path.write_bytes(header + descriptors + palette_header + data)
 
 
+def collision_rect(args, common):
+    """SetRect uses a zero-based parameter selector, center and half extents."""
+    if len(args) != 5 or any(not isinstance(x, (int, float)) or not math.isfinite(x) for x in args):
+        raise ValueError('Invalid source rectangle')
+    selector, x, y, rx, ry = args
+    if selector != int(selector) or rx < 0 or ry < 0:
+        raise ValueError('Invalid rectangle selector or extents')
+    parameter = common[int(selector) + 1]
+    kind = int(parameter['RectType'])
+    # ponytail: only the selected normal and ordinary vulnerability; no throws/armor.
+    role = 'hurt' if kind in (445, 446, 447, 448) else 'attack' if kind == 428 else 'other'
+    return dict(selector=int(selector), type=kind, role=role,
+                bounds=[x - rx, -y - ry, x + rx, -y + ry])
+
+
 def export(root, output, character):
     from PIL import Image
-    sources = [root / f'fighter/{character}.lua', root / f'fighter/{character}.pcs', root / f'palette/{int(character, 16):04d}_00.png']
+    if character != '03':
+        raise ValueError('The melee slice currently supports Kyo (03) only')
+    sources = [root / f'fighter/{character}.lua', root / f'fighter/{character}.pcs', root / f'palette/{int(character, 16):04d}_00.png',
+               root / 'fighter/collision_table.lua']
     chunk = Chunk(sources[0].read_bytes())
     proto = chunk.proto()
     if chunk.pos != len(chunk.data):
         raise ValueError('Trailing Lua bytes')
     values, _ = tables(proto)
+    collision, _ = tables(Chunk(sources[3].read_bytes()).proto())
+    common = collision['rect_param']['common']
+    normal = common[30]  # SetRect selector 29, source close standing A.
+    if normal['RectType'] != 428:
+        raise ValueError('Unsupported close standing A collision rule')
     pcs = Pcs(sources[1].read_bytes())
     colors = list(Image.open(sources[2]).convert('RGBA').get_flattened_data())
-    # ponytail: locomotion only; reject unsupported frame methods instead of guessing.
-    selected = (1, 2, 3, 5, 11, 12, 14, 15, 19, 20, 25, 26, 27)
+    selected = (1, 2, 3, 5, 11, 12, 14, 15, 19, 20, 25, 26, 27, 34, 36, 68, 106, 112, 161)
+    reactions = {34, 36, 106, 112, 161}
     animations, sprites, air = {}, [], []
     for action_id in selected:
         action = values['actions'][action_id]
@@ -254,16 +278,24 @@ def export(root, output, character):
             frame = action[index]
             if not isinstance(frame, dict):
                 continue
-            behavior = method_calls(proto['children'][frame[2][1]])
+            # Reaction behavior branches on original-engine properties. Import its
+            # presentation only; the compatibility result owns motion and clocks.
+            behavior = [] if action_id in reactions else method_calls(proto['children'][frame[2][1]])
             drawing = method_calls(proto['children'][frame[3][1]])
-            layers = []
+            layers, rectangles, modifiers = [], [], []
             for method, args in drawing:
                 if method == 'SetImage':
                     palette_row = int(args[5])
-                    if args[1:5] != [0, 0, -1, 1] or any(args[6:]):
+                    modifier = args[6]
+                    if args[1:5] != [0, 0, -1, 1] or any(args[7:]) or (modifier != 0 and not (action_id in (34, 36) and modifier == -3)):
                         raise ValueError('Unsupported image transform')
+                    # ponytail: preserve the guard-only -3 modifier as metadata;
+                    # its original renderer semantics are not yet mapped.
+                    modifiers.append(modifier)
                     layers.append(pcs.image(int(args[0]), colors[palette_row * 256:(palette_row + 1) * 256]))
-                elif method not in ('SetRect', 'OverrideTransition'):
+                elif method == 'SetRect':
+                    rectangles.append(collision_rect(args, common))
+                elif method != 'OverrideTransition':
                     raise ValueError(f'Unsupported draw method {method}')
             if not layers:
                 raise ValueError('Frame has no image')
@@ -279,7 +311,14 @@ def export(root, output, character):
             duration = int(frame[1])
             if duration <= 0:
                 raise ValueError('Nonpositive animation duration')
-            frames.append(dict(duration=duration, calls=behavior, sprite=sprite))
+            frames.append(dict(duration=duration, calls=behavior, sprite=sprite,
+                               rectangles=rectangles, image_modifiers=modifiers,
+                               presentation_only=action_id in reactions))
+            for role, group in (('attack', 1), ('hurt', 2)):
+                boxes = [r['bounds'] for r in rectangles if r['role'] == role]
+                air.append(f'Clsn{group}: {len(boxes)}')
+                for number, bounds in enumerate(boxes):
+                    air.append(f'Clsn{group}[{number}] = ' + ','.join(str(x) for x in bounds))
             air.append(f'0,{sprite},0,0,{duration}')
         animations[action_id] = frames
         air.append('')
@@ -302,15 +341,17 @@ def export(root, output, character):
             raise ValueError('Unsupported fixed-position move')
         moves[selector] = call[2]
     output.mkdir(parents=True, exist_ok=True)
-    spec = dict(schema=1, backend='kof13-locomotion', character=character, scale=0.4,
+    spec = dict(schema=2, backend='kof13-melee', character=character, scale=0.4,
                 sources={str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},
-                actions=animations, moves=moves)
+                actions=animations, moves=moves,
+                normal=dict(damage=int(float(normal['Attack'])), hitstop=int(float(normal['HitStop'])),
+                            source_hitback=float(normal['HitBack'])))
     (output / 'foreign.json').write_text(json.dumps(spec, ensure_ascii=False, indent=2), encoding='utf-8')
     write_sff(output / 'kof13.sff', sprites)
     (output / 'kof13.air').write_text('\n'.join(air), encoding='utf-8')
     (output / 'kof13.cns').write_text('[Data]\nlife=1000\n[Size]\nxscale=.4\nyscale=.4\nground.back=18\nground.front=18\nheight=95\n', encoding='utf-8')
     (output / 'kof13.cmd').write_text('; Input is sampled by the host and consumed by the foreign runtime.\n', encoding='utf-8')
-    (output / 'kof13.def').write_text(f'[Info]\nname="KOF XIII {character} foreign slice"\ndisplayname="KOF XIII {character}"\nruntime=kof13-locomotion\nmugenversion=1.1\nlocalcoord=320,240\n[Files]\ncmd=kof13.cmd\ncns=kof13.cns\nsprite=kof13.sff\nanim=kof13.air\n', encoding='utf-8')
+    (output / 'kof13.def').write_text(f'[Info]\nname="KOF XIII {character} foreign slice"\ndisplayname="KOF XIII {character}"\nruntime=kof13-melee\nmugenversion=1.1\nlocalcoord=320,240\n[Files]\ncmd=kof13.cmd\ncns=kof13.cns\nsprite=kof13.sff\nanim=kof13.air\n', encoding='utf-8')
     sprites[0][0].save(output / 'preview.png')
     print(f'Exported {len(animations)} actions / {len(sprites)} frames to {output}')
 
@@ -319,7 +360,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--game', type=Path, required=True)
     parser.add_argument('--inspect')
-    parser.add_argument('--character', default='03', choices=[f'{i:02x}' for i in range(38)])
+    parser.add_argument('--character', default='03', choices=['03'])
     parser.add_argument('--output', type=Path, default=Path('artifacts/host-baseline/chars/kof13'))
     args = parser.parse_args()
     if args.inspect:

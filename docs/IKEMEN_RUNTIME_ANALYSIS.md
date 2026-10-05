@@ -129,7 +129,7 @@ References: [IKEMEN source at analyzed revision](https://github.com/ikemen-engin
 [Universal Modder](https://github.com/rehan-remade/universal-modder). The latter is retained
 as a pinned tooling reference for later adapter recon; it is not part of the host seam.
 
-## Implemented package 3 seam
+## Package 3 seam (before melee)
 
 The user selected KOF XIII as the first adapter. The current implementation is
 `runtime/host.go` plus `runtime/kof13.go`, applied by `tools/apply-runtime.py` and
@@ -146,3 +146,36 @@ results cannot enter the foreign shell; mixed pushing uses host size boxes and
 bypasses the native Clsn2 prerequisite for these pairs. Immutable imported specs
 are shared while `Char.Clone` copies mutable foreign state into a new runtime.
 This is a narrow prototype API; host-level rollback/combat replay remains unverified.
+
+## Implemented mixed-melee subset
+
+`runtime/combat.go` defines attacker characteristics, a defense response and a pure
+contact arbiter. The foreign runtime exposes `QueryDefense` and `CommitHit` alongside
+step/reset/save/load. Its snapshot value includes activation IDs, held input, reaction
+pose, stop/stun/down clocks and push motion. Host `Char.Clone` independently copies the
+runtime value and already deep-copies native HitDef target lists/buffers.
+
+Foreign source Clsn1/Clsn2 pass through the existing native scale/facing/depth/contact
+path. Kyo's one normal initializes a native HitDef envelope once per activation; native
+defense, invulnerability and reaction commit remain in `hitResultCheck`. Native attacks
+against Kyo use foreign eligibility and intercept that result boundary before any native
+custom-state mutation. Native attacker hitpause/contact fields remain committed by the
+original outer melee loop. This reuses native collision and result machinery without
+executing foreign CNS. Native/native paths retain the original implementation.
+
+The native defender's query remains embedded in its mutating native result routine;
+there is not yet a general side-effect-free native defense API. This is deliberately a
+bounded bridge, not the finalized universal API. Ordinary melee is supported; foreign
+throws, custom-state transfer, reversals, projectiles and full source priorities/juggle
+are outside this package. Contact duplication is prevented by current-HitDef targets and
+foreign hitonce, rather than a new global ledger. The host's stable ID/priority order is
+retained; a simultaneous-contact matrix and native-attacker replay remain pending.
+
+Foreign global pause freezes the core; hitstop freezes pose/motion/stun and drains only
+on an advancing tick. Host life remains canonical. A lethal contact drains stop before
+publishing host KO/over flags, but source KO presentation and complete lifecycle cleanup
+are package 5 work. Core restore tests are not host rollback proof. Pixel presentation,
+human controls and actual host frame advance remain separate acceptance gates. Eight
+authored host scenarios pass for both hit directions, high/low guard and mismatches,
+knockdown, lethal hitstop/KO and foreign activation duplicate protection. This controlled
+matrix does not establish exhaustive original-fighter interaction coverage.

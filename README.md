@@ -6,7 +6,9 @@ using the user's local Steam installation.
 
 Current status: Phase 1 source reconnaissance is complete. The native Windows host builds
 and an automated native/native match passes KO and round-transition checks. The KOF XIII
-locomotion backend uses imported Kyo data and sprites; mixed combat remains a later gate.
+backend uses imported Kyo data, sprites and collision boxes. A bounded mixed-melee
+prototype adds one source normal and native/foreign hit handling. Interactive acceptance,
+projectiles and host combat rollback remain open.
 
 - [Source analysis and proposed runtime seam](docs/IKEMEN_RUNTIME_ANALYSIS.md)
 - [Implementation work plan and validation gates](docs/WORK_PLAN.md)

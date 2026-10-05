@@ -6,25 +6,34 @@ import (
 	"math"
 )
 
-type InputFrame struct{ Forward, Back, Up, Down bool }
+type InputFrame struct{ Forward, Back, Up, Down, Punch bool }
 type FrameContext struct {
 	Advance, AcceptInput bool
 	Facing               float32
 }
 type FighterState struct {
-	Frame                            uint64
-	Action, Element, Time, AirAction int
-	X, Y, VX, VY                     float32
-	YTarget, YRate                   float32
-	UpHeld                           bool
+	Frame                                      uint64
+	Action, Element, Time, AirAction           int
+	X, Y, VX, VY                               float32
+	YTarget, YRate                             float32
+	UpHeld                                     bool
+	PunchHeld, BackHeld, DownHeld              bool
+	AttackID                                   uint64
+	Hitstop, Stun, RenderAction, RenderElement int
+	DownTime                                   int
+	Guarded, Knockdown                         bool
+	PushX, PushY, Gravity                      float32
 }
 
-// This is the current locomotion subset of the runtime API. Combat is a later gate.
+// Host life remains canonical. Foreign motion, pose, reaction clocks and input
+// edges are snapshot values; immutable imported data can be shared.
 type FighterRuntime interface {
 	Step(InputFrame, FrameContext) FighterState
 	Reset(float32, float32)
 	SaveState() FighterState
 	LoadState(FighterState)
+	QueryDefense() DefenseQuery
+	CommitHit(HitResult)
 }
 
 type KOFFrame struct {
@@ -38,6 +47,10 @@ type KOFSpec struct {
 	Scale   float32
 	Actions map[int][]KOFFrame
 	Moves   map[int][]json.RawMessage
+	Normal  struct {
+		Damage, Hitstop int
+		SourceHitback   float32 `json:"source_hitback"`
+	}
 }
 type KOFRuntime struct {
 	Spec  *KOFSpec
@@ -49,10 +62,13 @@ func loadKOFSpec(data []byte) (*KOFSpec, error) {
 	if err := json.Unmarshal(data, &spec); err != nil {
 		return nil, err
 	}
-	if spec.Schema != 1 || spec.Backend != "kof13-locomotion" || spec.Scale <= 0 || spec.Scale > 1 {
-		return nil, fmt.Errorf("unsupported foreign manifest")
+	if spec.Schema != 2 || spec.Backend != "kof13-melee" || spec.Scale <= 0 || spec.Scale > 1 || math.IsNaN(float64(spec.Scale)) {
+		return nil, fmt.Errorf("unsupported foreign manifest; reimport the Kyo melee slice")
 	}
-	for _, action := range []int{1, 2, 3, 5, 11, 12, 14, 15, 19, 20, 25, 26, 27} {
+	if spec.Normal.Damage < 1 || spec.Normal.Hitstop < 0 || spec.Normal.Hitstop > 60 {
+		return nil, fmt.Errorf("invalid imported normal")
+	}
+	for _, action := range []int{1, 2, 3, 5, 11, 12, 14, 15, 19, 20, 25, 26, 27, 34, 36, 68, 106, 112, 161} {
 		frames := spec.Actions[action]
 		if len(frames) == 0 {
 			return nil, fmt.Errorf("missing action %d", action)
@@ -93,8 +109,8 @@ func loadKOFSpec(data []byte) (*KOFSpec, error) {
 					} else {
 						frame.VY = &id
 					}
-				case "Opt_01", "Opt_07", "ChangeTransition", "CreateSound", "CreateEffect":
-					// ponytail: locomotion only; effects/audio and source transition flags are retained but not executed.
+				case "Opt_00", "Opt_01", "Opt_06", "Opt_07", "ChangeTransition", "CreateSound", "CreateEffect":
+					// ponytail: source cancels, effects/audio and option flags remain unexecuted.
 				default:
 					return nil, fmt.Errorf("unsupported behavior method %s", name)
 				}
@@ -104,7 +120,9 @@ func loadKOFSpec(data []byte) (*KOFSpec, error) {
 	return &spec, nil
 }
 
-func (r *KOFRuntime) Reset(x, y float32)       { r.State = FighterState{Action: 1, X: x, Y: y} }
+func (r *KOFRuntime) Reset(x, y float32) {
+	r.State = FighterState{Action: 1, RenderAction: 1, X: x, Y: y}
+}
 func (r *KOFRuntime) SaveState() FighterState  { return r.State }
 func (r *KOFRuntime) LoadState(s FighterState) { r.State = s }
 func (r *KOFRuntime) action(a int)             { r.State.Action, r.State.Element, r.State.Time = a, 0, 0 }
@@ -123,16 +141,56 @@ func (r *KOFRuntime) Step(input InputFrame, context FrameContext) FighterState {
 		return r.State
 	}
 	s := &r.State
-	if s.Action == 0 {
-		r.action(1)
-	}
 	if !context.AcceptInput {
 		input = InputFrame{}
 	}
+	s.BackHeld, s.DownHeld = input.Back, input.Down
+	if s.Hitstop > 0 {
+		s.Hitstop--
+		return r.presentation()
+	}
+	if s.Action == 0 {
+		r.action(1)
+	}
+	if s.Stun > 0 || s.Knockdown || ((s.Action == 106 || s.Action == 112) && s.Y < 0) {
+		s.X += s.PushX
+		s.Y += s.PushY
+		s.PushX *= 0.85 // ponytail: compatibility friction; original hitback formula is not emulated.
+		if s.Y < 0 || s.PushY < 0 {
+			s.PushY += s.Gravity
+		}
+		if s.Y >= 0 {
+			s.Y, s.PushY = 0, 0
+		}
+		if s.Knockdown && s.Y == 0 && s.Action != 161 {
+			r.action(161)
+			s.DownTime = 20 // ponytail: compatibility down recovery, not KOF's recovery rules.
+		}
+		if s.DownTime > 0 {
+			s.DownTime--
+		}
+		if s.Stun > 0 {
+			s.Stun--
+		}
+		if s.Stun == 0 && s.DownTime == 0 && s.Y == 0 {
+			s.Guarded, s.Knockdown = false, false
+			s.PushX, s.PushY, s.Gravity = 0, 0, 0
+			r.action(1)
+		}
+		s.Frame++
+		s.RenderAction, s.RenderElement = s.Action, s.Element
+		present := r.presentation()
+		r.advanceReaction()
+		s.PunchHeld, s.UpHeld = input.Punch, input.Up
+		return present
+	}
 	airborne := s.Action == 12 || s.Action == 15 || s.Action == 20
-	locked := airborne || s.Action == 11 || s.Action == 14 || s.Action == 19 || s.Action == 5 || s.Action == 25 || s.Action == 27
+	locked := airborne || s.Action == 68 || s.Action == 11 || s.Action == 14 || s.Action == 19 || s.Action == 5 || s.Action == 25 || s.Action == 27
 	if !locked {
 		switch {
+		case input.Punch && !s.PunchHeld && !input.Down:
+			s.AttackID++
+			r.action(68)
 		case input.Up && !s.UpHeld:
 			s.AirAction = 12
 			startup := 11
@@ -165,6 +223,7 @@ func (r *KOFRuntime) Step(input InputFrame, context FrameContext) FighterState {
 		}
 	}
 	s.UpHeld = input.Up
+	s.PunchHeld = input.Punch
 	frame := r.Spec.Actions[s.Action][s.Element]
 	if s.Time == 0 {
 		if frame.VX != nil {
@@ -185,6 +244,7 @@ func (r *KOFRuntime) Step(input InputFrame, context FrameContext) FighterState {
 		r.action(5)
 	}
 	s.Frame++
+	s.RenderAction, s.RenderElement = s.Action, s.Element
 	// The returned element is the one simulated this frame, not the next frame's.
 	present := *s
 	s.Time++
@@ -197,7 +257,7 @@ func (r *KOFRuntime) Step(input InputFrame, context FrameContext) FighterState {
 				r.action(s.AirAction)
 			case 25:
 				r.action(26)
-			case 27, 5:
+			case 27, 5, 68:
 				r.action(1)
 			case 12, 15, 20:
 				s.Element-- // Hold final airborne pose until landing.
@@ -207,4 +267,21 @@ func (r *KOFRuntime) Step(input InputFrame, context FrameContext) FighterState {
 		}
 	}
 	return present
+}
+
+func (r *KOFRuntime) presentation() FighterState {
+	s := r.State
+	s.Action, s.Element = s.RenderAction, s.RenderElement
+	return s
+}
+func (r *KOFRuntime) advanceReaction() {
+	s := &r.State
+	s.Time++
+	frames := r.Spec.Actions[s.Action]
+	if s.Time >= frames[s.Element].Duration {
+		s.Time = 0
+		if s.Element+1 < len(frames) {
+			s.Element++
+		}
+	}
 }

@@ -1,0 +1,12 @@
+; Appended to the staged KFM AIR so native get-hit presentation remains available.
+; This authored attack reaches both the imported standing and crouching hurtboxes.
+[Begin Action 10000]
+Clsn2Default: 1
+Clsn2[0] = -15,-85,15,0
+Clsn1: 0
+0,0,0,0,4
+Clsn1: 1
+Clsn1[0] = 15,-60,55,-20
+0,0,0,0,4
+Clsn1: 0
+0,0,0,0,15

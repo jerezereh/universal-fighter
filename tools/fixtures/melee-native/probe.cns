@@ -1,0 +1,50 @@
+; Authored native acceptance fixture, not a source fighter conversion.
+[Statedef 0]
+type = S
+movetype = I
+physics = S
+anim = 0
+ctrl = 1
+[State 0, Approach]
+type = VelSet
+trigger1 = RoundState = 2
+x = ifelse(P2Dist X > 38, 2, 0)
+y = 0
+[State 0, Strike]
+type = ChangeState
+triggerall = RoundState = 2
+trigger1 = Time >= 24 && P2Dist X < 55
+value = 200
+[Statedef 200]
+type = S
+movetype = A
+physics = S
+anim = 10000
+ctrl = 0
+velset = 0,0
+[State 200, Contact]
+type = HitDef
+trigger1 = Time = 0
+attr = S, NA
+damage = 25,0
+hitflag = MAF
+guardflag = @GUARD@
+pausetime = 7,7
+guard.pausetime = 7,7
+ground.type = High
+ground.hittime = 15
+ground.slidetime = 15
+guard.hittime = 14
+guard.ctrltime = 14
+ground.velocity = -2,@YVEL@
+guard.velocity = -1
+fall = @FALL@
+air.velocity = -2,-4
+air.hittime = 20
+air.fall = 1
+hitonce = 1
+id = 200
+[State 200, Recover]
+type = ChangeState
+trigger1 = AnimTime = 0
+value = 0

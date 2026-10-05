@@ -37,3 +37,16 @@ with tempfile.TemporaryDirectory() as directory:
     assert data[start + 4:start + 12] == b'\x89PNG\r\n\x1a\n'
     assert start + length == len(data)
 print('KOF importer checks passed')
+
+# Source centers use positive-up Y and half extents; AIR uses negative-up edges.
+rect = kof.collision_rect([15, 10, 20, 3, 4], {16: {'RectType': 446}})
+assert rect['role'] == 'hurt' and rect['bounds'] == [7, -24, 13, -16]
+assert kof.collision_rect([29, 10, 20, 3, 4], {30: {'RectType': 428}})['role'] == 'attack'
+for args in ([15, 0, 0, -1, 4], [15.5, 0, 0, 1, 4], [15, float('nan'), 0, 1, 4]):
+    try:
+        kof.collision_rect(args, {16: {'RectType': 446}})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError('Invalid source rectangle accepted')
+print('KOF collision rectangle checks passed')
