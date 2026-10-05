@@ -218,7 +218,7 @@ def write_sff(path, sprites):
     """Host-native SFFv2 presentation only; runtime simulation lives elsewhere."""
     header = bytearray(512)
     header[:16] = b'ElecbyteSpr\0\0\0\0\2'
-    data_start = 512 + len(sprites) * 32 + 16
+    data_start = 512 + len(sprites) * 28 + 16
     # One unused palette keeps the host loader happy with RGBA sprites.
     struct.pack_into('<8I', header, 36, 512, len(sprites), data_start - 16, 1, data_start, 0, 0, 0)
     descriptors, data = bytearray(), bytearray(1024)

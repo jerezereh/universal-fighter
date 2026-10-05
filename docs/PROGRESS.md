@@ -76,7 +76,10 @@ the synthetic architecture gate allows the first real-game adapter.
   palette-layer composition and host SFFv2/AIR presentation export.
 - Exported Kyo (`03`): 13 locomotion actions / 110 frames. Visually inspected the
   reconstructed idle image. Derived assets and source hashes remain ignored locally.
-- Authored parser/SFF checks pass. Unsupported opcodes/transforms fail export;
+- The first SFF check exposed a sprite-header stride error (32 versus 28 bytes).
+  It was inadvertently published with the importer commit, then corrected in the
+  immediate follow-up before host use. Authored parser/SFF checks now pass.
+  Unsupported opcodes/transforms fail export;
   general Lua execution and other PCS drawing modes are outside this slice.
 - Host runtime binding, input-driven locomotion and interactive acceptance remain
   pending. This import is not a completed foreign fighter or full KOF emulation.

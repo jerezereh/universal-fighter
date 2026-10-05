@@ -5,3 +5,4 @@
 /extracted/
 /artifacts/
 *.exe
+__pycache__/
