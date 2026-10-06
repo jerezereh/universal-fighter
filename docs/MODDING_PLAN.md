@@ -177,6 +177,20 @@ netplay, original-engine fidelity or exhaustive collision order.
 foreign action/element/frame/stop/stun/activation line. The renderer smoke and human
 inspection of boxes, labels, facing and keyboard controls are separate checks.
 
+For a repeatable hands-on check, run `./tools/play-foreign.ps1 -Debug -Practice`.
+This uses human P1 input, a stationary native opponent and no round timer. It writes
+a unique `practice-*.stderr.txt` input/action trace in the ignored host runtime. In
+debug practice, `[foreign-key]` records SDL press/release events and the host logical
+tick, pause and step flags; it does not poll a second keyboard source. Ordinary play
+keeps this key trace off. The state label appears in two lines above Kyo's standing box.
+
+P1 uses arrows, Z (normal) and X (standing ground flame). The pinned debug hotkeys are
+Pause (freeze/resume), Scroll Lock (single paused frame), Ctrl+C (collision boxes),
+Ctrl+D (debug panel) and F8 (clear console). Keep injected-key results separate from
+physical-keyboard results: a helper can report a successful tap without SDL receiving
+the corresponding event. Live captures have verified boxes, readable state text,
+initial facing and Pause; full physical control/frame-step acceptance remains pending.
+
 Core checks cover walking, crouch/release, jump/landing, held-up edge behavior,
 pause, one-frame advance, reset and deterministic restore/replay with the local
 manifest. Combat checks cover high/low defense, chip, stop/stun clocks, knockback,

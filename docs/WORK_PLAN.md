@@ -10,8 +10,10 @@ for both hit directions, guard heights, knockdown and KO. Exhaustive source inte
 broader rollback scenarios and interactive acceptance remain open. Package 5 has a bounded source
 projectile/lifecycle implementation with passing controlled hit/block, removal and
 KO/reset checks. Package 6 now has versioned state blobs, hashes, collision/state overlays
-and offline host replay probes. Interactive overlay/controls and actual frame-advance
-acceptance remain open. Package 7 and the complete milestone are not accepted yet.
+and offline host replay probes. Live capture verifies initial facing, collision/state
+overlays and Pause freeze/resume. Complete physical-keyboard controls, crossovers and
+actual frame-advance acceptance remain open. Package 7 now has the implemented API and
+supported-interaction matrix recorded; the complete milestone is not accepted yet.
 User scope update (2026-10-05): use locally
 installed KOF XIII for package 3 instead of the synthetic ForeignTestFighter.
 See `MODDING_PLAN.md` for the bounded import and runtime route.

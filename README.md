@@ -35,6 +35,8 @@ offline GGPO sync test. It exercises melee, both projectile directions, host Pau
 and KO/round reset with per-frame checksums. Use `./tools/play-foreign.ps1 -Debug`
 for collision boxes and the foreign action/frame/stop/state overlay. P1 uses arrow
 keys, **Z** for the normal and **X** for the standing ground flame.
+Add `-Practice` for a stationary native opponent, unlimited time and a local input
+trace. **Pause** freezes/resumes; **Scroll Lock** is the host's single-frame hotkey.
 
 Keep extracted commercial assets in ignored local storage. Universal Modder is a recon
 reference and development tool, never a runtime dependency. KOF XIII is the user's selected

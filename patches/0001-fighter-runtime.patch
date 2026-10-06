@@ -207,6 +207,26 @@ index 68c16e1..f7ea26c 100644
  	}
  }
  
+diff --git a/src/input.go b/src/input.go
+index 0f3da06..6716541 100644
+--- a/src/input.go
++++ b/src/input.go
+@@ -111,6 +111,7 @@ func (sk ShortcutKey) Test(k Key, m ModifierKey) bool {
+ }
+ 
+ func OnKeyReleased(key Key, mk ModifierKey) {
++	traceForeignKey(key, false)
+ 	if key != KeyUnknown {
+ 		sys.keyState[key] = false
+ 		// sys.keyInput is used as an edge-triggered "new key press" signal for Lua (getKey()).
+@@ -122,6 +123,7 @@ func OnKeyReleased(key Key, mk ModifierKey) {
+ }
+ 
+ func OnKeyPressed(key Key, mk ModifierKey) {
++	traceForeignKey(key, true)
+ 	if key != KeyUnknown {
+ 		// Treat sys.keyInput as edge-triggered. Ignore repeats.
+ 		if sys.keyState[key] {
 diff --git a/src/rollback.go b/src/rollback.go
 index 3218660..ac1cf35 100644
 --- a/src/rollback.go

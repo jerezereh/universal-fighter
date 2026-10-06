@@ -237,4 +237,69 @@ require startup/contact/hitstop/projectile/KO/reset coverage as appropriate. A n
 Pause fixture checks that the foreign clock stays frozen across paused saves. Real
 network sessions do not enable scripted input probes. `play-foreign.ps1 -Debug` enables
 existing collision rendering plus a foreign state line. Online netplay, simultaneous
-contact combinations, interactive labels/boxes and human frame stepping remain pending.
+contact combinations and complete physical-keyboard acceptance remain pending. Live
+capture now verifies the foreign state label and collision boxes. The label uses two
+short lines above the standing size box to avoid the host's bottom debug panel.
+
+## Current implemented API and interaction matrix
+
+The earlier API sketch is a design proposal. The following is the actual internal
+contract at this implementation step; it is not a stable external plugin ABI.
+
+```go
+type FighterBackend interface {
+    Prepare()
+    Run()
+    Finish()
+    Update()
+    Tick()
+}
+
+type FighterRuntime interface {
+    Step(InputFrame, FrameContext) FighterState
+    Reset(float32, float32)
+    SaveState() FighterState
+    LoadState(FighterState)
+    StateBlob() ([]byte, error)
+    LoadBlob([]byte) error
+    StateHash() ([32]byte, error)
+    QueryDefense() DefenseQuery
+    CommitHit(HitResult)
+}
+```
+
+Binding reads `[Info] runtime=kof13` and an adjacent schema-3 `foreign.json`. Unknown
+runtime names, invalid manifests and unsupported required behavior methods fail at
+load. The imported manifest is immutable; the host shell owns a mutable `KOFRuntime`.
+Native fighters use the original methods through `nativeBackend`. Foreign dispatch
+skips native CNS state execution and native animation timing.
+
+| Boundary | Implemented ownership |
+|---|---|
+| Input | Host samples its existing command buffer once. `InputFrame` contains relative forward/back, up/down, normal and special. Practice uses P1 keyboard input with AI and scripted probes disabled. |
+| Scheduling | `FrameContext.Advance` gates foreign time; `AcceptInput` gates live round input; `Facing` supplies the host facing. Global pause skips the foreign run; hitstop drains on advancing ticks. |
+| Motion/presentation | Foreign state owns action/element clocks, input edges and motion/reaction values. `Step` returns the element simulated on this tick; saved `RenderAction`/`RenderElement` retain that presentation while action clocks prepare the next tick. |
+| Coordinates | Foreign position adopts the shell's player-local coordinates: right is positive X, airborne Y is negative. Imported motion is scaled by the manifest; source vertical velocity is converted when integrating Y. Host `localscl`, facing and collision modifiers map boxes into collision space. |
+| Damage/rounds | Host life, round state, IDs, teams, stage bounds and player pushing remain authoritative. `Reset` clears guest inputs, reactions, KO and activation IDs; it does not reset host health or round data by itself. |
+| Defense/result | `QueryDefense` is a pure guest query. `resolveContact(AttackSpec, DefenseQuery)` produces `HitResult`; `CommitHit` applies guest reaction/stop/motion. The host commits canonical health and its native contact bookkeeping. Native defender negotiation still uses the host's mutating result routine. |
+| Entities | A guest projectile activation emits a monotonically increasing ID. The shell acknowledges it once; host `Projectile` owns motion, collision, hit consumption, stop, removal and render data. There is no guest entity-list API yet. |
+| Snapshot | Typed guest state is copied into native `Char.Clone`; immutable specs are shared. Whole-host snapshots own native fighters, projectiles, timers, RNG and contact lists. Versioned blobs/hash cover the guest value only. |
+
+| Interaction | Current support/evidence | Remaining limits |
+|---|---|---|
+| Idle/walk/crouch/jump | Imported Kyo actions; core checks and ordinary sampled AI-input renderer smoke pass. | Complete physical-keyboard sequence remains pending. |
+| Facing and boxes | Live capture shows Kyo facing the stationary native opponent with visible imported hurt boxes. | Crossovers and other display sizes have not been accepted interactively. |
+| Normal melee | One Kyo source normal; authored tests pass both hit directions and activation duplicate protection. | Additional attacks, cancels and source priority/juggle fidelity are outside the subset. |
+| Guard | Ground high/low eligibility and mismatches pass controlled tests. | Air guard, parry and defensive resource spending are not implemented. |
+| Reactions | Stop/stun, ground push, launch/down/recovery and lethal contact are covered by core/host checks. | Full source reaction and native get-hit trigger equivalence remain incomplete. |
+| Projectiles | One source weak ground flame and authored native projectile; hit/block, misses, removal and reset tests pass. | Reflection, platform behavior and exhaustive simultaneous trades are unverified. |
+| KO/restart | Controlled tests finish rounds, clean entities and renew contacts after reset. | A complete human-played match is still an acceptance gate. |
+| Restore/replay | Five offline GGPO scenes pass strict per-frame checksums over eight-frame rewind windows. | Online netplay and all native fields/interactions are not established. |
+| Debug presentation | Live inspection verifies readable backend/action/element/frame/stop/stun/activation labels and collision rendering. | Dense multi-fighter layouts and airborne label clipping are unverified. |
+| Pause/frame advance | Live Pause freezes/resumes the core; controller Pause also passes offline replay. | Injected Scroll Lock produced no accepted step; physical-keyboard single-step acceptance remains pending. |
+| Throws/custom states | Explicitly excluded from foreign eligibility. | No cross-runtime state takeover, helpers, reversals or general throw contract. |
+
+The first milestone is still a candidate: the automated bounded match/replay gates
+pass, but complete keyboard and human-match acceptance has not been recorded. Further
+rulesets/adapters should follow the work-plan gate rather than treating this prototype
+as a universal compatibility guarantee.

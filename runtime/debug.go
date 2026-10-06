@@ -9,6 +9,12 @@ import (
 var mixedDiagnostics = os.Getenv("UF_MIXED_DIAGNOSTICS") == "1"
 var foreignDebug = os.Getenv("UF_FOREIGN_DEBUG") == "1"
 
+func traceForeignKey(key Key, down bool) {
+	if foreignDebug && traceForeign {
+		LogMessage("[foreign-key] key=%s code=%d down=%t tick=%d paused=%t step=%t running=%t", KeyToString(key), key, down, sys.tickCount, sys.paused, sys.frameStepFlag, sys.gameRunning)
+	}
+}
+
 // A gameplay projection, not a serialization of loaded textures or pointer IDs.
 // Ordered host slices and value fields make it stable across snapshot clones.
 func mixedStateRecord(chars [MaxPlayerNo][]*Char, projs [MaxPlayerNo][]*Projectile) string {
@@ -127,6 +133,14 @@ func mixedDebugOverlay(c *Char, x, y float32) {
 		return
 	}
 	s := c.foreign.State
-	text := fmt.Sprintf("kof13 action:%d elem:%d frame:%d stop:%d stun:%d atk:%d shot:%d", s.RenderAction, s.RenderElement, s.Frame, s.Hitstop, s.Stun, s.AttackID, s.ProjectileID)
-	sys.debugClsnText = append(sys.debugClsnText, DebugClsnText{x: x, y: y, text: text, r: 255, g: 220, b: 100, a: 255})
+	line := float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
+	// Keep the state label above the standing size box, clear of the bottom panel.
+	y += c.size.standbox[1]*c.localscl*sys.cam.Scale - 3*line
+	for _, text := range []string{
+		fmt.Sprintf("kof13 P%d action:%d elem:%d frame:%d", c.playerNo+1, s.RenderAction, s.RenderElement, s.Frame),
+		fmt.Sprintf("stop:%d stun:%d atk:%d shot:%d", s.Hitstop, s.Stun, s.AttackID, s.ProjectileID),
+	} {
+		sys.debugClsnText = append(sys.debugClsnText, DebugClsnText{x: x, y: y, text: text, r: 255, g: 220, b: 100, a: 255})
+		y += line
+	}
 }

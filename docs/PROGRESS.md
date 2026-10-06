@@ -313,3 +313,45 @@ the synthetic architecture gate allows the first real-game adapter.
   keyboard controls and actual frame advance remains pending. Offline replay checks
   do not establish online netplay, every native field, simultaneous contacts or complete
   KOF source fidelity. Packages 6/7 and full milestone acceptance remain open.
+
+### Live acceptance, readable overlay and implemented API record
+
+- Read Ponytail, Universal Modder game-automation and the installed Computer Use
+  workflow before the live checks. Inspected pinned SDL key dispatch, keyboard sampling,
+  debug Lua bindings, host pause/tick/step handling and debug-label drawing before edits.
+- Live Computer Use capture of the actual renderer verified Kyo initially facing the
+  stationary native opponent and imported blue collision boxes. It exposed the foreign
+  state text overlapping the host bottom debug panel. Moved that text to two short lines
+  above the standing size box; subsequent live capture verified readable backend/player,
+  action/element/frame and stop/stun/activation fields, separate from the bottom panel.
+- Added `play-foreign.ps1 -Debug -Practice`: human P1, stationary native target, unlimited
+  time, per-run action/input log, no scripted probe and explicit control/hotkey help.
+  The launcher restores its temporary environment values. Normal launch retains KFM AI.
+  Exercised practice launch twice; running scripts were not edited.
+- Live Pause injection froze the foreign clock at frame 1,032 across later observations;
+  Pause resumed it. Trace: `practice-20261006-022913-378.stderr.txt`. Injected Scroll Lock,
+  Z, Right and F8 did not establish their expected effects, so they are not counted as
+  successful controls or as confirmed game defects.
+- Added key press/release diagnostics only when both foreign trace and debug mode are
+  enabled. The pinned SDL event callback supplies these records; no second device poll
+  or independent input scheduler is added. Host hooks are in the maintained patch.
+  In `practice-20261006-023343-228.stderr.txt`, the helper's Z tap generated no SDL key
+  records; Pause generated paired press/release events at tick 1,472 and the core froze
+  at frame 1,381. This isolates an injection limitation for Z; it does not prove that
+  physical Z, arrows, X or Scroll Lock fail. Physical-keyboard results were requested.
+- Recorded the actual `FighterBackend`/`FighterRuntime` contracts, state/coordinate/input
+  ownership and supported-interaction matrix in `IKEMEN_RUNTIME_ANALYSIS.md`. Kept the
+  earlier API sketch identified as a proposal. The native defender still uses mutating
+  host negotiation; this remains a bounded bridge rather than a finalized universal ABI.
+- Windows build and all six focused core checks passed. Practice PowerShell syntax,
+  diff whitespace, and pristine pinned-source patch apply/reverse checks passed. The
+  functional change is debug presentation/diagnostics; combat simulation is unchanged.
+  Mocked launch checks also passed for practice/default arguments, inherited-probe
+  suppression and environment restoration. The initial mock stored its observation in
+  the called script's scope; correcting the harness scope resolved that check failure.
+- Initial facing, readable overlays, boxes and live Pause now have visual evidence.
+  Complete physical controls, a verified single paused frame, crossover facing and a
+  complete human-played mixed match remain open. The startup console also exposes the
+  shell's missing native 5900 state warning; normal foreign ticks bind and render, but
+  loader warning cleanup has not been addressed. Package 7 documentation is advanced;
+  the first milestone has not been accepted.
