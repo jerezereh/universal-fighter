@@ -31,7 +31,7 @@ resource spending). Prove their interactions without matchup-specific code. Only
 begin further real-game adapters, including SFIII and eventually Xrd. KOF XIII is
 the user's explicitly selected exception to that original adapter order.
 
-## Next implementation phase (in progress)
+## Authored ruleset phase (verified)
 
 | Step | Implementation decision and required tests |
 |---|---|
@@ -45,8 +45,13 @@ meter-funded air dash/confirmed cancels/resource guard, and atomic private-state
 All six authored host scenes pass strict offline rollback. Three SDL keyboard scenes
 verify parry, dash/cancel and resource guard plus Pause/exact frame advance; native PNGs
 show both guest labels, boxes and meter/window/charge values. Step D's cross-ruleset
-scenes pass; its final native/Kyo regression repeat is still running. See
+scenes and final native/Kyo regression repeat pass. See
 `SYNTHETIC_RULESETS.md` for the precise authored rules and remaining limits.
+
+The next adapter gate is reconnaissance of the user's local Steam Xrd installation:
+verify the exact edition/build, behavior and asset oracles, then choose one fighter/move
+and a presentation route for the IKEMEN arena. That real-game adapter has not begun;
+the authored mobility ruleset is an architecture proof, not Xrd behavior.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

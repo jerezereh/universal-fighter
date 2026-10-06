@@ -473,3 +473,40 @@ the synthetic architecture gate allows the first real-game adapter.
 - The final native/Kyo repeat is still running for step D. Physical human feel,
   other devices/displays, online netplay, exhaustive trades/juggles/custom states and
   real-game adapter fidelity remain unmeasured. No further real-game adapter has begun.
+
+### Next phase D: cross-ruleset gate and final regressions complete
+
+- Ground melee interactions pass in both ruleset directions through the same neutral
+  attack/defense/result contract: mobility normal -> parry; parry normal -> resource
+  guard/exhaustion; unguarded normal -> contact-confirmed cancel. Native-attacker parry
+  and native-defender cancel notification also pass. No opponent/backend-name combat
+  branches were added. Timed input policies are opt-in offline test oracles only.
+- Final shared-boundary regression passed all five strict Kyo GGPO scenes with 6,424
+  matching replay frames, all eight melee scenes, all eight projectile scenes,
+  native/native multi-round KO and ordinary sampled Kyo AI-input movement/sprite upload.
+  Evidence: `sync-melee-20261006-041827-640.stderr.txt` through
+  `sync-ko-reset-20261006-042001-259.stderr.txt`,
+  `melee-foreign-hit-20261006-042030-644.stderr.txt` through
+  `melee-foreign-ko-20261006-042315-228.stderr.txt`,
+  `projectile-foreign-hit-20261006-042327-921.stderr.txt` through
+  `projectile-foreign-rounds-20261006-042655-379.stderr.txt`,
+  `baseline-20261006-042725-337.txt` and `foreign-20261006-042818-120.stderr.txt`.
+- The extended keyboard tool's original Kyo mode also passed on the final executable:
+  `controls-practice-20261006-042908-138843` and
+  `controls-match-20261006-042924-378682`. Inspected native crossover and KO PNGs;
+  controls, readable edge label, facing and source projectile KO remain verified.
+  Five final interactive scenes now cover the authored rulesets and original Kyo path.
+- The ruleset phase A-D is verified within its documented scope. Ten core checks,
+  15,080 authored strict replay frames (six scenes plus strengthened parry repeat),
+  6,424 final Kyo replay frames, native contact/lifecycle regressions and real SDL input
+  all pass. The new defense acceptance covers ground melee; projectile deflection,
+  simultaneous resource/parry contacts, physical human feel, other devices/displays,
+  exhaustive source behavior and online netplay remain unmeasured.
+- Updated the work plan with the next real-adapter gate: inspect the user's exact
+  Steam Xrd edition/build and trustworthy behavior/asset sources before choosing a
+  bounded fighter/move and host presentation route. No Xrd adapter or assets have been
+  implemented/imported. Kept the authored guests clearly distinguished from real games.
+- No game/helper processes remain. Final diff whitespace and changed tool syntax pass;
+  all code/setup changes and the maintained host patch were validated in the preceding
+  implementation step. This completion record changes documentation only, plus the
+  keyboard tool's scene-count description.

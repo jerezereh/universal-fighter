@@ -1,4 +1,4 @@
-"""Interactive SDL keyboard check: focuses IKEMEN, drives two local matches, saves screenshots.
+"""Interactive SDL keyboard check: focuses IKEMEN, drives local match scenes, saves screenshots.
 
 Uses the pinned Universal Modder WinDrive script. Close other IKEMEN instances first.
 No AI or foreign input probe drives P1. Requires an unlocked Windows desktop.

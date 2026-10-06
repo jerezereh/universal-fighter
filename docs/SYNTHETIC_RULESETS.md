@@ -31,6 +31,8 @@ guardstun, received-hit increment or cancel confirmation. It does not grant atta
 stun or emulate native parry triggers. Throws, native custom states and reversals remain
 excluded. The authored guests have no projectile or air-normal move; universal juggle,
 priority, simultaneous trades and original-game fidelity are outside this phase.
+Host acceptance of the new defenses covers ground melee; projectile deflection and
+simultaneous resource/parry contacts remain unmeasured.
 
 ```powershell
 # Rebuild with tools/build-runtime.sh using the Windows setup in MODDING_PLAN.md.
