@@ -142,3 +142,27 @@ def observe(process, p):
     if uint(p['module_base']+p['engine_global_rva'])!=root or process.read(root+f['slots'],8)!=struct.pack('<2I',*slots):
         raise ValueError('native scene changed during observation')
     return dict(entities=count,fighters=result,atomic_native_frame=False)
+
+
+def boundary_candidate(code, code_rva, candidate, rows):
+    """Validate a local counter-writer's enclosing thiscall routine, not its semantics."""
+    rva,writer,size=(candidate[k] for k in ('rva','writer_rva','code_size'))
+    if any(type(v)!=int for v in (rva,writer,size)):
+        raise ValueError('non-integer native candidate')
+    start=rva-code_rva;end=start+size
+    if not 0<start<end<=len(code) or not 16<=size<=8192 or code[start-1]!=0xcc or code[end-1]!=0xc3:
+        raise ValueError('invalid bounded no-stack-argument function extent')
+    if not rva<=writer<rva+size or not rows or rows[0]['address']!=rva or rows[-1]['address']!=rva+size-1 or rows[-1]['op']!='ret' or rows[-1]['args']:
+        raise ValueError('disassembly does not cover candidate boundaries')
+    if not any(r['op']=='mov' and r['args']=='esi,ecx' and r['address']<rva+128 for r in rows):
+        raise ValueError('missing thiscall object alias')
+    row=unique([r for r in rows if r['address']==writer],'counter writer instruction')
+    field=re.fullmatch(r'DWORD PTR \[esi\+0x([0-9a-f]+)\]',row['args'])
+    if row['op']!='inc' or not field: raise ValueError('candidate is not an object counter increment')
+    counter=int(field[1],16)
+    if not 0<counter<4<<20 or counter%4: raise ValueError('unbounded counter field')
+    # Require the actual instruction bytes as well as the disassembler's text.
+    at=writer-code_rva
+    if code[at:at+6]!=b'\xff\x86'+struct.pack('<I',counter): raise ValueError('counter instruction bytes disagree')
+    return dict(rva=rva,writer_rva=writer,code_size=size,counter_field=counter,
+                function_hex=code[start:end].hex(),validated_semantics=False)

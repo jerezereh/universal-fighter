@@ -833,3 +833,35 @@ the synthetic architecture gate allows the first real-game adapter.
   control and exact stepping, isolated source RGBA, universal result commits/native
   contact suppression, and mixed match acceptance. SIGN is still not a playable
   passthrough guest. Snapshot/rollback capabilities remain unsupported.
+
+### SIGN native return-boundary instrumentation (2026-10-06)
+
+- Added a checksum-pinned local Frida gatherer, temporary native observer and authored
+  validation. Candidate derivation checks bounded function/return alignment, thiscall
+  object alias, exact counter-writer instruction bytes and aligned field bounds. Retail
+  candidates/addresses/function bytes are confined to ignored local artifacts.
+- This package advances beyond VM_READ polling: Frida injects instrumentation and
+  temporarily intercepts the loaded entry, while the original routine runs unchanged.
+  No source input, native function invocation, freeze or source-file edit is performed.
+  Both fighters' bounded state/name/collision blocks are copied on the calling thread
+  at return and decoded by the existing reader. Exceptions cannot skip subsequent
+  teardown attempts. Loaded code and original executable hashes are checked afterward.
+- Live five-/thirty-second idle traces give 284/1,418 observations: every candidate
+  counter delta is one, zero continuity gaps, one thread/caller, depth zero and the
+  expected inner-engine object relationship. All 1,702 Sol pose/box snapshots match
+  imported source collision exactly; zero mismatches/unmapped poses/trace errors.
+  Both sessions detach cleanly and restore the complete loaded-code hash.
+- Static caller inspection finds one direct call and no consumed return value. The
+  increment has more native work after it, so return observation is used. This is a
+  verified observed update boundary, not accepted global frame atomicity/render timing.
+  Movement/Punch, native pause/hitstop, input sampling and other-thread ownership still
+  need oracles. All real producer capabilities remain false.
+- Checks: authored counter/function/capture bounds and byte disagreement rejection,
+  captured-memory reuse against the existing state fixture, existing native/state tests,
+  Python/JavaScript syntax and diff checks. No host runtime changed. Development wheel
+  installs/reinstalls locally from its checksum-verified cache; no global dependencies.
+- Evidence: ignored live probe `20261006-231049-679826`, local
+  `battle-owner-candidate.json`, `battle-owner.asm.txt`, `battle-caller.asm.txt`,
+  `boundary-20261006-235242-143310` and `boundary-20261006-235324-797061`.
+  The next native experiment is a bounded fail-open freeze/step gate, followed by input
+  routing and isolated source RGBA. Source UI remains under the user's control.

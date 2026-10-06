@@ -129,6 +129,48 @@ invalid parents/counts/NaN/slot rejection and explicitly unsynchronized status. 
 establishes live state access and one source-normal collision oracle. Native stepping,
 isolated RGBA, input injection and contact suppression remain unimplemented.
 
+## Native return-boundary trace (2026-10-06)
+
+A bounded local disassembly now identifies the enclosing routine of an object counter
+increment. Its entry aliases ECX to ESI, its final return has no stack arguments, and
+the writer instruction bytes agree with the decoded aligned counter field. The counter
+increment occurs before further work, so the observer captures at the routine's return.
+One direct caller passes the inner engine object and does not consume a return value.
+All retail addresses, candidate profiles and disassembly remain ignored local evidence.
+
+`gather-xrd-instrumentation.py` caches checksum-pinned Frida 17.22.2 in `local-cache`.
+It is development tooling only, with no source-directory or global Python installation.
+`xrd-sign-boundary.py` validates the exact source hash, session and entire loaded code
+before using Frida's temporary entry interception. Unlike the VM_READ polling tool,
+this **injects instrumentation and temporarily patches loaded code**. The original
+routine runs unchanged; there is no replacement, native invocation or input injection.
+Both fighters' scalar/name blocks and collision records are copied on the calling
+thread at return, then decoded using the existing bounded state reader. Callbacks record
+counter before/after, thread, depth, caller and the engine object's relationship.
+
+```powershell
+python tools/gather-xrd-instrumentation.py
+python tools/xrd-sign-boundary.py <live-probe-folder> --candidate <local-candidate.json> --seconds 30
+python tools/xrd-sign-state-check.py <boundary-folder> --collision <import-folder>/COL_SOL.bin
+python tools/test-xrd-boundary.py
+```
+
+The candidate JSON contains session-derived `rva`, `writer_rva` and `code_size`, obtained
+from local writer/owner disassembly. This intentionally does not select an arbitrary
+counter or publish a retail signature. A restart requires a fresh probe/profile and
+candidate verification. Teardown attempts stop, unload and detach independently, then
+checks that the entire loaded code hash is restored and the disk executable is unchanged.
+
+Two live idle traces contain 284 and 1,418 return observations. Every invocation advances
+the candidate counter by exactly one, with zero continuity gaps, one thread, depth zero,
+one caller and ECX equal to the engine root plus its inner-object adjustment. All
+1,702 Sol pose/box lists match the original collision archive, with zero mismatches,
+unmapped poses or trace errors. Both hooks detach and restore the loaded code hash.
+This verifies a consistent **observed update boundary**, not a complete simulation-frame
+contract. Movement/attacks under this hook, other-thread state ownership, input sampling,
+hitstop/pause and rendering remain unverified. `native_tick_verified`,
+`atomic_native_frame`, `host_step`, `isolated_rgba` and `universal_contact` remain false.
+
 ## Gate after a loaded-module match
 
 A unique signature is only a candidate. Before building a producer around it:

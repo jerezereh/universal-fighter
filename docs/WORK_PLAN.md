@@ -117,6 +117,14 @@ Movement/crossover, source simulation frame identity, native stepping, isolated 
 and contact suppression remain pending. See `XRD_SIGN_NATIVE_PROBE.md` for the exact
 probe/observation commands and evidence limits.
 
+A temporary native entry/return observer now verifies one bounded engine update routine:
+two idle traces give 1,702 consecutive counter increments and exact Sol pose/box matches,
+one thread/caller and clean hook removal with restored loaded-code hashes. Source
+function bytes and counter fields are derived locally, never committed as retail profiles.
+This establishes a consistent observed return boundary. Exact stepping, input/render
+association, hitstop/pause and other-thread ownership remain gates; producer capabilities
+are still false. The next experiment is a bounded fail-open gate around this routine.
+
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a
 deliverable. Every behavior change needs focused validation; visual match acceptance
