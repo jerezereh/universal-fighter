@@ -640,3 +640,43 @@ the synthetic architecture gate allows the first real-game adapter.
   ordinary launcher save/config/cloud effects were not instrumented for immutability.
   The offline file/render implementation can proceed while interactive source acceptance
   remains open. DLLs, cabinets, temporary diagnostics and outputs are not committed.
+
+### SIGN source reference, palette correction and renderer verification (2026-10-06)
+
+- Follow-up startup resolved the apparent blocker: BootGGXrd with the verified local
+  DirectX DLL cache launches the unmodified SIGN window. Its child is distinct from the
+  bootstrap; direct executable failure is not the supported source-check route. Added a
+  fingerprinted launcher wrapper with duplicate-instance rejection and caller-PATH restore.
+  PowerShell syntax, duplicate rejection and unchanged PATH pass; the bootstrap/cache
+  startup route was exercised directly. A fresh invocation of the complete wrapper remains
+  pending while the user controls the existing source session.
+- The user took over the UI, reached offline Sol-versus-Ky training and identified J as
+  Punch. Captured idle/source colors and a delayed full-size recording with left-facing
+  Sol and repeated P labels. Initial mixed inputs/dummy-recording and a minimized-window
+  recording are not isolated-normal acceptance. Nominal 60 FPS video metadata is not a
+  source simulation tick trace. No automated input was sent after the user took control;
+  the original training window remains under user control.
+- The reference exposed a real material-selection error: 0100 was assumed to be the
+  standard color, but 0101 matches observed brown hair/cream trousers. Imported a fresh
+  palette-1 slice with all independent export/hash checks passing (224 material exports).
+  Import defaults to 1 with explicit 0..19 selection; the baker selects the receipt's
+  material package and checks its fingerprint. Legacy 0100 receipts still prepare correctly.
+  Source palette/bake diagnostics stay ignored; no speculative UV workaround was adopted.
+- Added independent glTF skinning versus Blender evaluated-vertex checks before rendering,
+  including reverse point coverage. Six samples/three parts pass on the original diagnostic
+  slice: 242,058 vertices, maximum error 1.1138e-6 m at 2e-4 m tolerance. The new palette's
+  samples 0/10/25 also render and pass all nine part checks; inspected sample 10 confirms
+  the corrected broad colors. Face/shader/controller/timing fidelity remains incomplete.
+- Runnable authored Blender check passes for a known translated triangle and rejects
+  wrong object transforms and geometry. Package/framing and animation/scale-link checks
+  pass again on the current tooling/import. Python syntax and diff checks pass. No host
+  boundary or runtime changed, so no new host combat/rollback result is claimed.
+- Receipts: `extracted/xrd-sign/20261006-190504-381493/inspection.json`, its
+  `pose-previews/20261006-190814-461223/preview.json`, and the earlier six-sample
+  `extracted/xrd-sign/20261006-173333-690750/pose-previews/20261006-183228-781543/preview.json`.
+  Manual captures are under ignored `artifacts/xrd-sign-oracle/training`. Source executable
+  and selected packages remain unmodified; normal source-game player-data creation occurred.
+- Following the strategy discussion, recorded a native passthrough feasibility slice as
+  the next investigation for modern 3D fighters. Extraction remains an oracle/fallback;
+  source render isolation, exact stepping, cross-game contacts and state restore remain
+  unimplemented gates, with no claim that Rev2 hook support transfers to this SIGN build.

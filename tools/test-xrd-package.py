@@ -49,6 +49,13 @@ rejects(lambda data: instructions(data, sizes), bad)
 print('Authored native-size/framing/ambiguity checks passed')
 
 root = Path(__file__).resolve().parent.parent
+import importlib.util
+spec = importlib.util.spec_from_file_location('xrd_sign_import', root/'tools/xrd-sign-import.py')
+importer = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(importer)
+for invalid_palette in (-1, 20):
+    rejects(lambda value: importer.inspect(root, True, value), invalid_palette)
+print('Unsupported palette rejection passed before source access')
 stock = root/'extracted/xrd-sign/packages/SOL_DAT_SF.upk.dec'
 if stock.is_file():
     virtual, names, exports = package(stock.read_bytes(), lzo_decoder((root/'local-cache/xrd-tools/lzo.dll').resolve()))

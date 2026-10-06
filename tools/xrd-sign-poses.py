@@ -32,6 +32,14 @@ def prepare(folder, clip, frames):
     receipt = json.loads((folder/'inspection.json').read_text())
     if not receipt['complete'] or receipt['backend'] != 'xrd-sign-inspection':
         raise ValueError('incomplete source inspection')
+    materials = [name for name in receipt['packages'] if name.startswith('SOL_MAT_01')]
+    if len(materials) != 1:
+        raise ValueError('missing/ambiguous source palette package')
+    material_package = materials[0]
+    material_folder = folder/'graphics'/material_package.removesuffix('.upk')/'Texture2D'
+    material_source = folder/(material_package+'.dec')
+    if digest(material_source) != receipt['packages'][material_package]['decoded_sha256']:
+        raise ValueError('material package fingerprint changed')
     source = folder/'SOL_ANM_BTL_01_SF.upk.dec'
     if digest(source) != receipt['packages']['SOL_ANM_BTL_01_SF.upk']['decoded_sha256']:
         raise ValueError('animation package fingerprint changed')
@@ -41,11 +49,12 @@ def prepare(folder, clip, frames):
     report = {'schema': 1, 'clip': clip, 'frames': frames, 'sprite_mapping_verified': False,
               'visual_accepted': False, 'source_shader_reproduced': False,
               'native_scale_controllers_applied': False, 'diagnostic_scale_mode': 'local-held-key',
-              'rendered': False, 'parts': {}, 'inputs': {str(source): digest(source)}}
+              'rendered': False, 'material_package': material_package,
+              'parts': {}, 'inputs': {str(source): digest(source), str(material_source): digest(material_source)}}
     for part, (mesh_name, set_name, texture_name) in PARTS.items():
         mesh = folder/'graphics/SOL_MSH_01_SF/SkeletalMesh3'/f'{mesh_name}.gltf'
         anim_file = folder/'graphics/SOL_ANM_BTL_01_SF/AnimSet'/f'{set_name}.psa'
-        texture = folder/'graphics/SOL_MAT_0100_SF/Texture2D'/f'{texture_name}.png'
+        texture = material_folder/f'{texture_name}.png'
         animation = psa(anim_file.read_bytes())
         entry = next(x for x in exports if x['class'] == 'AnimSet' and x['name'] == set_name)
         props = object_properties(virtual, names, entry)
@@ -133,6 +142,13 @@ if __name__ == '__main__':
         if result.returncode or not all((output/f'sample-{x}.png').is_file() for x in frames):
             raise RuntimeError(f'preview render failed: {output}/blender.log')
         report = json.loads((output/'preview.json').read_text())
+        skinning = json.loads((output/'skinning-checks.json').read_text())
+        if set(skinning) != {f'{part}-{frame}' for part in PARTS for frame in frames}:
+            raise ValueError('incomplete renderer skinning verification')
+        if any(x['max_nearest_error_m'] > x['tolerance_m'] for x in skinning.values()):
+            raise ValueError('renderer skinning verification failed')
+        report['gltf_skinning_verified'] = True
+        report['skinning_checks'] = skinning
         if any(digest(Path(path)) != value for path, value in report['inputs'].items()):
             raise ValueError('source export changed during rendering')
         report['renders'] = {}

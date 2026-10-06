@@ -58,12 +58,48 @@ Bounded animation sampling now matches Sol's body/head/weapon tracks by bone nam
 reads their source scale-key metadata. A six-sample Blender base-color diagnostic bake
 renders successfully. This is a presentation investigation, not accepted source sprites:
 native timing/scale evaluation, facial blending and toon passes remain incomplete.
+Independent glTF/Blender skinning checks now pass, and a source-game reference corrected
+the chosen standard-color material from palette 0100 to 0101. Original SIGN training has
+been reached through its official bootstrap and the local DirectX cache; the user drives
+the UI and source inputs while capture remains read-only.
 
 Remaining gates are command semantics/defaults, source clock and coordinate/facing
 oracles, verified 3D-pose sampling/toon presentation, a distinct guest runtime and mixed
-match/replay/SDL regressions. The proposed route bakes original 3D poses into host sprite
-frames. See `XRD_SIGN_MODDING_PLAN.md` and the runnable importer/checks. The authored
+match/replay/SDL regressions. The bounded sprite bake remains a fallback and oracle;
+the next preferred investigation is passthrough feasibility below.
+See `XRD_SIGN_MODDING_PLAN.md` and the runnable importer/checks. The authored
 mobility ruleset remains an architecture proof, not Xrd behavior.
+
+## Next approach for newer 3D fighters: passthrough feasibility
+
+Recommendation following the user's strategy discussion: test the original engine as a
+guest simulation/renderer before expanding the SIGN bake or translated moveset. This
+would reuse source animation, materials and effects and may avoid reconstructing large
+parts of the game's rules. Feasibility remains edition-specific; Rev2 mod features do
+not establish working SIGN hooks. The handoff already permits a passthrough runtime and
+does not require rollback networking for the MVP. Keep reproducible stepping as a gate;
+do not silently claim that the existing rollback/snapshot guarantees cover a guest process.
+
+1. **Render/state proof:** inspect the exact SIGN build's hook route. Obtain an isolated
+   Sol render layer and read position, facing, action, collision/attack state and source
+   frame identity. A whole-window video over an IKEMEN stage is not this proof. Begin with
+   a small local transport; optimize GPU sharing only after correctness is demonstrated.
+2. **Controlled stepping:** accept sampled host inputs, freeze the guest when the host
+   pauses and advance exactly one guest simulation tick per requested step. Associate the
+   published image/state with that tick; measure stale frames and latency. Stop if only
+   unsynchronized real-time window capture is available.
+3. **Combat integration:** mirror the opposing fighter's relevant state, suppress duplicate
+   source contacts and translate both directions of universal combat results into source
+   damage/guard/hitstop/reactions. Prove one normal, one contact per activation, KO and reset
+   without fighter-name branches. Read the pinned host boundary before implementing changes.
+4. **Capability decision:** audit source state ownership and restore/replay feasibility.
+   A bounded offline passthrough may precede full rollback support, but unsupported modes
+   must fail explicitly. If native simulation control is insufficient, compare a native
+   renderer plus owned rules adapter against the existing extraction/translation fallback.
+
+No native hook, guest transport, transparent layer, synchronized stepping or cross-game
+passthrough contact has been implemented or accepted yet. This is the next decision gate,
+not a completed architecture switch. The existing Kyo and authored runtimes stay usable.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

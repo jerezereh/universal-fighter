@@ -57,3 +57,8 @@ Steam cabinet location can be supplied with `-CabinetRoot`. Windows searches an 
 application's child PATH after its standard DLL locations; see
 [Microsoft's DLL search order](https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order).
 This fixes the observed missing-library loader stage, not every SIGN startup failure.
+The subsequent working route uses the **official BootGGXrd bootstrap** with that
+child-only PATH. `./tools/play-xrd-source.ps1` fingerprints both executables, verifies
+the cached DLL hashes, rejects duplicate instances and restores the caller's PATH.
+It opens the original game for manual offline checks; the game creates its normal player
+data. Bootstrap command-line window/audio flags were not observed to reach the child.

@@ -2,6 +2,8 @@
 
 Status 2026-10-06: installed edition and offline extraction route verified. A playable
 Xrd guest has not been implemented. The authored air-dash ruleset is separate.
+The next recommended investigation is native passthrough feasibility; retain the bounded
+import/bake as a fallback and oracle. See `WORK_PLAN.md` for the acceptance gates.
 
 ## Verified local target
 
@@ -76,9 +78,9 @@ structurally readable; original toon materials, complete head/body/weapon animat
 alignment and visual fidelity are not accepted. Unknown material properties were
 reported during export, so successful export alone is not a presentation result.
 
-## Route and acceptance gates
+## Extraction fallback and acceptance gates
 
-Keep the IKEMEN runtime seam and 2D arena. Proposed presentation route: bake the user's
+Keep the IKEMEN runtime seam and 2D arena. Fallback presentation route: bake the user's
 extracted 3D mesh/animation into sprite frames, retaining original collision data and
 separately simulated SIGN rules. Validate one textured pose and one complete normal
 animation before baking broadly. This avoids a speculative 3D host rewrite.
@@ -149,3 +151,40 @@ Use the actual graphics-import folder printed by the importer. Outputs get a fre
 scale keys, image hashes/dimensions and Blender fingerprint. It separately flags rendered
 output, pending sprite mapping, incomplete native scale behavior and unaccepted shaders.
 No animation sequence clock is promoted to the fighter simulation clock.
+
+## Source reference and corrected palette
+
+After caching the missing signed x86 DirectX libraries, the **official BootGGXrd** launch
+creates the original SIGN window. Direct executable launch had returned 0xC0000409;
+that result does not describe the working bootstrap route. The source game displayed
+normal first-run replay-data creation. Executable/package fingerprints remain unchanged;
+normal player-data effects are not claimed immutable. `play-xrd-source.ps1` captures the
+working launch/environment route and rejects a duplicate live instance.
+
+The user reached Sol versus Ky in offline training and took over UI/input control.
+Read-only native-window captures show standard Sol with brown hair and cream trousers,
+right-facing idle, left-facing idle and repeated Punch input labels after the user identified
+J as Punch. The first action capture contained other attacks/dummy-recording mode. A second
+capture started minimized (620x96) and is unusable. A delayed full-size capture is usable;
+its nominal video timestamps are not verified guest simulation ticks or frame data.
+
+The prior assumed standard palette `SOL_MAT_0100_SF` was wrong for that reference.
+Copied/exported `SOL_MAT_0101_SF` gives matching brown hair and cream trousers in the bake.
+The importer now defaults to palette 1, allows explicit package indices 0..19, records
+the choice and independently verifies the selected export table (224 exports for 0101).
+The baker uses the receipt's single material package and verifies its decoded fingerprint;
+older 0100 receipts remain usable. No UV-flip/swizzle workaround was adopted: those
+diagnostics distorted other atlas details. Facial blending, toon passes, source pose clock
+and collision/facing transforms still require verification.
+
+An independent standard glTF skinning calculation now checks Blender's evaluated world
+vertices in both directions before each render. All six selected samples across three
+parts pass: 242,058 evaluated vertices, maximum error about 1.12e-6 meters against a
+2e-4-meter tolerance. This verifies transport of the specified exported poses, not native
+SIGN controller semantics. An authored translated triangle passes and deliberately wrong
+object transforms/geometry are rejected. The receipt includes the check results.
+
+Primary evidence for possible hook capabilities exists in the
+[Rev2 overlay source](https://github.com/kkots/ggxrd_hitbox_overlay_2211): frame stepping,
+opponent hiding and transparent screenshots. Those features are not verified for SIGN,
+and screenshots alone do not implement synchronized fighter passthrough.

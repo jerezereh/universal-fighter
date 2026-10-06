@@ -62,6 +62,8 @@ offline tool setup is `./tools/gather-xrd-tools.ps1`; `python tools/xrd-sign-imp
 --graphics` inspects a copied Sol/common slice and exports original graphics into ignored
 storage. `python tools/test-xrd-package.py` checks its reader/native framing. SIGN move
 semantics, rendered fidelity and a playable guest runtime remain under implementation.
+Graphics import now defaults to palette `0101`, matching the standard Sol colors in the
+original-game reference. Use `--palette 0` to reproduce earlier `0100` diagnostic imports.
 
 `python tools/xrd-sign-poses.py <import-folder> --frames 0,5,10,15,20,25 --blender
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe"` creates a diagnostic Sol
@@ -71,3 +73,12 @@ sprite suffixes. Base-color textures and held local scale keys are previews; fac
 native scale evaluation and toon passes are incomplete. `python tools/test-xrd-animation.py`
 checks the animation reader, rig binding and local metadata links. All generated assets
 remain ignored and no Xrd fighter is bound to the host yet.
+Every rendered part/sample now passes an independent comparison between glTF skinning
+and Blender's evaluated vertices. The authored integration check runs with
+`blender --background --factory-startup --python tools/test-xrd-gltf.py`.
+
+`./tools/gather-xrd-oracle.ps1` and `./tools/play-xrd-source.ps1` prepare and launch the
+original SIGN bootstrap for manual offline comparisons. They change no global runtime
+installation or permanent PATH. For newer 3D fighters, the next investigation is a native
+passthrough feasibility slice; see the work plan. The importer/baker remains a fallback
+and a source-data oracle.

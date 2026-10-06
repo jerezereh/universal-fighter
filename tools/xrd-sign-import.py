@@ -32,7 +32,9 @@ def command(args, folder, label):
     return result.stdout.decode('utf-8', errors='replace')
 
 
-def inspect(game, graphics):
+def inspect(game, graphics, palette=1):
+    if not 0 <= palette <= 19:
+        raise ValueError('unsupported local SIGN palette index')
     exe = game / 'Binaries/Win32/GuiltyGearXrd.exe'
     executable = exe.read_bytes()
     fingerprint = hashlib.sha256(executable).hexdigest()
@@ -54,11 +56,12 @@ def inspect(game, graphics):
     report = {'schema': 1, 'backend': 'xrd-sign-inspection', 'appid': 376300, 'exe_sha256': fingerprint,
               'complete': False, 'behavior_decoded': False, 'visual_accepted': False,
               'instruction_boundaries_verified': True,
+              'palette': palette if graphics else None,
               'tools': {key: references[key]['commit'] for key in ('xrdDecrypt', 'ueViewer')},
               'tool_hashes': {p.name: digest(p) for p in (decoder, lzo, viewer)}, 'packages': {}}
     selected = ['SOL_DAT_SF.upk', 'CMN_DAT_SF.upk']
     if graphics:
-        selected += ['SOL_MSH_01_SF.upk', 'SOL_ANM_BTL_01_SF.upk', 'SOL_MAT_0100_SF.upk']
+        selected += ['SOL_MSH_01_SF.upk', 'SOL_ANM_BTL_01_SF.upk', f'SOL_MAT_01{palette:02d}_SF.upk']
     for name in selected:
         source = game / 'REDGame/CookedPCConsole' / name
         before = digest(source)
@@ -107,5 +110,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--game', type=Path, default=Path('C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-'))
     parser.add_argument('--graphics', action='store_true', help='also export Sol mesh, animation and default-color packages')
+    parser.add_argument('--palette', type=int, choices=range(20), default=1,
+                        help='material package palette; 1 matches the captured standard Sol colors')
     args = parser.parse_args()
-    inspect(args.game.resolve(), args.graphics)
+    inspect(args.game.resolve(), args.graphics, args.palette)

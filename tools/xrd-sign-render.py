@@ -6,12 +6,18 @@ import sys
 import bpy
 from mathutils import Vector
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from xrd_gltf_check import check_skin
+
 folder = Path(sys.argv[sys.argv.index('--')+1])
 report = json.loads((folder/'preview.json').read_text())
+checks = {}
 for frame in report['frames']:
     bpy.ops.wm.read_factory_settings(use_empty=True)
     for part, data in report['parts'].items():
         bpy.ops.import_scene.gltf(filepath=str(folder/f'{part}-{frame}.gltf'))
+        imported = list(bpy.context.selected_objects)
+        checks[f'{part}-{frame}'] = check_skin(folder/f'{part}-{frame}.gltf', imported)
         image = bpy.data.images.load(data['texture'], check_existing=True)
         for obj in bpy.context.selected_objects:
             if obj.type != 'MESH':
@@ -47,3 +53,4 @@ for frame in report['frames']:
     scene.camera = camera
     scene.render.filepath = str(folder/f'sample-{frame}.png')
     bpy.ops.render.render(write_still=True)
+(folder/'skinning-checks.json').write_text(json.dumps(checks, indent=2), encoding='utf-8')
