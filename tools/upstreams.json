@@ -23,5 +23,15 @@
     "url": "https://github.com/rehan-remade/universal-modder.git",
     "commit": "0f5dcdfdcd8ed420f8413815bd6647586ab894a2",
     "path": "tools/references/universal-modder"
+  },
+  "xrdLegacyOverlay": {
+    "url": "https://gist.github.com/AltimorTASDK/e236da6255d16b3ddd3e.git",
+    "commit": "f380ffb436a45271cc8c81e4025eb7551e800846",
+    "path": "tools/references/xrd-overlay-legacy"
+  },
+  "xrdRev2Overlay": {
+    "url": "https://github.com/kkots/ggxrd_hitbox_overlay_2211.git",
+    "commit": "996e5b86e41bb37137bd74b74483335517fa947c",
+    "path": "tools/references/xrd-overlay"
   }
 }

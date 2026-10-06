@@ -741,3 +741,37 @@ the synthetic architecture gate allows the first real-game adapter.
   outside v1. Physical controls and live keyboard pause/frame advance for this new
   backend are pending interactive acceptance; core pause gating is verified separately.
   No SIGN UI automation or input was performed during this implementation.
+
+### SIGN producer: read-only native discovery tooling (2026-10-06)
+
+- Added `xrd_native.py` and `xrd-sign-probe.py` as the next native passthrough gate.
+  The original tool validates the exact SIGN executable/app, bounded PE32 sections,
+  process path/build and actual loaded module. Handles request VM_READ and limited
+  query rights only; there are no write/inject/suspend/remote-call APIs or source input
+  automation. Loaded code, candidate addresses and receipts remain ignored artifacts.
+- Pinned Altimor's legacy overlay gist at `f380ffb436a45271cc8c81e4025eb7551e800846`
+  and kkots' Rev2 overlay at `996e5b86e41bb37137bd74b74483335517fa947c` in the existing
+  bootstrap manifest. The scanner reads fifteen active discovery declarations from the
+  pinned legacy reference rather than shipping retail addresses or copied mod code.
+  Rev2 source is a stepping/render reference only; its offsets/ABI were not transplanted.
+- On the fingerprinted disk image all fifteen executable-code scans return no
+  candidates. PE metadata includes a `.bind` section and initial code bytes are opaque.
+  Packing remains a hypothesis, not a verified cause or proof of edition incompatibility.
+  The next check compares the normally launched loaded module with the disk image.
+- Checks pass: authored PE/header/section/image bounds; disabled-reference handling;
+  unique/missing/ambiguous matches and adjustment bounds; candidate-only classification.
+  A real own-process Windows oracle verifies exact read bytes, module enumeration,
+  process-identity guards and failed-read handling. `bootstrap.ps1` verifies both pins,
+  Python syntax passes, and the disk receipt keeps all source passthrough capabilities
+  false while confirming the original executable hash is unchanged.
+- Receipts: `artifacts/xrd-sign-native/20261006-222830-078668/inspection.json` and final
+  repeat `artifacts/xrd-sign-native/20261006-223336-464117/inspection.json`, including
+  overlapping-match ambiguity handling.
+  Commands: `python tools/test-xrd-native.py`, `python tools/xrd-sign-probe.py` and
+  `./tools/bootstrap.ps1`. This package changes no host runtime or maintained IKEMEN
+  patch, so no new native match/rollback behavior is claimed.
+- Live SIGN was not running; the user was asked to open offline Sol-versus-Ky training
+  and retain manual UI/input control. The own-process reader check is not a live SIGN
+  result. Loaded candidate semantics, source clock/state graph, exact native stepping,
+  isolated source RGBA and source contact suppression remain unverified/unimplemented.
+  `XRD_SIGN_NATIVE_PROBE.md` records the runnable manual probe route and next gates.

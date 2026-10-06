@@ -188,3 +188,13 @@ Primary evidence for possible hook capabilities exists in the
 [Rev2 overlay source](https://github.com/kkots/ggxrd_hitbox_overlay_2211): frame stepping,
 opponent hiding and transparent screenshots. Those features are not verified for SIGN,
 and screenshots alone do not implement synchronized fighter passthrough.
+
+## Native producer investigation
+
+The generic IKEMEN receiver now exists; SIGN's source producer is still pending.
+`xrd-sign-probe.py` supplies a bounded read-only disk/loaded-module discovery route,
+with the legacy and Rev2 overlay references pinned as development-only upstreams.
+The fifteen legacy discovery signatures have no on-disk code candidates. A loaded
+module comparison is needed before interpreting that result; no reference offsets
+have been installed or accepted as SIGN hooks. See [XRD_SIGN_NATIVE_PROBE.md](XRD_SIGN_NATIVE_PROBE.md)
+for verified tool tests, manual offline source setup and the next native gates.

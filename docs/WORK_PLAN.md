@@ -106,6 +106,13 @@ receiver; no SIGN native hook/isolated source layer/native stepping/contact supp
 has been implemented or accepted. Those real-game producer gates above remain open.
 The existing Kyo and authored in-process runtimes stay usable.
 
+The SIGN producer investigation now has pinned legacy/Rev2 source references and a
+bounded read-only loaded-module probe. Disk signatures alone give no candidates;
+source startup may transform executable code, which must be compared live before
+choosing hooks. PE/signature/own-process Windows reader checks pass. Live SIGN
+candidate semantics, native stepping, isolated RGBA and contact suppression remain
+pending. See `XRD_SIGN_NATIVE_PROBE.md` for the exact manual-training probe route.
+
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a
 deliverable. Every behavior change needs focused validation; visual match acceptance
