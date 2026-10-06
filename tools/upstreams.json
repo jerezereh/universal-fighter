@@ -9,6 +9,16 @@
     "commit": "2d012f14f8fda6a8515879427adcfd422a20333d",
     "path": "backends/ikemen/build/screenpack"
   },
+  "xrdDecrypt": {
+    "url": "https://github.com/gdkchan/GGXrdRevelatorDec.git",
+    "commit": "e71c5f912b8b5499dd51a18547619e6057598186",
+    "path": "tools/references/xrd-decrypt"
+  },
+  "ueViewer": {
+    "url": "https://github.com/gildor2/UEViewer.git",
+    "commit": "a0bfb468d42be831b126632fd8a0ae6b3614f981",
+    "path": "tools/references/ueviewer"
+  },
   "universalModder": {
     "url": "https://github.com/rehan-remade/universal-modder.git",
     "commit": "0f5dcdfdcd8ed420f8413815bd6647586ab894a2",

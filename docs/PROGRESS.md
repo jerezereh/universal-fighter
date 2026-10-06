@@ -510,3 +510,30 @@ the synthetic architecture gate allows the first real-game adapter.
   all code/setup changes and the maintained host patch were validated in the preceding
   implementation step. This completion record changes documentation only, plus the
   keyboard tool's scene-count description.
+
+### Xrd SIGN reconnaissance and pinned extraction tools (2026-10-06)
+
+- Continued Ponytail and Universal Modder game-recon/reverse-engineering. Verified the
+  installed game is SIGN (Steam 376300, build 1028441), native x86, not Revelator/Rev2.
+  Recorded the executable fingerprint and package/edition evidence in
+  `XRD_SIGN_MODDING_PLAN.md`. The UM scan missed UE3; direct PE/package inspection
+  independently establishes UE3 868/2, engine 10246. Local KB CLI lacked PyYAML;
+  read/search of the pinned knowledge files supplied the relevant UE3 format notes.
+- Researched primary tool sources, pinned the SIGN-capable package decoder and UE Viewer
+  in `upstreams.json`, and added a minimal gather/build wrapper. Setup PS/Bash syntax
+  and actual builds passed. The first C# invocation used unsupported slash paths;
+  absolute Windows paths corrected it. Direct gcc needed the existing MSYS environment.
+- Decoded copies of Sol/common data, mesh, battle animation and default-color packages.
+  UE Viewer independently listed the data exports and exported original meshes,
+  six animation sets and textures. Its public download link returned HTTP 404;
+  the binary shipped in the pinned official source repository works. Its save operation
+  on a .dec filename failed an assertion and is not used by the import route.
+- Edition gate found real incompatibility: current Rev2/Rev script tables misread SIGN
+  lengths after seven instructions. No Rev2 hook, runtime defaults or synthetic meter
+  semantics are asserted as SIGN behavior. The next bounded candidate is Sol movement
+  and NmlAtk5A; complete semantics, timing, facing/coordinates and rendered fidelity
+  remain open. Current extracted assets are structurally verified, not visually accepted.
+- Source game, config and saves were not modified or launched. Extracted game data,
+  tool binaries, external tool source and temporary diagnostics remain ignored.
+  The package reader/import deliverable is still being validated as the next step;
+  no host/runtime boundary changed, so no new native match result is claimed here.
