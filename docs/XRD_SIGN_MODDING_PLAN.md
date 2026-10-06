@@ -111,3 +111,41 @@ covered by runnable checks. Its receipt explicitly keeps behavior/visual accepta
 
 The semantic/renderer/runtime gates remain open. This document records an extraction
 and instruction-framing proof; it does not mark the second real-game implementation complete.
+
+## Diagnostic animation bake (2026-10-06)
+
+`xrd_animation.py` reads pinned UE Viewer's PSA chunks with bounded frame partitions,
+sample transforms and matching UE3 property tags. `xrd-sign-poses.py` checks the decoded
+animation-package fingerprint, resolves each normal body/head/weapon AnimSet's `sol200`
+sequence, checks its frame count against PSA, and links source scale metadata through the
+corresponding animation tree's scale controllers. Every mesh joint must resolve to one
+PSA track by name, with matching roots. Body/head have 219/201 joints; the normal weapon
+has 37 joints drawn from a 48-track set also serving its high variant. Positional pairing
+would silently use the wrong weapon tracks and is rejected.
+
+All three sequences have 31 exported samples. Serialized sequence lengths are about
+0.516667 seconds for body/head and 0.5 for weapon; PSA rates are 60/60/62. Their scale
+metadata contains 23/2/2 controllers. Two weapon targets have near-zero initial scales:
+one belongs to the excluded high mesh, the other hides the normal mesh's alternate
+`obake` branch. PSA's empty SCALEKEYS chunk alone misses this behavior. The tooling
+retains the source scale keys and validates available targets against tree/bone links.
+
+The Blender preview uses explicit PSA indices 0,5,10,15,20,25, all distinct in each part.
+It undoes PSA mirroring and applies the pinned glTF axis/unit/root conversion, preserving
+the original inverse bind matrices. Diagnostic local scales hold the preceding source
+key; this does **not** establish the native controller's interpolation, spaces or child
+behavior. Only base material primitives render with original base-color textures using
+the first UV set. Retail outline/shadow/decal passes and facial blending remain open.
+The first inspected render exposed the oversized alternate weapon; the scale-key preview
+removes it. The face/colors remain incomplete, so these PNGs are not accepted host sprites.
+
+```powershell
+python tools/test-xrd-animation.py
+python tools/xrd-sign-poses.py <import-folder> --frames 0,5,10,15,20,25 --blender "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe"
+```
+
+Use the actual graphics-import folder printed by the importer. Outputs get a fresh ignored
+`pose-previews` directory; the receipt records inputs, explicit samples, source clocks,
+scale keys, image hashes/dimensions and Blender fingerprint. It separately flags rendered
+output, pending sprite mapping, incomplete native scale behavior and unaccepted shaders.
+No animation sequence clock is promoted to the fighter simulation clock.

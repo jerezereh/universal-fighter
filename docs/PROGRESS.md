@@ -580,3 +580,40 @@ the synthetic architecture gate allows the first real-game adapter.
   and instruction framing. Remaining work is semantic/default/clock oracles, verified
   source-pose rendering, a distinct runtime and mixed-match/replay/SDL acceptance.
   All game data/external tools remain ignored; only original tooling/docs are committed.
+
+### Xrd SIGN animation reader and diagnostic pose bake (2026-10-06)
+
+- Added bounded PSA sampling, UE3 tagged metadata/array/scale-key readers and a local Sol
+  pose-preview command. Reused the pinned package/LZO reader and installed Blender 5.2;
+  no new dependency, native hook, source-game launch or host/runtime edit was required.
+- Linked `sol200` through the actual body/head/weapon AnimSets, verified PSA/source frame
+  counts and corresponding animation-tree scale controls. Body/head track counts are
+  219/201. Initial positional weapon pairing failed the guard: its mesh has 37 joints but
+  PSA contains 48 tracks including high-variant bones. Exact name binding resolves every
+  mesh joint/root and leaves only excluded tracks unused.
+- Recorded the source clock difference: all three sequences have 31 exported frames;
+  body/head lengths are about 0.516667 seconds, weapon 0.5, with PSA rates 60/60/62. This
+  is not a verified engine frame clock or a sprite-suffix mapping.
+- Decoded 27 scale controllers (23 body, 2 head, 2 weapon), retaining their keys/times.
+  Weapon metadata nearly zeros the high and obake roots. The normal mesh excludes high;
+  the obake branch was visibly oversized in the initial unscaled render. Diagnostic
+  local held-key scales hide it, with target links checked against the source tree.
+  Native interpolation/control-space/child behavior remains unverified.
+- Rendered six explicit PSA samples (0,5,10,15,20,25) with original base-color textures,
+  correct first-UV selection and original bind matrices. Inspected samples 0/10/25.
+  These are distinct structural previews, not source-accepted sprites: facial blending,
+  hair/face colors, native scales, toon lighting and outline/shadow/decal passes are
+  incomplete. No host facing/pivot, physical controls or playable Xrd result is claimed.
+- Authored checks cover PSA chunks/truncation/duplicates/frame partitions, finite sampled
+  transforms, missing mesh tracks, mirror/basis/root conversion, metadata array bounds,
+  property tags and held-key preview selection. Local checks resolve all selected samples
+  on the three rigs, all 27 scale links and the hidden weapon branch. The original
+  package/framing checks pass again. An initial identity-quaternion assertion used the
+  opposite equivalent sign; the check now matches the documented mirror conversion.
+- The final render receipt is under
+  `extracted/xrd-sign/20261006-173333-690750/pose-previews/20261006-180143-760125`.
+  The bake checks PNG signature/640x640 dimensions and hashes, hashes the Blender binary,
+  and verifies all input export/package fingerprints remain unchanged. Source game,
+  config and saves are untouched; every extracted/posed/rendered asset stays ignored.
+- Remaining gates: native move semantics/defaults, source pose/time/facing oracle,
+  complete presentation, a distinct SIGN runtime and mixed match/replay/SDL acceptance.

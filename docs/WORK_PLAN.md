@@ -54,6 +54,10 @@ The installed target is SIGN, app 376300/build 1028441. Reconnaissance, pinned o
 tool setup, bounded Sol/common extraction, independent package-table comparison and
 native instruction framing are verified. The Sol `NmlAtk5A` candidate's pose literals
 link to the extracted collision family. Original source hashes remain unchanged.
+Bounded animation sampling now matches Sol's body/head/weapon tracks by bone name and
+reads their source scale-key metadata. A six-sample Blender base-color diagnostic bake
+renders successfully. This is a presentation investigation, not accepted source sprites:
+native timing/scale evaluation, facial blending and toon passes remain incomplete.
 
 Remaining gates are command semantics/defaults, source clock and coordinate/facing
 oracles, verified 3D-pose sampling/toon presentation, a distinct guest runtime and mixed

@@ -62,3 +62,12 @@ offline tool setup is `./tools/gather-xrd-tools.ps1`; `python tools/xrd-sign-imp
 --graphics` inspects a copied Sol/common slice and exports original graphics into ignored
 storage. `python tools/test-xrd-package.py` checks its reader/native framing. SIGN move
 semantics, rendered fidelity and a playable guest runtime remain under implementation.
+
+`python tools/xrd-sign-poses.py <import-folder> --frames 0,5,10,15,20,25 --blender
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe"` creates a diagnostic Sol
+sample bake using an installed Blender. Use the folder printed by the graphics importer;
+omit `--blender` to prepare posed glTFs only. Samples are explicit PSA indices, not verified
+sprite suffixes. Base-color textures and held local scale keys are previews; facial blends,
+native scale evaluation and toon passes are incomplete. `python tools/test-xrd-animation.py`
+checks the animation reader, rig binding and local metadata links. All generated assets
+remain ignored and no Xrd fighter is bound to the host yet.
