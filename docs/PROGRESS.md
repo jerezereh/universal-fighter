@@ -617,3 +617,26 @@ the synthetic architecture gate allows the first real-game adapter.
   config and saves are untouched; every extracted/posed/rendered asset stays ignored.
 - Remaining gates: native move semantics/defaults, source pose/time/facing oracle,
   complete presentation, a distinct SIGN runtime and mixed match/replay/SDL acceptance.
+
+### SIGN offline oracle dependency preparation (2026-10-06)
+
+- User approved briefly driving original SIGN offline training for pose comparison.
+  No game-window input or successful source capture occurred: direct, official launcher
+  and Steam startup attempts exited before a render window appeared. A session-scoped
+  diagnostic established the original executable's exit status as 0xC0000135.
+- PE imports and the x86 system-library inventory identified absent XInput1_3,
+  X3DAudio1_7 and XAPOFX1_5. The installed Steamworks Shared redistributables contain
+  the exact x86 DLLs in official April 2007/February 2010/June 2010 DirectX cabinets.
+- Added `gather-xrd-oracle.ps1`: extracts just those three libraries into a fresh ignored
+  directory, validates x86 PE headers and valid Microsoft signatures, and records source
+  cabinet/DLL hashes with unchanged-cabinet checks. It runs no installer and changes no
+  registry, global environment or game installation. A child-only PATH supplies the DLLs.
+- PowerShell syntax and actual extraction/signature/hash checks pass. The subsequent
+  no-sound source launch passes the missing-DLL stage but exits with 0xC0000409 before
+  rendering. That second startup failure remains undiagnosed; no original-game pose,
+  control, frame-clock or timing acceptance is claimed. Owned diagnostic processes closed.
+- These were normal source-game/Steam startup attempts, not hooks or patched game code.
+  Source executable and selected package fingerprints still match the import receipt;
+  ordinary launcher save/config/cloud effects were not instrumented for immutability.
+  The offline file/render implementation can proceed while interactive source acceptance
+  remains open. DLLs, cabinets, temporary diagnostics and outputs are not committed.

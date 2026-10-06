@@ -47,3 +47,13 @@ The project does not gather commercial-game assets or install Universal Modder p
 The separate KOF importer reads a user-specified local game installation; see
 `MODDING_PLAN.md`. Running `build-runtime.sh` applies the versioned host patch;
 the baseline builder alone does not apply it or remove existing patches.
+
+For SIGN source-game oracle checks, `./tools/gather-xrd-oracle.ps1` extracts three x86
+DirectX DLLs from the user's existing Steamworks Shared June 2010 cabinets into a fresh
+ignored cache. It verifies Microsoft Authenticode signatures, PE architecture and hashes;
+it runs no installer and changes no registry, global PATH or game files. Use the directory
+in `local-cache/xrd-tools/oracle-dependencies.json` only in a child game's PATH. A custom
+Steam cabinet location can be supplied with `-CabinetRoot`. Windows searches an unpackaged
+application's child PATH after its standard DLL locations; see
+[Microsoft's DLL search order](https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order).
+This fixes the observed missing-library loader stage, not every SIGN startup failure.
