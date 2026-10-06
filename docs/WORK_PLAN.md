@@ -107,11 +107,15 @@ has been implemented or accepted. Those real-game producer gates above remain op
 The existing Kyo and authored in-process runtimes stay usable.
 
 The SIGN producer investigation now has pinned legacy/Rev2 source references and a
-bounded read-only loaded-module probe. Disk signatures alone give no candidates;
-source startup may transform executable code, which must be compared live before
-choosing hooks. PE/signature/own-process Windows reader checks pass. Live SIGN
-candidate semantics, native stepping, isolated RGBA and contact suppression remain
-pending. See `XRD_SIGN_NATIVE_PROBE.md` for the exact manual-training probe route.
+bounded read-only loaded-module probe. Live bootstrap comparison confirms usable
+code absent from the disk scan. Engine global/position access is resolved through
+actual load/getter instructions and caller relationships; original offline training
+supplies fighter facing/idle boxes and a J/Punch `NmlAtk5A` collision oracle. Source
+box comparison passes all 4,468 samples in the normal capture. Another idle capture
+contains three mismatches, so observation is explicitly not an atomic native frame.
+Movement/crossover, source simulation frame identity, native stepping, isolated RGBA
+and contact suppression remain pending. See `XRD_SIGN_NATIVE_PROBE.md` for the exact
+probe/observation commands and evidence limits.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

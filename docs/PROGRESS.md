@@ -775,3 +775,61 @@ the synthetic architecture gate allows the first real-game adapter.
   result. Loaded candidate semantics, source clock/state graph, exact native stepping,
   isolated source RGBA and source contact suppression remain unverified/unimplemented.
   `XRD_SIGN_NATIVE_PROBE.md` records the runnable manual probe route and next gates.
+
+### SIGN live module and source-state oracle (2026-10-06)
+
+- Completed a fresh launch through `play-xrd-source.ps1`'s original bootstrap/cache
+  route. The user confirmed offline Sol-versus-Ky training and retained menu/keyboard
+  control. No agent input, game patch, injection, suspension or native function call
+  was performed. The bootstrap can create normal source player data; executable
+  fingerprints remain unchanged. The running source instance is left to the user.
+- Live module inspection now works: 14,840,719 of 14,898,688 code bytes differ from the
+  disk code section. Normal startup exposes eleven unique legacy signature matches
+  and four ambiguous groups. ASLR-relative load operands and bounded disassembly
+  validate the engine global. Actual native throw-envelope calls resolve the X/Y
+  getter candidates, rejecting mid-instruction/unrelated/other-axis matches. Getters
+  are inspected, never called; their bodies can mutate internal bookkeeping.
+- Added `xrd_state.py` and `xrd-sign-observe.py`. A session-local profile derives fields
+  from real scalar-getter instructions and the pinned reference declarations, with
+  no committed retail addresses/layout profiles. The reader validates PID/module/code
+  identity, roots, two distinct primary slots, parent restrictions, counts and finite
+  collision records. It records raw transforms/facing/scale, boxes and candidate
+  pose/state strings. Output is observation-only, explicitly not an atomic source
+  frame. Later captures use UTC start plus high-resolution wall timestamps.
+- Initial live slots agree with the source window: Sol left/right-facing, Ky
+  right/left-facing, grounded raw Y=0, three/five idle hurtboxes. The user's J/Punch
+  appears as `NmlAtk5A` with active `sol200_02`; its native attack rectangle matches
+  the existing original collision record. Current/previous state-name observations
+  distinguish activation/return to standing. No source timing or complete move
+  semantics are inferred from wall-clock samples.
+- Added `xrd-sign-state-check.py` against the imported `COL_SOL.bin`. The 45-second
+  normal capture has 4,468/4,468 exact pose/box matches and six active **samples** from
+  one normal. The 120-second idle capture has 12,798 matches, three mismatches and no
+  unmapped poses. Two mismatches match other idle poses, consistent with polling
+  across an update; the cause of all three is not established. These are evidence
+  for a native synchronized boundary, not accepted atomic frame transport.
+- Movement/jump/crossover were requested but not present in the recording windows:
+  recorded X/Y/facing ranges remain static. X changed from the initial inspection
+  before recording, but that is not a captured movement trace. This gate remains
+  pending. The source window videos are unsynchronized read-only oracles, not an
+  isolated fighter layer or a simulation-frame clock.
+- Rev2's actor-iterator signature has one live SIGN candidate; its component-tick
+  and battle-clock signatures have none. Read-only differences/code inspection
+  identify clock-related candidates but do not establish simulation/render frame
+  identity or a safe one-step hook. No Rev2 freeze/step patch was installed.
+- Checks pass: existing native PE/signature/own-process tests, authored getter and
+  global-operand derivation, raw state bounds, invalid parents/counts/NaN/slots and
+  unsynchronized classification. Live profile derivation and recording work on the
+  verified build. Python syntax/whitespace checks pass. No host runtime changed, so
+  no new IKEMEN combat/replay result is claimed.
+- Evidence: ignored `artifacts/xrd-sign-native/20261006-231049-679826`, including
+  `inspection.json`, `state-profile.json`, `disk-loaded-comparison.json`,
+  `rev2-stepping-candidates.json` and bounded disassembly. Normal capture is
+  `observe-20261006-231333-176233`; immediate movement attempt is
+  `observe-20261006-231845-434955`; extended idle window is
+  `observe-20261006-232417-748336`. Source videos are ignored
+  `manual-state-oracle.mkv` and `manual-movement-oracle.mkv` in the native artifact root.
+- The next producer gates are verified native frame identity/post-step access, input
+  control and exact stepping, isolated source RGBA, universal result commits/native
+  contact suppression, and mixed match acceptance. SIGN is still not a playable
+  passthrough guest. Snapshot/rollback capabilities remain unsupported.

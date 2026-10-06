@@ -194,7 +194,11 @@ and screenshots alone do not implement synchronized fighter passthrough.
 The generic IKEMEN receiver now exists; SIGN's source producer is still pending.
 `xrd-sign-probe.py` supplies a bounded read-only disk/loaded-module discovery route,
 with the legacy and Rev2 overlay references pinned as development-only upstreams.
-The fifteen legacy discovery signatures have no on-disk code candidates. A loaded
-module comparison is needed before interpreting that result; no reference offsets
-have been installed or accepted as SIGN hooks. See [XRD_SIGN_NATIVE_PROBE.md](XRD_SIGN_NATIVE_PROBE.md)
-for verified tool tests, manual offline source setup and the next native gates.
+The fifteen legacy discovery signatures have no on-disk code candidates. Live normal
+startup exposes eleven unique and four ambiguous candidate groups. Native load/getter
+instructions and caller relationships now establish bounded engine/position access;
+the original offline scene supplies a standing-Punch state/pose/collision oracle.
+No reference offsets have been installed as hooks. Read-only sampling still has no
+verified atomic source frame, native step control or isolated render layer. See
+[XRD_SIGN_NATIVE_PROBE.md](XRD_SIGN_NATIVE_PROBE.md) for tool tests, actual source evidence
+and the next native gates.

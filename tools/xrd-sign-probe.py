@@ -51,7 +51,7 @@ def inspect(game, pid=None):
                 loaded.append((s,data))
                 (folder/(s['name'].strip('.')+'-loaded.bin')).write_bytes(data)
                 loaded_hashes[s['name']] = hashlib.sha256(data).hexdigest()
-            report.update(pid=pid,module_base=base,loaded_hashes=loaded_hashes,
+            report.update(pid=pid,module_base=base,image_size=size,loaded_hashes=loaded_hashes,
                           loaded_candidates=scan_patterns(loaded,patterns))
     if fingerprint(exe) != before:
         raise ValueError('source executable changed during probe')

@@ -55,10 +55,11 @@ Two development-only upstreams are pinned in `tools/upstreams.json`:
 
 The verified SIGN executable/app identity remains the existing SHA-256 and app 376300.
 Its PE32 code/data sections are bounded and a `.bind` section is present. All fifteen
-legacy signatures have **zero on-disk executable-code candidates**. The first code bytes
-look opaque; packing is a hypothesis until compared with the normally loaded module.
-This is not proof that the legacy tool is incompatible, nor a reason to install Rev2's
-hook offsets into SIGN. The loaded-module scan is the next oracle.
+legacy signatures have **zero on-disk executable-code candidates**. The initial probe
+therefore required comparison with the normally loaded module. That live comparison
+now succeeds: normal bootstrap startup exposes usable code, with eleven unique legacy
+matches and four ambiguous groups. This does not make every reference hook compatible
+or justify installing Rev2's offsets into SIGN.
 
 Authored checks pass for PE header/section/image bounds, reference parsing, unique,
 missing and ambiguous candidate matches, out-of-section adjustments and candidate-only
@@ -66,7 +67,67 @@ status. A real own-process Windows oracle confirms the VM_READ-only handle, modu
 enumeration, exact bytes, process-path identity rejection and invalid-read rejection.
 The bootstrap confirms both new pins, Python syntax checks pass and the disk receipt
 confirms original executable hashes remain unchanged. The own-process oracle is not
-live SIGN verification. No SIGN instance was running for this work package.
+live SIGN verification. The initial work package ran without a SIGN instance; the live
+results below come from the following work package.
+
+## Live state observation (2026-10-06)
+
+The original bootstrap launcher completes a fresh launch and restores its caller PATH.
+The user confirmed Sol-versus-Ky offline training and retained manual UI/input control.
+The live/disk code comparison finds 14,840,719 different bytes out of 14,898,688 code
+bytes. Original executable fingerprints remain unchanged. No code patch/hook was installed.
+
+`xrd-sign-observe.py` derives a session-local state profile from the verified live receipt
+and pinned reference. It validates the engine global's load instruction/data bounds,
+then resolves ambiguous position candidates through calls from the unique native throw
+envelope. Scalar thiscall getter bodies supply the position/parent fields; public
+reference declarations supply slot/collision/facing/scale fields. Addresses, field
+offsets, bounded disassembly and profiles remain ignored local evidence. The program
+never calls native getters, whose bodies can have side effects.
+
+```powershell
+python tools/xrd-sign-probe.py --pid <PID>
+python tools/xrd-sign-observe.py <new-live-probe-folder> --seconds 30
+python tools/xrd-sign-state-check.py <observation-folder> --collision <import-folder>/COL_SOL.bin
+python tools/test-xrd-state.py
+```
+
+The profile is bound to the live PID/module/code hash. Source restart, code drift,
+missing engine, invalid counts/boxes, duplicate slots, scene changes and parent-relative
+fighters fail explicitly. Read-only samples contain raw X/Y, facing, scale, boxes and
+candidate pose/state strings. Metadata records UTC start and high-resolution wall time;
+**samples are not simulation frames**. Names remain observation candidates rather than
+a canonical moveset or full source state implementation.
+
+Verified observations:
+
+- The two grounded fighter slots have opposing raw positions/facing consistent with
+  the original training window. Three Sol and five Ky idle hurtboxes are readable.
+- A user-controlled standing J/Punch produces `NmlAtk5A` and active pose `sol200_02`.
+  Its live attack rectangle and hurtboxes exactly match the imported collision record.
+  The observed current-versus-previous state-name fields distinguish the normal's
+  activation and return to standing; no retail field offsets are committed.
+- In the 45-second capture, all 4,468 sampled Sol box lists match their pose's source
+  records exactly. Six samples contain the active normal. This is one recorded attack,
+  not six attacks or a verified active-frame duration.
+- A 120-second idle capture gives 12,798 matching and three mismatching box lists.
+  Two mismatches match other idle poses, consistent with unsynchronized pose/box reads;
+  their cause is not established for all three. The recorder deliberately marks
+  `atomic_native_frame=false`; a synchronized native boundary is still required.
+- Movement/jump/crossover changes were not captured in the observation windows. X had
+  changed between initial training inspection and recording, but the recorded ranges
+  are static. A controlled movement/facing oracle remains pending.
+
+The shared actor-iterator discovery signature from Rev2 has one SIGN match. Its
+component-tick and battle-clock signatures have none. Code inspection and read-only
+memory differences identify possible clock-related fields, but no one has been
+accepted as the source simulation/render frame identity. Do not transplant the Rev2
+freeze/step implementation or promote wall-clock timestamps into frame numbers.
+
+Authored state checks verify getter/operand derivation, bounded raw observation,
+invalid parents/counts/NaN/slot rejection and explicitly unsynchronized status. This
+establishes live state access and one source-normal collision oracle. Native stepping,
+isolated RGBA, input injection and contact suppression remain unimplemented.
 
 ## Gate after a loaded-module match
 
