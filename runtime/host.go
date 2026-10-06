@@ -35,11 +35,31 @@ func (c *Char) fighterBackend() FighterBackend {
 	return nativeBackend{c}
 }
 func (c *Char) bindForeign(def string) error {
+	if old, ok := c.foreign.(*PassthroughRuntime); ok {
+		old.Close()
+	}
 	c.foreign = nil
 	if c.foreignName == "" {
 		return nil
 	}
 	switch c.foreignName {
+	case "passthrough":
+		if sys.netplay() || sys.usesRollbackMatch() {
+			return fmt.Errorf("passthrough v1 supports offline matches only; replay/rollback unavailable")
+		}
+		data, err := os.ReadFile(def + ".passthrough.json")
+		if err != nil {
+			return err
+		}
+		config, err := loadPassthroughConfig(data)
+		if err != nil {
+			return err
+		}
+		runtime, err := newPassthrough(config)
+		if err != nil {
+			return err
+		}
+		c.foreign = runtime
 	case "kof13":
 		data, err := os.ReadFile(filepath.Join(filepath.Dir(def), "foreign.json"))
 		if err != nil {
@@ -101,6 +121,7 @@ func (b guestBackend) Run() {
 	if len(c.cmd) > 0 {
 		buf := c.cmd[0].Buffer
 		input = InputFrame{Forward: buf.Fb > 0, Back: buf.Bb > 0, Up: buf.Ub > 0, Down: buf.Db > 0, Punch: buf.ab > 0, Special: buf.bb > 0}
+		input.Buttons = [10]bool{buf.ab > 0, buf.bb > 0, buf.cb > 0, buf.xb > 0, buf.yb > 0, buf.zb > 0, buf.sb > 0, buf.db > 0, buf.wb > 0, buf.mb > 0}
 	}
 	// Opt-in local smoke policy exercises repeated normals. Normal play consumes
 	// only the sampled buffer above; this probe is disabled for human/network play.
@@ -126,6 +147,29 @@ func (b guestBackend) Run() {
 	}
 	// Stage bounds and player pushing are host policy; adopt their last committed transform.
 	c.foreign.SetPosition(c.pos[0], c.pos[1])
+	if r, ok := c.foreign.(*PassthroughRuntime); ok {
+		r.life = c.life
+		if sys.netplay() || sys.usesRollbackMatch() {
+			panic("passthrough v1 cannot enter replay/rollback")
+		}
+		r.opponent = nil
+		if enemy := c.enemyNearTrigger(0); enemy != nil {
+			r.opponent = &GuestOpponent{X: enemy.pos[0] * enemy.localscl / c.localscl, Y: enemy.pos[1] * enemy.localscl / c.localscl, Facing: enemy.facing, Life: enemy.life, AttackID: enemy.foreignAttack}
+			for group := int32(1); group <= 2; group++ {
+				for _, box := range enemy.getClsnWorld(group) {
+					rect := box.rect
+					for n := range rect {
+						rect[n] /= c.localscl
+					}
+					if group == 1 {
+						r.opponent.Hitboxes = append(r.opponent.Hitboxes, rect)
+					} else {
+						r.opponent.Hurtboxes = append(r.opponent.Hurtboxes, rect)
+					}
+				}
+			}
+		}
+	}
 	// A lethal contact still drains its foreign hitstop before the host KO flag.
 	if c.life <= 0 {
 		c.foreign.Defeat()
@@ -174,14 +218,18 @@ func (b guestBackend) Run() {
 	if pose.Down {
 		c.ss.stateType = ST_L
 	}
-	if c.animNo != int32(frame.Action) || c.anim == nil {
-		c.changeAnim(int32(frame.Action), -1, -1, "")
-	}
-	if c.anim != nil {
-		c.anim.SetAnimElem(int32(frame.Element+1), 0)
-		c.anim.UpdateSprite()
-		c.updateCurFrame()
-		c.animBackup = c.anim
+	if _, remote := c.foreign.(*PassthroughRuntime); remote {
+		c.syncPassthroughRender()
+	} else {
+		if c.animNo != int32(frame.Action) || c.anim == nil {
+			c.changeAnim(int32(frame.Action), -1, -1, "")
+		}
+		if c.anim != nil {
+			c.anim.SetAnimElem(int32(frame.Element+1), 0)
+			c.anim.UpdateSprite()
+			c.updateCurFrame()
+			c.animBackup = c.anim
+		}
 	}
 	c.atktmp = 0
 	if pose.Normal && c.acttmp > 0 && sys.roundState() == 2 && len(c.getClsnWorld(1)) > 0 && c.hitdef.hitonce >= 0 {
@@ -357,6 +405,9 @@ func (attacker *Char) commitForeignHit(defender *Char, projectile *Projectile) i
 	result.Damage = int(defender.computeDamage(float64(result.Damage), kill, false,
 		attackMul*float32(attacker.gi().attackBase)/100, attacker, true))
 	defender.lifeAdd(-float64(result.Damage), kill, true)
+	if r, ok := defender.foreign.(*PassthroughRuntime); ok {
+		r.life = defender.life
+	}
 	defender.foreign.CommitHit(result)
 	if attacker.foreign != nil {
 		attacker.foreign.CommitAttack(result)

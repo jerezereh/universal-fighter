@@ -97,9 +97,14 @@ do not silently claim that the existing rollback/snapshot guarantees cover a gue
    must fail explicitly. If native simulation control is insufficient, compare a native
    renderer plus owned rules adapter against the existing extraction/translation fallback.
 
-No native hook, guest transport, transparent layer, synchronized stepping or cross-game
-passthrough contact has been implemented or accepted yet. This is the next decision gate,
-not a completed architecture switch. The existing Kyo and authored runtimes stay usable.
+The generic IKEMEN receiving boundary is now implemented: independent guest sessions,
+configurable ten-button mappings, tick-tagged state/isolated RGBA/collision, host-driven
+stepping, universal contact callbacks, health/KO/reset and unsupported-mode rejection.
+Two authored processes exercise the same receiver without game-name branches. See
+`PASSTHROUGH.md` for the protocol, launcher and current evidence. This establishes the
+receiver; no SIGN native hook/isolated source layer/native stepping/contact suppression
+has been implemented or accepted. Those real-game producer gates above remain open.
+The existing Kyo and authored in-process runtimes stay usable.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

@@ -1,5 +1,5 @@
 diff --git a/src/char.go b/src/char.go
-index 68c16e1..506d3e9 100644
+index 68c16e1..a2c9ff6 100644
 --- a/src/char.go
 +++ b/src/char.go
 @@ -165,6 +165,7 @@ const (
@@ -62,7 +62,7 @@ index 68c16e1..506d3e9 100644
  	// Set position
  	pos := [2]float32{p.interPos[0] * p.localscl, p.interPos[1] * p.localscl}
  
-@@ -3648,6 +3653,10 @@ type ForceFeedbackParams struct {
+@@ -3648,6 +3653,12 @@ type ForceFeedbackParams struct {
  }
  
  type Char struct {
@@ -70,10 +70,12 @@ index 68c16e1..506d3e9 100644
 +	foreign FighterRuntime
 +	foreignAttack uint64
 +	foreignProjectile uint64
++	foreignSprite *Sprite
++	foreignRenderSequence uint64
  	name                string
  	palfx               *PalFX
  	anim                *Animation
-@@ -4130,6 +4139,7 @@ func (c *Char) resetModifyPlayer() {
+@@ -4130,6 +4141,7 @@ func (c *Char) resetModifyPlayer() {
  }
  
  func (c *Char) load(def string, gi *CharGlobalInfo) error {
@@ -81,7 +83,7 @@ index 68c16e1..506d3e9 100644
  	// We keep the SFF so that loadSff() can reuse it if the same character is selected/reloaded
  	oldSff := gi.sff
  
-@@ -4217,6 +4227,7 @@ func (c *Char) load(def string, gi *CharGlobalInfo) error {
+@@ -4217,6 +4229,7 @@ func (c *Char) load(def string, gi *CharGlobalInfo) error {
  				}
  				info = false
  
@@ -89,7 +91,7 @@ index 68c16e1..506d3e9 100644
  				gi.name, _, _ = is.getText("name")
  				c.name = gi.name
  				var ok bool
-@@ -4739,7 +4750,7 @@ func (c *Char) load(def string, gi *CharGlobalInfo) error {
+@@ -4739,7 +4752,7 @@ func (c *Char) load(def string, gi *CharGlobalInfo) error {
  			return nil
  		})
  	}
@@ -98,7 +100,7 @@ index 68c16e1..506d3e9 100644
  }
  
  // Loads all of the character's palettes. Selectable or not
-@@ -6758,6 +6769,7 @@ func (c *Char) playSound(params *PlaySndParams) {
+@@ -6758,6 +6771,7 @@ func (c *Char) playSound(params *PlaySndParams) {
  }
  
  func (c *Char) autoTurn() {
@@ -106,18 +108,19 @@ index 68c16e1..506d3e9 100644
  	if c.helperIndex == 0 && !c.asf(ASF_noautoturn) && sys.stage.autoturn && c.shouldFaceP2() {
  		switch c.ss.stateType {
  		case ST_S:
-@@ -7788,6 +7800,10 @@ func (c *Char) posReset() {
+@@ -7788,6 +7802,11 @@ func (c *Char) posReset() {
  	c.vel[0] = 0
  	c.vel[1] = 0
  	c.vel[2] = 0
 +	if c.foreign != nil {
-+		c.foreign.Reset(c.pos[0], c.pos[1]); c.foreignAttack, c.foreignProjectile = 0, 0
++		if r, ok := c.foreign.(*PassthroughRuntime); ok { r.life = c.life }
++		c.foreign.Reset(c.pos[0], c.pos[1]); c.foreignAttack, c.foreignProjectile = 0, 0; c.foreignRenderSequence = 0
 +		if traceForeign { LogMessage("[foreign-reset] owner=%d round=%d entities=%d", c.id, sys.roundNo, len(sys.projs[c.playerNo])) }
 +	}
  }
  
  func (c *Char) setPosX(x float32, all bool) {
-@@ -11166,6 +11182,7 @@ func (c *Char) hasBoxHitBy() bool {
+@@ -11166,6 +11185,7 @@ func (c *Char) hasBoxHitBy() bool {
  
  // Check if the enemy's (c) HitDef should lose to the player's (getter), if applicable
  func (c *Char) hittableByChar(getter *Char, ghd *HitDef, gst StateType, proj bool) bool {
@@ -125,7 +128,7 @@ index 68c16e1..506d3e9 100644
  
  	// Enemy (c) always wins if they can't be hit by the player's (getter) HitDef attributes at all
  	if !c.attrCheck(getter, ghd, gst) {
-@@ -11356,6 +11373,14 @@ func (c *Char) hitspark(getter *Char, proj *Projectile,
+@@ -11356,6 +11376,14 @@ func (c *Char) hitspark(getter *Char, proj *Projectile,
  }
  
  func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) {
@@ -140,7 +143,7 @@ index 68c16e1..506d3e9 100644
  
  	// Player hit check
  	hd := &c.hitdef
-@@ -13389,6 +13414,10 @@ func (c *Char) cueDebugDraw() {
+@@ -13389,6 +13417,10 @@ func (c *Char) cueDebugDraw() {
  		// Name, PlayerNo and ID
  		sys.debugClsnText = append(sys.debugClsnText,
  			DebugClsnText{x: x, y: y, text: fmt.Sprintf("%s, %d, %d", c.name, c.playerNo+1, c.id), r: 255, g: 255, b: 255, a: 255})
@@ -151,7 +154,16 @@ index 68c16e1..506d3e9 100644
  		// NotHitBy
  		if nhbtxt != "" {
  			y += float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
-@@ -13852,7 +13881,7 @@ func (cl *CharList) commandUpdate() {
+@@ -13414,6 +13446,8 @@ func (c *Char) cueDraw() {
+ 		return
+ 	}
+ 
++	// Refresh a committed guest image before drawing contacts from this frame.
++	c.syncPassthroughRender()
+ 	// Add debug info
+ 	c.cueDebugDraw()
+ 
+@@ -13852,7 +13886,7 @@ func (cl *CharList) commandUpdate() {
  		// Select a random command for AI cheating
  		// The way this only allows one command to be cheated at a time may be the cause of issue #2022
  		cheat := int32(-1)
@@ -160,7 +172,7 @@ index 68c16e1..506d3e9 100644
  			if sys.roundState() == 2 && RandF32(0, sys.aiLevel[i]/2+32) > 32 { // TODO: Balance AI scaling
  				cheat = Rand(0, int32(len(root.cmd[root.ss.sb.playerNo].Commands))-1)
  			}
-@@ -13989,19 +14018,19 @@ func (cl *CharList) action() {
+@@ -13989,19 +14023,19 @@ func (cl *CharList) action() {
  
  	// Prepare characters before performing their actions
  	for _, c := range cl.runOrder {
@@ -183,7 +195,7 @@ index 68c16e1..506d3e9 100644
  	}
  }
  
-@@ -14028,7 +14057,7 @@ func (cl *CharList) update() {
+@@ -14028,7 +14062,7 @@ func (cl *CharList) update() {
  	// Run update() for the remaining characters
  	for _, c := range cl.runOrder {
  		if !c.scf(SCF_disabled) {
@@ -192,7 +204,7 @@ index 68c16e1..506d3e9 100644
  			c.track()
  		}
  	}
-@@ -14472,6 +14501,7 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
+@@ -14472,6 +14506,7 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
  						getter.pos[2], getter.depthPlayer[0], getter.depthPlayer[1], getter.localscl) {
  
  					if hitResult := c.hitResultCheck(getter, p); hitResult != 0 {
@@ -200,7 +212,7 @@ index 68c16e1..506d3e9 100644
  						// Apply hit consequences specific to projectile vs player
  						p.contactflag = true
  						if Abs(hitResult) == 1 {
-@@ -14617,7 +14647,7 @@ func (cl *CharList) pushDetection(c *Char) {
+@@ -14617,7 +14652,7 @@ func (cl *CharList) pushDetection(c *Char) {
  
  		// Check for Clsn2 overlap
  		// A significant difference between Mugen and commercial games is that only the former does this
@@ -209,7 +221,7 @@ index 68c16e1..506d3e9 100644
  			continue
  		}
  
-@@ -14932,7 +14962,7 @@ func (cl *CharList) collisionDetection() {
+@@ -14932,7 +14967,7 @@ func (cl *CharList) collisionDetection() {
  
  func (cl *CharList) tick() {
  	for _, c := range cl.runOrder {
@@ -261,10 +273,26 @@ index 3218660..ac1cf35 100644
  }
  
 diff --git a/src/state.go b/src/state.go
-index 2e59ebd..6fad140 100644
+index 2e59ebd..0142391 100644
 --- a/src/state.go
 +++ b/src/state.go
-@@ -475,6 +475,7 @@ func (gs *GameState) String() (str string) {
+@@ -75,6 +75,7 @@ func NewGameState() *GameState {
+ }
+ 
+ func (gs *GameState) LoadState(stateID int) {
++	if rejectPassthroughSnapshot() { return }
+ 	// No state to load
+ 	if gs == nil || !gs.saved {
+ 		sys.appendToConsole(fmt.Sprintf("%v: No game state available for loading", sys.tickCount))
+@@ -197,6 +198,7 @@ func (gs *GameState) LoadState(stateID int) {
+ }
+ 
+ func (gs *GameState) SaveState(stateID int) {
++	if rejectPassthroughSnapshot() { return }
+ 	if sys.rollback.session != nil {
+ 		gs.netTime = sys.rollback.session.netTime
+ 	}
+@@ -475,6 +477,7 @@ func (gs *GameState) String() (str string) {
  	}
  
  	// Add bytecode data
@@ -287,22 +315,24 @@ index 5fb4700..3dfad1c 100644
  	if c.anim != nil {
  		result.anim = c.anim.Clone(gsp)
 diff --git a/src/system.go b/src/system.go
-index 91d991a..4a75444 100644
+index 91d991a..e7930ae 100644
 --- a/src/system.go
 +++ b/src/system.go
-@@ -2558,6 +2558,11 @@ func (s *System) resetRound() {
+@@ -2558,6 +2558,13 @@ func (s *System) resetRound() {
  		if len(p) == 0 {
  			continue
  		}
 +		// Foreign reset owns its initial action; no native intro CNS state exists.
 +		if p[0].foreign != nil {
-+			p[0].changeAnim(int32(p[0].foreign.View().RenderAction), -1, -1, "")
++			if _, remote := p[0].foreign.(*PassthroughRuntime); remote {
++				p[0].syncPassthroughRender()
++			} else { p[0].changeAnim(int32(p[0].foreign.View().RenderAction), -1, -1, "") }
 +			continue
 +		}
  		// Select anim 0. If it is missing, choose the lowest available action
  		// instead of depending on Go map iteration order.
  		firstAnim := int32(0)
-@@ -2955,6 +2960,13 @@ func (s *System) action() {
+@@ -2955,6 +2962,13 @@ func (s *System) action() {
  	s.charTextsUpdate()
  	s.matchStoryboards.update()
  
@@ -316,7 +346,7 @@ index 91d991a..4a75444 100644
  	// Adjust game speed
  	if s.tickNextFrame() && !s.motif.me.active {
  		spd := float32(s.gameLogicSpeed()) / float32(s.gameRenderSpeed())
-@@ -3073,6 +3085,8 @@ func (s *System) projectilePrune(pn int) {
+@@ -3073,6 +3087,8 @@ func (s *System) projectilePrune(pn int) {
  			// Stable swap. Move live projectiles forward while respecting the original order
  			playerProjs[writeIdx], playerProjs[j] = playerProjs[j], playerProjs[writeIdx]
  			writeIdx++
@@ -325,7 +355,7 @@ index 91d991a..4a75444 100644
  		}
  	}
  
-@@ -4000,6 +4014,14 @@ func (s *System) drawDebugText(logicState drawAspectState) {
+@@ -4000,6 +4016,14 @@ func (s *System) drawDebugText(logicState drawAspectState) {
  	//if s.clsnDisplay {
  	for _, t := range s.debugClsnText {
  		s.debugFont.SetColor(t.r, t.g, t.b, t.a)
@@ -340,3 +370,15 @@ index 91d991a..4a75444 100644
  		s.debugFont.fnt.Print(t.text, t.x, t.y, s.debugFont.xscl/debugScaleX,
  			s.debugFont.yscl/debugScaleY, 0, Rotation{0, 0, 0}, 0, 0, 0, 0, &s.scrrect,
  			s.debugFont.palfx, s.debugFont.frgba)
+@@ -4023,6 +4047,11 @@ func (s *System) keepMatchRunning() bool {
+ // Called to start each match, on hard reset with shift+F4,
+ // and at the start of any round where a new character tags in for turns mode
+ func (s *System) runMatch() (reload bool) {
++	defer func() {
++		for _, side := range s.chars { for _, c := range side {
++			if r, ok := c.foreign.(*PassthroughRuntime); ok { r.Close() }
++		} }
++	}()
+ 	// Reset variables
+ 	s.matchTime = 0
+ 	s.fightLoopEnd = false

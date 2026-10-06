@@ -1,6 +1,10 @@
 package main
 
-type InputFrame struct{ Forward, Back, Up, Down, Punch, Special bool }
+type InputFrame struct {
+	Forward, Back, Up, Down, Punch, Special bool
+	// IKEMEN's a,b,c,x,y,z,s,d,w,m, before game-specific mapping.
+	Buttons [10]bool
+}
 type FrameContext struct {
 	Advance, AcceptInput bool
 	Facing               float32

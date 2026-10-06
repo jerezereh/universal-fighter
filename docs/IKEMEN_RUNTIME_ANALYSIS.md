@@ -292,14 +292,14 @@ recorded in [SYNTHETIC_RULESETS.md](SYNTHETIC_RULESETS.md).
 
 | Boundary | Implemented ownership |
 |---|---|
-| Input | Host samples its existing command buffer once. `InputFrame` contains relative forward/back, up/down, normal and special. Practice uses P1 keyboard input with AI and scripted probes disabled. |
+| Input | Host samples its existing command buffer once. `InputFrame` contains relative forward/back, up/down, normal/special and the ten canonical IKEMEN buttons. Passthrough maps buttons to guest names per fighter; other runtimes keep their existing normal/special subset. Practice uses P1 keyboard input with AI and scripted probes disabled. |
 | Scheduling | `FrameContext.Advance` gates foreign time; `AcceptInput` gates live round input; `Facing` supplies the host facing. Global pause skips the foreign run; hitstop drains on advancing ticks. |
 | Motion/presentation | Foreign state owns action/element clocks, input edges and motion/reaction values. `Step` returns the element simulated on this tick; saved `RenderAction`/`RenderElement` retain that presentation while action clocks prepare the next tick. |
 | Coordinates | Foreign position adopts the shell's player-local coordinates: right is positive X, airborne Y is negative. Imported motion is scaled by the manifest; source vertical velocity is converted when integrating Y. Host `localscl`, facing and collision modifiers map boxes into collision space. |
 | Damage/rounds | Host life, round state, IDs, teams, stage bounds and player pushing remain authoritative. `Reset` clears guest inputs, reactions, KO and activation IDs; it does not reset host health or round data by itself. |
 | Defense/result | `QueryDefense` is a pure guest query. The arbiter produces a typed hit/guard/parry/resource result; `CommitHit` spends guest resources and applies reaction. `CommitAttack` confirms eligible guest cancels. The host commits canonical health and contact bookkeeping; native defenders retain native negotiation and notify the guest attacker afterward. |
 | Entities | A guest projectile activation emits a monotonically increasing ID. The shell acknowledges it once; host `Projectile` owns motion, collision, hit consumption, stop, removal and render data. There is no guest entity-list API yet. |
-| Snapshot | `Char.Clone` calls the guest's owned `Clone`; immutable specs may be shared. Whole-host snapshots own native fighters, projectiles, timers, RNG and contact lists. Versioned blobs/hash cover all guest state. |
+| Snapshot | For in-process guests, `Char.Clone` calls the owned `Clone`; immutable specs may be shared. Whole-host snapshots own native fighters, projectiles, timers, RNG and contact lists. Passthrough v1 has no source snapshots: binding rejects replay/rollback, debug save/load returns without mutation and clone/blob/hash fail explicitly. |
 
 | Interaction | Current support/evidence | Remaining limits |
 |---|---|---|
@@ -332,3 +332,24 @@ Foreign diagnostic labels opt into viewport bounds in `DebugClsnText`. Bounds ar
 applied in the debug draw pass after restoring scene aspect, using the existing font's
 `TextWidth` and draw scale. Queuing-time bounds used the wrong aspect and still clipped
 at the stage edge. Native labels retain their existing behavior.
+
+## Generic passthrough receiver (2026-10-06)
+
+`runtime = passthrough` binds a per-definition loopback connection configured in
+`<filename>.def.passthrough.json`. Each guest owns its action and exact simulation
+tick; the host sends sampled named buttons, facing, canonical life, committed position
+and a nearest-opponent mirror. Replies publish state, pose, defense, normal intent,
+collision and an isolated RGBA image atomically after identity/frame/bounds checks.
+See [PASSTHROUGH.md](PASSTHROUGH.md) for the versioned wire contract and runnable demo.
+
+The receiver uses the existing foreign scheduling and universal combat seam. Its
+texture is private to each fighter and uploaded through the renderer's main-thread
+queue; camera/facing/collision transforms use the normal character path. Remote frames
+do not depend on native AIR actions. CPU straight-alpha wire images are premultiplied
+for IKEMEN; the alpha mask is enabled rather than forcing transparent pixels opaque.
+
+This adds bounded offline guest-process support. It does not extend the earlier owned
+rollback guarantees to external source engines. V1 rejects projectiles, replay/netplay,
+rollback and source snapshots; throws/custom states remain excluded. Two authored guest
+processes prove receiving/mixed contacts/KO/reset. SIGN's native producer and interactive
+source/keyboard acceptance remain separate pending gates.

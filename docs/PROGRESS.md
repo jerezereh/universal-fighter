@@ -680,3 +680,64 @@ the synthetic architecture gate allows the first real-game adapter.
   the next investigation for modern 3D fighters. Extraction remains an oracle/fallback;
   source render isolation, exact stepping, cross-game contacts and state restore remain
   unimplemented gates, with no claim that Rev2 hook support transfers to this SIGN build.
+
+### Generic passthrough receiver in IKEMEN (2026-10-06)
+
+- Implemented `runtime = passthrough` using the existing per-fighter scheduling/combat
+  seam. Each definition has its own loopback endpoint, random session, ordered request
+  sequence, controlled tick, configurable mapping for all ten IKEMEN buttons, guest
+  state/pose/defense/normal/collision and private RGBA texture. There are no source-game
+  or opponent-game-name branches in the receiver. Two authored guest identities and
+  mappings run simultaneously through the same protocol.
+- Requests carry sampled relative/absolute directions, named buttons, host position,
+  facing, canonical life and a nearest-opponent mirror. Pause/native hitpause sends no
+  guest step or input. Contact/defeat/reset commands do not independently advance time.
+  Host canonical health, stage bounds, pushing, contact ledger and rounds remain owned
+  by IKEMEN. Foreign and native defense use the existing universal result path.
+- Replies are length-bounded JSON with strict fields, version/game/session/sequence/tick
+  checks, finite transforms, bounded boxes and RGBA payloads. State/image/collision are
+  published only after full validation. Timeouts/disconnects/malformed replies fail the
+  match instead of continuing stale state. V1 rejects projectiles and unsupported
+  replay/rollback/netplay; debug save/load does not create a shell-only snapshot.
+  Connections close at match end and can reconnect on a later reset.
+- Rendering uses the normal character/camera/facing path and main-thread texture queue,
+  independently of source action IDs or existing AIR frames. First native smoke found
+  no contacts because bypassing native ChangeAnim left `animlocalscl` uninitialized;
+  initializing remote animation ownership/scale fixed the actual collision conversion.
+  Read-only window capture exposed opaque transparent pixels: shader mask -1 forced
+  alpha to one. Mask 0 plus straight-to-premultiplied conversion fixes this. Final
+  capture shows both colors, inward facing markers and the stage through transparency;
+  exact amber/cyan RGB counts are 120,960 pixels each.
+- Verification: all fourteen focused core tests pass; the passthrough suite also passes
+  Go's race detector. Checks cover two independent real loopback peers, different
+  button mappings, neutralized out-of-round inputs, pause with zero IPC/ticks, same-tick
+  contact commits, atomic invalid-reply rejection, bad identity/sequence/tick/image/box,
+  missing required stepping, unsupported projectiles, deadlines and alpha conversion.
+  Python AST, Bash syntax and diff whitespace checks pass. The maintained patch applies
+  to fresh files from the pinned IKEMEN revision and reproduces all six modified files.
+- Final real IKEMEN smoke passes: two guest processes (40 commits), native-to-guest
+  (7), guest-to-native (3), two-round KO/reset (44), and rollback rejection before guest
+  connection. Each process log proves monotonically ordered requests, one step per tick,
+  round-owned resets and no duplicate outgoing attack contacts. Native-out commit count
+  depends on the native round introduction; the acceptance is contacts/completed match,
+  not a fixed count. The 96x96 authored reply sample has 958 traced replies, median
+  1,555 microseconds, p95 3,622 and maximum 12,728. These are CPU IPC reply timings on
+  this machine, not source-game capture latency or large-frame throughput claims.
+- Final-binary regressions pass: native/native multi-round KO baseline, Kyo mixed
+  melee strict offline replay (960 verified frames), and authored parry strict replay
+  (2,888 verified frames, 40 parries/40 unique contacts). These retain the in-process
+  runtime guarantees; they do not grant source snapshots to passthrough. Authored guest
+  ready metadata is published atomically; a fresh loopback startup/hello check passes.
+- Commands: `tools/build-runtime.sh`, `python tools/play-passthrough.py --smoke --no-debug`,
+  and Go `-race` on the core runtime/passthrough test files.
+  Native logs are ignored `artifacts/host-baseline/passthrough-*-20261006-22*`; inspected
+  capture is `artifacts/passthrough-receiver-final.png`. The runnable normal-play
+  launcher and producer contract are in `docs/PASSTHROUGH.md`. Runtime source changes
+  are versioned, and all host modifications are in `patches/0001-fighter-runtime.patch`.
+- Limits: authored guests prove the generic receiving boundary, not a real second-game
+  passthrough. SIGN's native render isolation, exact native stepping/state/collision
+  hooks and source contact suppression remain unimplemented. Native source snapshots,
+  projectiles/audio, throws/custom states, richer entities and full source fidelity are
+  outside v1. Physical controls and live keyboard pause/frame advance for this new
+  backend are pending interactive acceptance; core pause gating is verified separately.
+  No SIGN UI automation or input was performed during this implementation.
