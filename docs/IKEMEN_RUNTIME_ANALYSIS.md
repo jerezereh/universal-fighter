@@ -141,12 +141,10 @@ its transform, coarse state type and animation element into the rendering shell.
 It consumes `CommandList.Buffer` after `CharList.commandUpdate`, so local, AI,
 replay and network sampling follow the existing path without another device poll.
 
-`FighterRuntime` currently supports step/reset/save/load for locomotion only. No
-combat protocol or foreign attack handling is implemented yet. Native collision
-results cannot enter the foreign shell; mixed pushing uses host size boxes and
-bypasses the native Clsn2 prerequisite for these pairs. Immutable imported specs
-are shared while `Char.Clone` copies mutable foreign state into a new runtime.
-This is a narrow prototype API; host-level rollback/combat replay remains unverified.
+The initial locomotion bridge added step/reset/save/load. Mixed pushing uses host
+size boxes and bypasses the native Clsn2 prerequisite for these pairs. Immutable
+imported specs are shared while `Char.Clone` copies mutable foreign state into a
+new runtime. The following sections record the subsequent combat and replay work.
 
 ## Implemented mixed-melee subset
 
@@ -167,10 +165,11 @@ executing foreign CNS. Native/native paths retain the original implementation.
 The native defender's query remains embedded in its mutating native result routine;
 there is not yet a general side-effect-free native defense API. This is deliberately a
 bounded bridge, not the finalized universal API. Ordinary melee is supported; foreign
-throws, custom-state transfer, reversals, projectiles and full source priorities/juggle
-are outside this package. Contact duplication is prevented by current-HitDef targets and
+throws, custom-state transfer, reversals and full source priorities/juggle remain
+outside the subset; projectile support is described below. Contact duplication is prevented by current-HitDef targets and
 foreign hitonce, rather than a new global ledger. The host's stable ID/priority order is
-retained; a simultaneous-contact matrix and native-attacker replay remain pending.
+retained; simultaneous-contact combinations remain pending. Bounded native-attacker
+replay is now covered by the offline projectile probe below.
 
 Foreign global pause freezes the core; hitstop freezes pose/motion/stun and drains only
 on an advancing tick. Host life remains canonical. A lethal contact drains stop before
@@ -201,6 +200,41 @@ Defeat is a foreign snapshot flag: drain contact stop, settle motion and hold th
 pose; publish host KO and grounded completion flags. Foreign projectiles retire on
 owner KO or round exit. Existing `clearPlayerAssets` followed by `posReset` supplies
 round cleanup; reset clears all foreign activation/input/reaction/defeat state. Core
-restore tests remain separate from host projectile/round rollback acceptance.
+restore tests are complemented by the bounded host replay probes described below.
 Foreign shell status remains coarse; complete native trigger equivalence for owner
 contact age and get-hit variables is not established for the foreign backend.
+
+## Implemented state and replay diagnostics
+
+`FighterRuntime` now also exposes `StateBlob`, `LoadBlob` and `StateHash`. The JSON
+blob contains a format version, SHA-256 of the imported manifest and the complete
+mutable foreign value. Loading validates the version/spec, action elements, clocks,
+air transition action and finite transforms before mutation. The SHA-256 state hash
+uses the same blob. These are guest state APIs; host life, native fighters, projectiles,
+world clocks and contact ledgers still belong to the host snapshot.
+
+`Char.Clone` continues to copy the runtime value rather than sharing it. Existing
+native HitDef target lists/buffers provide the melee contact ledger; the projectile's
+owner/entity activation and consumed hit count provide projectile contact identity.
+No second global ledger is introduced. `runtime/debug.go` appends a deterministic
+mixed gameplay projection to `GameState.String()` and `RollbackSession.LiveChecksum()`
+only when a foreign fighter is present. It includes foreign blobs, shell transforms,
+attack/defense values, contact lists, projectile identity/motion/animation/hit/removal
+clocks. Saved-state records additionally include world timers, pause state and seed.
+This augments the pinned host's checksum; it is not a complete new serialization of
+every native-engine field or rendering resource.
+
+The replay probe exposed a pinned host bug: projectile `Animation.Action()` ran in
+`cueDraw()`, outside rollback simulation. Original and replay animation clocks differed
+on the tick after a spawn, which also changes collision-box selection. The maintained
+patch moves projectile animation update/advance to the end of `System.action()` after
+collision/tick processing. Drawing retains sprite queuing and afterimages. This applies
+to native and foreign projectiles and also runs when rendering is skipped.
+
+`smoke-determinism.ps1` uses the host's strict offline GGPO sync test, rewinding eight
+frames and comparing the host's per-frame saved checksums. Opt-in trace phase tags
+require startup/contact/hitstop/projectile/KO/reset coverage as appropriate. A native
+Pause fixture checks that the foreign clock stays frozen across paused saves. Real
+network sessions do not enable scripted input probes. `play-foreign.ps1 -Debug` enables
+existing collision rendering plus a foreign state line. Online netplay, simultaneous
+contact combinations, interactive labels/boxes and human frame stepping remain pending.

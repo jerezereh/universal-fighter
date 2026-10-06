@@ -161,7 +161,21 @@ not establish full host snapshot/replay or source effect fidelity.
 
 Foreign input probes (`melee`, `projectile`, `receive`, `guard-high`, `guard-low`) are explicit,
 off by default, and disabled for human and network play. `smoke-foreign.ps1` continues
-to exercise the ordinary sampled AI-input path.
+to exercise the ordinary sampled AI-input path. The explicit offline GGPO sync-test
+session also permits scripted probes; real network and recorded replay sessions do not.
+
+`./tools/smoke-determinism.ps1` runs five authored scenes through the host's strict
+offline GGPO sync test with an eight-frame rewind window: melee, foreign projectile,
+native projectile, host Pause, and KO/reset. It requires native GGPO checksum matches
+and phase coverage in both forward and replay saves. `-Scenario foreign-projectile`
+selects one scene. Each run uses a separate config, trace and statistics file; it
+does not enable DesyncTest in the saved play config. Failed sync runs retain the
+host's state journal for diagnosis. This proves bounded offline replay, not online
+netplay, original-engine fidelity or exhaustive collision order.
+
+`./tools/play-foreign.ps1 -Debug` enables the existing host collision overlay plus a
+foreign action/element/frame/stop/stun/activation line. The renderer smoke and human
+inspection of boxes, labels, facing and keyboard controls are separate checks.
 
 Core checks cover walking, crouch/release, jump/landing, held-up edge behavior,
 pause, one-frame advance, reset and deterministic restore/replay with the local

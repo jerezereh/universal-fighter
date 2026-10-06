@@ -51,6 +51,9 @@ func (c *Char) bindForeign(def string) error {
 	}
 	c.foreign = &KOFRuntime{Spec: spec}
 	c.foreign.Reset(c.pos[0], c.pos[1])
+	if foreignDebug {
+		sys.clsnDisplay, sys.debugDisplay = true, true
+	}
 	LogMessage("[foreign] bound %s: %d actions", def, len(spec.Actions))
 	return nil
 }
@@ -96,7 +99,9 @@ func (b kofBackend) Run() {
 	}
 	// Opt-in local smoke policy exercises repeated normals. Normal play consumes
 	// only the sampled buffer above; this probe is disabled for human/network play.
-	if (foreignInputProbe == "melee" || foreignInputProbe == "projectile" || foreignInputProbe == "receive" || foreignInputProbe == "guard-high" || foreignInputProbe == "guard-low") && c.controller < 0 && !sys.netplay() {
+	offlineSync := sys.rollback.session != nil && sys.rollback.session.syncTest && sys.netConnection == nil && sys.replayFile == nil
+	localProbe := !sys.netplay() || offlineSync
+	if (foreignInputProbe == "melee" || foreignInputProbe == "projectile" || foreignInputProbe == "receive" || foreignInputProbe == "guard-high" || foreignInputProbe == "guard-low") && (c.controller < 0 || offlineSync) && localProbe {
 		input = InputFrame{}
 		if enemy := c.enemyNearTrigger(0); enemy != nil {
 			input.Forward = Abs(c.distX(enemy, c)) > 38

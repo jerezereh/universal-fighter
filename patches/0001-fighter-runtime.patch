@@ -1,5 +1,5 @@
 diff --git a/src/char.go b/src/char.go
-index 68c16e1..8ce1fa6 100644
+index 68c16e1..f7ea26c 100644
 --- a/src/char.go
 +++ b/src/char.go
 @@ -2620,6 +2620,7 @@ type ProjTradeDist struct {
@@ -10,7 +10,51 @@ index 68c16e1..8ce1fa6 100644
  	playerno        int
  	ownerId         int32
  	id              int32
-@@ -3648,6 +3649,10 @@ type ForceFeedbackParams struct {
+@@ -3219,6 +3220,19 @@ func (p *Projectile) tick() {
+ 	}
+ }
+ 
++// Animation timing selects collision boxes and must also run during rollback.
++func (p *Projectile) animationStep() {
++	if p.anim == nil || p.root().scf(SCF_disabled) || p.hitpause > 0 || p.pauseBool {
++		return
++	}
++	if sys.tickFrame() {
++		p.anim.UpdateSprite()
++	}
++	if sys.tickNextFrame() {
++		p.anim.Action()
++	}
++}
++
+ func (p *Projectile) cueDraw() {
+ 	// Nothing to draw here. Not even debug
+ 	if p.anim == nil {
+@@ -3230,12 +3244,6 @@ func (p *Projectile) cueDraw() {
+ 
+ 	isPaused := p.hitpause > 0 || p.pauseBool
+ 
+-	// TODO: Gating UpdateSprite() during pauses makes it go out of sync with the animation data
+-	// In the case of projectiles this can be seen with Clsn display
+-	if !isPaused && sys.tickFrame() {
+-		p.anim.UpdateSprite()
+-	}
+-
+ 	// Projectile Clsn display
+ 	if sys.clsnDisplay {
+ 		if frm := p.anim.drawFrame(); frm != nil {
+@@ -3252,10 +3260,6 @@ func (p *Projectile) cueDraw() {
+ 		}
+ 	}
+ 
+-	if sys.tickNextFrame() && !isPaused {
+-		p.anim.Action() // TODO: Placing this in cueDraw is a bit unusual. Confirm if it's right
+-	}
+-
+ 	// Set position
+ 	pos := [2]float32{p.interPos[0] * p.localscl, p.interPos[1] * p.localscl}
+ 
+@@ -3648,6 +3652,10 @@ type ForceFeedbackParams struct {
  }
  
  type Char struct {
@@ -21,7 +65,7 @@ index 68c16e1..8ce1fa6 100644
  	name                string
  	palfx               *PalFX
  	anim                *Animation
-@@ -4130,6 +4135,7 @@ func (c *Char) resetModifyPlayer() {
+@@ -4130,6 +4138,7 @@ func (c *Char) resetModifyPlayer() {
  }
  
  func (c *Char) load(def string, gi *CharGlobalInfo) error {
@@ -29,7 +73,7 @@ index 68c16e1..8ce1fa6 100644
  	// We keep the SFF so that loadSff() can reuse it if the same character is selected/reloaded
  	oldSff := gi.sff
  
-@@ -4217,6 +4223,7 @@ func (c *Char) load(def string, gi *CharGlobalInfo) error {
+@@ -4217,6 +4226,7 @@ func (c *Char) load(def string, gi *CharGlobalInfo) error {
  				}
  				info = false
  
@@ -37,7 +81,7 @@ index 68c16e1..8ce1fa6 100644
  				gi.name, _, _ = is.getText("name")
  				c.name = gi.name
  				var ok bool
-@@ -4739,7 +4746,7 @@ func (c *Char) load(def string, gi *CharGlobalInfo) error {
+@@ -4739,7 +4749,7 @@ func (c *Char) load(def string, gi *CharGlobalInfo) error {
  			return nil
  		})
  	}
@@ -46,7 +90,7 @@ index 68c16e1..8ce1fa6 100644
  }
  
  // Loads all of the character's palettes. Selectable or not
-@@ -6758,6 +6765,7 @@ func (c *Char) playSound(params *PlaySndParams) {
+@@ -6758,6 +6768,7 @@ func (c *Char) playSound(params *PlaySndParams) {
  }
  
  func (c *Char) autoTurn() {
@@ -54,7 +98,7 @@ index 68c16e1..8ce1fa6 100644
  	if c.helperIndex == 0 && !c.asf(ASF_noautoturn) && sys.stage.autoturn && c.shouldFaceP2() {
  		switch c.ss.stateType {
  		case ST_S:
-@@ -7788,6 +7796,10 @@ func (c *Char) posReset() {
+@@ -7788,6 +7799,10 @@ func (c *Char) posReset() {
  	c.vel[0] = 0
  	c.vel[1] = 0
  	c.vel[2] = 0
@@ -65,7 +109,7 @@ index 68c16e1..8ce1fa6 100644
  }
  
  func (c *Char) setPosX(x float32, all bool) {
-@@ -11166,6 +11178,7 @@ func (c *Char) hasBoxHitBy() bool {
+@@ -11166,6 +11181,7 @@ func (c *Char) hasBoxHitBy() bool {
  
  // Check if the enemy's (c) HitDef should lose to the player's (getter), if applicable
  func (c *Char) hittableByChar(getter *Char, ghd *HitDef, gst StateType, proj bool) bool {
@@ -73,7 +117,7 @@ index 68c16e1..8ce1fa6 100644
  
  	// Enemy (c) always wins if they can't be hit by the player's (getter) HitDef attributes at all
  	if !c.attrCheck(getter, ghd, gst) {
-@@ -11356,6 +11369,11 @@ func (c *Char) hitspark(getter *Char, proj *Projectile,
+@@ -11356,6 +11372,11 @@ func (c *Char) hitspark(getter *Char, proj *Projectile,
  }
  
  func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) {
@@ -85,7 +129,18 @@ index 68c16e1..8ce1fa6 100644
  
  	// Player hit check
  	hd := &c.hitdef
-@@ -13852,7 +13870,7 @@ func (cl *CharList) commandUpdate() {
+@@ -13389,6 +13410,10 @@ func (c *Char) cueDebugDraw() {
+ 		// Name, PlayerNo and ID
+ 		sys.debugClsnText = append(sys.debugClsnText,
+ 			DebugClsnText{x: x, y: y, text: fmt.Sprintf("%s, %d, %d", c.name, c.playerNo+1, c.id), r: 255, g: 255, b: 255, a: 255})
++		if c.foreign != nil {
++			y += float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
++			mixedDebugOverlay(c, x, y)
++		}
+ 		// NotHitBy
+ 		if nhbtxt != "" {
+ 			y += float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
+@@ -13852,7 +13877,7 @@ func (cl *CharList) commandUpdate() {
  		// Select a random command for AI cheating
  		// The way this only allows one command to be cheated at a time may be the cause of issue #2022
  		cheat := int32(-1)
@@ -94,7 +149,7 @@ index 68c16e1..8ce1fa6 100644
  			if sys.roundState() == 2 && RandF32(0, sys.aiLevel[i]/2+32) > 32 { // TODO: Balance AI scaling
  				cheat = Rand(0, int32(len(root.cmd[root.ss.sb.playerNo].Commands))-1)
  			}
-@@ -13989,19 +14007,19 @@ func (cl *CharList) action() {
+@@ -13989,19 +14014,19 @@ func (cl *CharList) action() {
  
  	// Prepare characters before performing their actions
  	for _, c := range cl.runOrder {
@@ -117,7 +172,7 @@ index 68c16e1..8ce1fa6 100644
  	}
  }
  
-@@ -14028,7 +14046,7 @@ func (cl *CharList) update() {
+@@ -14028,7 +14053,7 @@ func (cl *CharList) update() {
  	// Run update() for the remaining characters
  	for _, c := range cl.runOrder {
  		if !c.scf(SCF_disabled) {
@@ -126,7 +181,7 @@ index 68c16e1..8ce1fa6 100644
  			c.track()
  		}
  	}
-@@ -14472,6 +14490,7 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
+@@ -14472,6 +14497,7 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
  						getter.pos[2], getter.depthPlayer[0], getter.depthPlayer[1], getter.localscl) {
  
  					if hitResult := c.hitResultCheck(getter, p); hitResult != 0 {
@@ -134,7 +189,7 @@ index 68c16e1..8ce1fa6 100644
  						// Apply hit consequences specific to projectile vs player
  						p.contactflag = true
  						if Abs(hitResult) == 1 {
-@@ -14617,7 +14636,7 @@ func (cl *CharList) pushDetection(c *Char) {
+@@ -14617,7 +14643,7 @@ func (cl *CharList) pushDetection(c *Char) {
  
  		// Check for Clsn2 overlap
  		// A significant difference between Mugen and commercial games is that only the former does this
@@ -143,7 +198,7 @@ index 68c16e1..8ce1fa6 100644
  			continue
  		}
  
-@@ -14932,7 +14951,7 @@ func (cl *CharList) collisionDetection() {
+@@ -14932,7 +14958,7 @@ func (cl *CharList) collisionDetection() {
  
  func (cl *CharList) tick() {
  	for _, c := range cl.runOrder {
@@ -152,6 +207,40 @@ index 68c16e1..8ce1fa6 100644
  	}
  }
  
+diff --git a/src/rollback.go b/src/rollback.go
+index 3218660..ac1cf35 100644
+--- a/src/rollback.go
++++ b/src/rollback.go
+@@ -721,6 +721,9 @@ func (r *RollbackSession) SaveGameState(stateIdx int) int {
+ 
+ 	r.saveStates[stateIdx] = sys.statePool.gameStatePool.Get().(*GameState)
+ 	r.saveStates[stateIdx].SaveState(stateIdx)
++	if r.syncTest {
++		mixedSyncTrace(r.saveStates[stateIdx], r.inRollback)
++	}
+ 
+ 	if r.config.DesyncTest {
+ 		if r.config.StateLogsEnabled {
+@@ -913,6 +916,7 @@ func (rs *RollbackSession) LiveChecksum() uint32 {
+ 		}
+ 	}
+ 
++	buf = append(buf, []byte(mixedStateRecord(sys.chars, sys.projs))...)
+ 	return crc32.ChecksumIEEE(buf)
+ }
+ 
+diff --git a/src/state.go b/src/state.go
+index 2e59ebd..6fad140 100644
+--- a/src/state.go
++++ b/src/state.go
+@@ -475,6 +475,7 @@ func (gs *GameState) String() (str string) {
+ 	}
+ 
+ 	// Add bytecode data
++	str += gs.mixedStateRecord()
+ 	// TODO: Every log seems to have these empty. May not be needed
+ 	str += fmt.Sprintf("bcStack: %v\n", gs.bcStack)
+ 	str += fmt.Sprintf("bcVarStack: %v\n", gs.bcVarStack)
 diff --git a/src/state_clone.go b/src/state_clone.go
 index 5fb4700..a3fc3d1 100644
 --- a/src/state_clone.go
@@ -168,10 +257,24 @@ index 5fb4700..a3fc3d1 100644
  	if c.anim != nil {
  		result.anim = c.anim.Clone(gsp)
 diff --git a/src/system.go b/src/system.go
-index 91d991a..bbd6c83 100644
+index 91d991a..41c10df 100644
 --- a/src/system.go
 +++ b/src/system.go
-@@ -3073,6 +3073,8 @@ func (s *System) projectilePrune(pn int) {
+@@ -2955,6 +2955,13 @@ func (s *System) action() {
+ 	s.charTextsUpdate()
+ 	s.matchStoryboards.update()
+ 
++	// Projectile animation is gameplay state, including on render-skipped frames.
++	for _, side := range s.projs {
++		for _, p := range side {
++			p.animationStep()
++		}
++	}
++
+ 	// Adjust game speed
+ 	if s.tickNextFrame() && !s.motif.me.active {
+ 		spd := float32(s.gameLogicSpeed()) / float32(s.gameRenderSpeed())
+@@ -3073,6 +3080,8 @@ func (s *System) projectilePrune(pn int) {
  			// Stable swap. Move live projectiles forward while respecting the original order
  			playerProjs[writeIdx], playerProjs[j] = playerProjs[j], playerProjs[writeIdx]
  			writeIdx++

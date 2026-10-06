@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -34,6 +35,9 @@ type FighterRuntime interface {
 	Reset(float32, float32)
 	SaveState() FighterState
 	LoadState(FighterState)
+	StateBlob() ([]byte, error)
+	LoadBlob([]byte) error
+	StateHash() ([32]byte, error)
 	QueryDefense() DefenseQuery
 	CommitHit(HitResult)
 }
@@ -45,12 +49,13 @@ type KOFFrame struct {
 	Spawn    bool `json:"-"`
 }
 type KOFSpec struct {
-	Schema  int
-	Backend string
-	Scale   float32
-	Actions map[int][]KOFFrame
-	Moves   map[int][]json.RawMessage
-	Normal  struct {
+	Fingerprint [32]byte `json:"-"`
+	Schema      int
+	Backend     string
+	Scale       float32
+	Actions     map[int][]KOFFrame
+	Moves       map[int][]json.RawMessage
+	Normal      struct {
 		Damage, Hitstop int
 		SourceHitback   float32 `json:"source_hitback"`
 	}
@@ -150,6 +155,7 @@ func loadKOFSpec(data []byte) (*KOFSpec, error) {
 	if spawns != 1 {
 		return nil, fmt.Errorf("expected one source projectile spawn")
 	}
+	spec.Fingerprint = sha256.Sum256(data)
 	return &spec, nil
 }
 

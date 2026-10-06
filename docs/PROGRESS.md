@@ -257,3 +257,59 @@ the synthetic architecture gate allows the first real-game adapter.
   workflows for recon, reverse engineering, asset conversion and validation in
   `AGENTS.md`. This installs skills only; optional external services and the full
   plugin/MCP configuration are not enabled by this step. No game/runtime changes.
+
+### Package 6: state blobs, host replay and debug diagnostics
+
+- Continued using Ponytail's minimal implementation guidance and Universal Modder's
+  mashup/game-automation workflows: reuse native snapshots, contact lists, sync tests
+  and collision rendering rather than creating parallel schedulers or a test engine.
+- Added versioned foreign JSON state blobs, manifest SHA-256 identity, atomic validated
+  blob restore and SHA-256 state hashes. Existing typed host snapshot copies remain
+  the owner of native/foreign world state; a guest blob alone is not a match snapshot.
+- Added a stable mixed gameplay projection to saved-state and live rollback checksums.
+  It includes guest state, shell attack/defense/contact values and projectile animation,
+  motion, hit and removal state. Native-only checksum formatting stays unchanged.
+  Optional phase logs use logical ticks; render frame counters do not advance on replay.
+- Added `smoke-determinism.ps1`: separate per-run config, strict offline GGPO eight-frame
+  rewind, native per-frame checksum verification and forward/replayed phase coverage.
+  Scripted probes now work in the explicit offline sync session, whose controller IDs
+  differ from ordinary AI play. Real network and recorded replay probes remain disabled.
+- The first projectile run found a genuine mismatch: at logical tick 188 the forward
+  projectile animation was at clock/element 1/1, while replay remained at 0/0. Full saved
+  journals confirmed other projected fields matched. Pinned host `cueDraw()` advanced
+  animation outside rollback. Moved that advancement into the end of simulation action,
+  after collision/ticks, for native and foreign projectiles. Kept all animation fields
+  in the checksum. Host edits are captured in `0001-fighter-runtime.patch`.
+- Fixed two verifier issues without weakening native checks: delegate frame identity
+  to GGPO instead of the render counter, and include projectile hitpause in phase tags.
+- Final Windows build and six focused Go checks passed, including installed-spec
+  behavior, blob round trip, replay, hash sensitivity and atomic invalid-blob rejection.
+  PowerShell/Bash/Python syntax checks passed. The maintained patch applied to pristine
+  pinned source and passed reverse-apply validation.
+- Final five-scene offline sync matrix passed with 6,424 GGPO-verified replay frames:
+  melee 960, foreign projectile 960, native projectile 960, host Pause 1,960 and
+  KO/reset 1,584. Traces in the ignored host runtime:
+  `sync-melee-20261006-012828-920.stderr.txt`,
+  `sync-foreign-projectile-20261006-012847-942.stderr.txt`,
+  `sync-native-projectile-20261006-012905-974.stderr.txt`,
+  `sync-pause-20261006-012924-023.stderr.txt`,
+  `sync-ko-reset-20261006-012959-191.stderr.txt`.
+  Corresponding host `Rollback-Desync-Test` logs independently record matching checksums.
+- All eight projectile regressions passed, including twelve missed shots with twelve
+  removals and no contacts, both guard heights, and renewed contacts after KO/reset:
+  `projectile-foreign-hit-20261006-013040-668.stderr.txt` through
+  `projectile-foreign-rounds-20261006-013401-914.stderr.txt`. All eight melee regressions
+  passed: `melee-foreign-hit-20261006-013430-975.stderr.txt` through
+  `melee-foreign-ko-20261006-013708-001.stderr.txt`. Native/native multi-round KO passed
+  (`baseline-20261006-013719-805.txt`). Ordinary sampled foreign AI input, binding,
+  locomotion and sprite upload also passed with `UF_FOREIGN_DEBUG=1`
+  (`foreign-20261006-013802-681.stderr.txt`); this is renderer execution, not pixel QA.
+- Final blob review additionally rejected a jump startup lacking its required air
+  transition. The focused atomic-rejection check passed; the final build includes it.
+  Rebuilt and repeated the formerly failing foreign-projectile sync scene: another
+  960 replay frames passed (`sync-foreign-projectile-20261006-013942-872.stderr.txt`).
+- Added `play-foreign.ps1 -Debug` to enable existing collision boxes and foreign
+  backend/action/element/frame/stop/stun/activation text. Human inspection of pixels,
+  keyboard controls and actual frame advance remains pending. Offline replay checks
+  do not establish online netplay, every native field, simultaneous contacts or complete
+  KOF source fidelity. Packages 6/7 and full milestone acceptance remain open.

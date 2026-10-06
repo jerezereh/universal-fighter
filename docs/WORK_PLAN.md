@@ -7,9 +7,11 @@ Package 3 has an implemented KOF locomotion backend and passing automated checks
 interactive visual/controls and host pause/frame-advance acceptance remain open.
 Package 4 has a bounded mixed-melee implementation with passing controlled host checks
 for both hit directions, guard heights, knockdown and KO. Exhaustive source interactions,
-host rollback and interactive acceptance remain open. Package 5 has a bounded source
+broader rollback scenarios and interactive acceptance remain open. Package 5 has a bounded source
 projectile/lifecycle implementation with passing controlled hit/block, removal and
-KO/reset checks. Packages 6 and 7 remain open; the complete milestone is not accepted yet.
+KO/reset checks. Package 6 now has versioned state blobs, hashes, collision/state overlays
+and offline host replay probes. Interactive overlay/controls and actual frame-advance
+acceptance remain open. Package 7 and the complete milestone are not accepted yet.
 User scope update (2026-10-05): use locally
 installed KOF XIII for package 3 instead of the synthetic ForeignTestFighter.
 See `MODDING_PLAN.md` for the bounded import and runtime route.

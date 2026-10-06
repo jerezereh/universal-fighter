@@ -18,6 +18,6 @@ for patch in sorted((root / 'patches').glob('*.patch')):
         subprocess.run(args + ['--check', str(patch)], check=True)
         subprocess.run(args + [str(patch)], check=True)
         print(f'Applied: {patch.name}')
-for name in ('kof13.go', 'combat.go', 'host.go'):
+for name in ('kof13.go', 'combat.go', 'state.go', 'host.go', 'debug.go'):
     shutil.copyfile(root / 'runtime' / name, host / 'src' / ('foreign_' + name))
 print('Project runtime copied to pinned host')
