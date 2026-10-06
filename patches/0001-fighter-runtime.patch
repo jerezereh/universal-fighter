@@ -1,5 +1,5 @@
 diff --git a/src/char.go b/src/char.go
-index 68c16e1..0184b04 100644
+index 68c16e1..3f958e6 100644
 --- a/src/char.go
 +++ b/src/char.go
 @@ -165,6 +165,7 @@ const (
@@ -67,7 +67,7 @@ index 68c16e1..0184b04 100644
  
  type Char struct {
 +	foreignName string
-+	foreign *KOFRuntime
++	foreign FighterRuntime
 +	foreignAttack uint64
 +	foreignProjectile uint64
  	name                string
@@ -270,22 +270,21 @@ index 2e59ebd..6fad140 100644
  	str += fmt.Sprintf("bcStack: %v\n", gs.bcStack)
  	str += fmt.Sprintf("bcVarStack: %v\n", gs.bcVarStack)
 diff --git a/src/state_clone.go b/src/state_clone.go
-index 5fb4700..a3fc3d1 100644
+index 5fb4700..3dfad1c 100644
 --- a/src/state_clone.go
 +++ b/src/state_clone.go
-@@ -340,6 +340,10 @@ func cloneRemapPreset(src RemapPreset, gsp *GameStatePool) RemapPreset {
+@@ -340,6 +340,9 @@ func cloneRemapPreset(src RemapPreset, gsp *GameStatePool) RemapPreset {
  func (c *Char) Clone(gsp *GameStatePool) (result Char) {
  	result = Char{}
  	result = *c
 +	if c.foreign != nil {
-+		clone := *c.foreign // Immutable spec shared; mutable state copied by value.
-+		result.foreign = &clone
++		result.foreign = c.foreign.Clone() // Each backend owns its mutable snapshot.
 +	}
  
  	if c.anim != nil {
  		result.anim = c.anim.Clone(gsp)
 diff --git a/src/system.go b/src/system.go
-index 91d991a..a04a0de 100644
+index 91d991a..4a75444 100644
 --- a/src/system.go
 +++ b/src/system.go
 @@ -2558,6 +2558,11 @@ func (s *System) resetRound() {
@@ -294,7 +293,7 @@ index 91d991a..a04a0de 100644
  		}
 +		// Foreign reset owns its initial action; no native intro CNS state exists.
 +		if p[0].foreign != nil {
-+			p[0].changeAnim(int32(p[0].foreign.State.RenderAction), -1, -1, "")
++			p[0].changeAnim(int32(p[0].foreign.View().RenderAction), -1, -1, "")
 +			continue
 +		}
  		// Select anim 0. If it is missing, choose the lowest available action

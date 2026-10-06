@@ -92,7 +92,7 @@ func mixedSyncTrace(gs *GameState, replay bool) {
 			if c.foreign == nil {
 				continue
 			}
-			s := c.foreign.State
+			s := c.foreign.View()
 			coreFrame = s.Frame
 			if (s.RenderAction == 68 || s.RenderAction == 475) && s.RenderElement == 0 {
 				tags = append(tags, "startup")
@@ -132,12 +132,12 @@ func mixedDebugOverlay(c *Char, x, y float32) {
 	if c.foreign == nil {
 		return
 	}
-	s := c.foreign.State
+	s := c.foreign.View()
 	line := float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
 	// Keep the state label above the standing size box, clear of the bottom panel.
 	y += c.size.standbox[1]*c.localscl*sys.cam.Scale - 3*line
 	for _, text := range []string{
-		fmt.Sprintf("kof13 P%d action:%d elem:%d frame:%d", c.playerNo+1, s.RenderAction, s.RenderElement, s.Frame),
+		fmt.Sprintf("%s P%d action:%d elem:%d frame:%d", c.foreign.Backend(), c.playerNo+1, s.RenderAction, s.RenderElement, s.Frame),
 		fmt.Sprintf("stop:%d stun:%d atk:%d shot:%d", s.Hitstop, s.Stun, s.AttackID, s.ProjectileID),
 	} {
 		sys.debugClsnText = append(sys.debugClsnText, DebugClsnText{x: x, y: y, text: text, r: 255, g: 220, b: 100, a: 255, viewportBound: true})

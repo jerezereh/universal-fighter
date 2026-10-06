@@ -256,21 +256,34 @@ type FighterBackend interface {
 }
 
 type FighterRuntime interface {
+    Backend() string
+    View() FighterState
+    Pose(FighterState) FighterPose
     Step(InputFrame, FrameContext) FighterState
+    Presentation() FighterState
+    SetPosition(float32, float32)
     Reset(float32, float32)
-    SaveState() FighterState
-    LoadState(FighterState)
+    Clone() FighterRuntime
     StateBlob() ([]byte, error)
     LoadBlob([]byte) error
     StateHash() ([32]byte, error)
     QueryDefense() DefenseQuery
     CommitHit(HitResult)
+    CommitAttack(HitResult)
+    Defeat()
+    Normal() AttackSpec
+    Projectile() (RuntimeProjectile, bool)
 }
 ```
 
 Binding reads `[Info] runtime=kof13` and an adjacent schema-3 `foreign.json`. Unknown
 runtime names, invalid manifests and unsupported required behavior methods fail at
-load. The imported manifest is immutable; the host shell owns a mutable `KOFRuntime`.
+load. The imported manifest is immutable; the host shell owns a `FighterRuntime`.
+`Clone` owns all mutable backend state, including fields outside the common body view.
+`View` returns a value; the shell uses `SetPosition` for committed host bounds/pushing.
+KOF blobs are now version 2 and include backend identity as well as the spec fingerprint;
+version 1 blobs are deliberately rejected. Concrete KOF typed save/load helpers remain
+internal to its core tests and are no longer the host snapshot contract.
 Native fighters use the original methods through `nativeBackend`. Foreign dispatch
 skips native CNS state execution and native animation timing.
 
@@ -283,7 +296,7 @@ skips native CNS state execution and native animation timing.
 | Damage/rounds | Host life, round state, IDs, teams, stage bounds and player pushing remain authoritative. `Reset` clears guest inputs, reactions, KO and activation IDs; it does not reset host health or round data by itself. |
 | Defense/result | `QueryDefense` is a pure guest query. `resolveContact(AttackSpec, DefenseQuery)` produces `HitResult`; `CommitHit` applies guest reaction/stop/motion. The host commits canonical health and its native contact bookkeeping. Native defender negotiation still uses the host's mutating result routine. |
 | Entities | A guest projectile activation emits a monotonically increasing ID. The shell acknowledges it once; host `Projectile` owns motion, collision, hit consumption, stop, removal and render data. There is no guest entity-list API yet. |
-| Snapshot | Typed guest state is copied into native `Char.Clone`; immutable specs are shared. Whole-host snapshots own native fighters, projectiles, timers, RNG and contact lists. Versioned blobs/hash cover the guest value only. |
+| Snapshot | `Char.Clone` calls the guest's owned `Clone`; immutable specs may be shared. Whole-host snapshots own native fighters, projectiles, timers, RNG and contact lists. Versioned blobs/hash cover all guest state. |
 
 | Interaction | Current support/evidence | Remaining limits |
 |---|---|---|

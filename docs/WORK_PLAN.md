@@ -31,7 +31,7 @@ resource spending). Prove their interactions without matchup-specific code. Only
 begin further real-game adapters, including SFIII and eventually Xrd. KOF XIII is
 the user's explicitly selected exception to that original adapter order.
 
-## Next implementation phase (proposed)
+## Next implementation phase (in progress)
 
 | Step | Implementation decision and required tests |
 |---|---|
@@ -40,8 +40,9 @@ the user's explicitly selected exception to that original adapter order.
 | C. Air-dash/cancel ruleset | Add bounded air mobility, cancels and defensive resource spending. Prove legal transitions, exhaustion, landing/round reset and state hashes across stop/pause/replay. |
 | D. Cross-ruleset proof | Test attack-to-parry and resource/cancel interactions in both directions without opponent-name branches. Repeat native/Kyo regressions before further real-game adapters. |
 
-These mechanics are not implemented by the first milestone. Choose their neutral result
-and resource representation against the actual runtime contracts before writing them.
+Step A is implemented: the shell uses an owned runtime interface, generic pose/attack
+descriptors and backend-tagged blobs. Steps B–D remain in progress; these mechanics were
+not implemented by the first milestone.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

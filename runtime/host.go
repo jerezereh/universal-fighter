@@ -25,11 +25,11 @@ func (b nativeBackend) Finish()  { b.c.actionFinish() }
 func (b nativeBackend) Update()  { b.c.update() }
 func (b nativeBackend) Tick()    { b.c.tick() }
 
-type kofBackend struct{ c *Char }
+type guestBackend struct{ c *Char }
 
 func (c *Char) fighterBackend() FighterBackend {
 	if c.foreign != nil {
-		return kofBackend{c}
+		return guestBackend{c}
 	}
 	return nativeBackend{c}
 }
@@ -58,22 +58,18 @@ func (c *Char) bindForeign(def string) error {
 	return nil
 }
 func (c *Char) foreignAutoTurn() {
-	if c.hitPause() || c.foreign.State.Hitstop > 0 || c.foreign.State.RenderAction == 68 || c.foreign.State.RenderAction == 475 {
-		return
-	}
-	action := c.foreign.State.Action
-	if (action == 1 || action == 2 || action == 3 || action == 26) && sys.stage.autoturn && c.shouldFaceP2() {
+	if !c.hitPause() && c.foreign.Pose(c.foreign.View()).CanTurn && sys.stage.autoturn && c.shouldFaceP2() {
 		c.setFacing(-c.facing)
 	}
 }
-func (b kofBackend) Prepare() {
+func (b guestBackend) Prepare() {
 	c := b.c
 	if c.minus != 3 || c.scf(SCF_disabled) {
 		return
 	}
 	c.pauseBool = sys.supertime > 0 && c.superMovetime == 0 || sys.supertime == 0 && sys.pausetime > 0 && c.pauseMovetime == 0
 	c.acttmp = 0
-	if !c.pauseBool && !c.hitPause() && c.foreign.State.Hitstop == 0 {
+	if !c.pauseBool && !c.hitPause() && c.foreign.View().Hitstop == 0 {
 		c.acttmp = 1
 	}
 	c.setCSF(CSF_stagebound | CSF_screenbound | CSF_depthbound | CSF_movecamera_x | CSF_movecamera_y | CSF_movecamera_z | CSF_playerpush)
@@ -81,13 +77,13 @@ func (b kofBackend) Prepare() {
 	c.stchtmp = false      // Foreign simulation never commits a buffered native CNS transition.
 	c.setSCF(SCF_ctrl)
 	c.ss.moveType, c.ss.physics = MT_I, ST_N
-	if c.foreign.State.Stun > 0 || c.foreign.State.Knockdown || c.life <= 0 {
+	if c.foreign.View().Stun > 0 || c.foreign.View().Knockdown || c.life <= 0 {
 		c.unsetSCF(SCF_ctrl)
 		c.ss.moveType = MT_H
 	}
 	c.widthEdge = [2]float32{}
 }
-func (b kofBackend) Run() {
+func (b guestBackend) Run() {
 	c := b.c
 	if c.minus != 3 || c.pauseBool || c.scf(SCF_disabled) {
 		return
@@ -105,10 +101,10 @@ func (b kofBackend) Run() {
 		input = InputFrame{}
 		if enemy := c.enemyNearTrigger(0); enemy != nil {
 			input.Forward = Abs(c.distX(enemy, c)) > 38
-			input.Punch = foreignInputProbe == "melee" && c.foreign.State.Frame%40 == 0
+			input.Punch = foreignInputProbe == "melee" && c.foreign.View().Frame%40 == 0
 			if foreignInputProbe == "projectile" {
 				input.Forward = false
-				input.Special = c.foreign.State.Frame%80 == 0
+				input.Special = c.foreign.View().Frame%80 == 0
 			}
 			if foreignInputProbe == "guard-high" || foreignInputProbe == "guard-low" {
 				input.Forward, input.Back = false, true
@@ -117,14 +113,14 @@ func (b kofBackend) Run() {
 		}
 	}
 	// Stage bounds and player pushing are host policy; adopt their last committed transform.
-	c.foreign.State.X, c.foreign.State.Y = c.pos[0], c.pos[1]
+	c.foreign.SetPosition(c.pos[0], c.pos[1])
 	// A lethal contact still drains its foreign hitstop before the host KO flag.
 	if c.life <= 0 {
 		c.foreign.Defeat()
 	}
 	frame := c.foreign.Step(input, FrameContext{!c.hitPause(), sys.roundState() == 2 && c.life > 0, c.facing})
 	if c.hitPause() {
-		frame = c.foreign.presentation()
+		frame = c.foreign.Presentation()
 	}
 	if c.foreignProjectile != frame.ProjectileID {
 		c.foreignProjectile = frame.ProjectileID
@@ -142,19 +138,20 @@ func (b kofBackend) Run() {
 	c.setPosX(frame.X, false)
 	c.setPosY(frame.Y, false)
 	c.vel = [3]float32{} // Foreign simulation already integrated the transform.
+	pose := c.foreign.Pose(frame)
 	c.ss.no, c.ss.stateType = 0, ST_S
 	if frame.Y < 0 {
 		c.ss.stateType = ST_A
-	} else if frame.Action == 25 || frame.Action == 26 || frame.Action == 36 || frame.Action == 112 {
+	} else if pose.Crouch {
 		c.ss.no, c.ss.stateType = 11, ST_C
-	} else if frame.Action == 2 || frame.Action == 3 {
+	} else if pose.Moving {
 		c.ss.no = 20
 	}
 	c.ss.time = int32(frame.Frame)
-	if frame.Action == 68 || frame.Action == 475 {
+	if pose.Attacking {
 		c.ss.moveType = MT_A
 		c.unsetSCF(SCF_ctrl)
-		if frame.Action == 68 && c.foreignAttack != frame.AttackID {
+		if pose.Normal && c.foreignAttack != frame.AttackID {
 			c.foreignAttack = frame.AttackID
 			c.foreignNormal()
 		}
@@ -162,7 +159,7 @@ func (b kofBackend) Run() {
 	if frame.Guarded || frame.Stun > 0 || frame.Knockdown {
 		c.ss.moveType = MT_H
 	}
-	if frame.Knockdown && frame.Y == 0 {
+	if pose.Down {
 		c.ss.stateType = ST_L
 	}
 	if c.animNo != int32(frame.Action) || c.anim == nil {
@@ -175,11 +172,11 @@ func (b kofBackend) Run() {
 		c.animBackup = c.anim
 	}
 	c.atktmp = 0
-	if frame.Action == 68 && c.acttmp > 0 && sys.roundState() == 2 && len(c.getClsnWorld(1)) > 0 && c.hitdef.hitonce >= 0 {
+	if pose.Normal && c.acttmp > 0 && sys.roundState() == 2 && len(c.getClsnWorld(1)) > 0 && c.hitdef.hitonce >= 0 {
 		c.atktmp = 1
 	}
 	c.minus = 1
-	if traceForeign && (sys.roundState() == 2 || c.foreign.State.Defeated) {
+	if traceForeign && (sys.roundState() == 2 || c.foreign.View().Defeated) {
 		rendered := c.anim != nil && c.anim.spr != nil && c.anim.spr.Tex != nil
 		LogMessage("[foreign-frame] frame=%d action=%d x=%.3f y=%.3f rendered=%t", frame.Frame, frame.Action, frame.X, frame.Y, rendered)
 		if frame.Frame%60 == 0 {
@@ -192,7 +189,7 @@ func (b kofBackend) Run() {
 		}
 	}
 }
-func (b kofBackend) Finish() {
+func (b guestBackend) Finish() {
 	c := b.c
 	if c.scf(SCF_disabled) {
 		return
@@ -202,19 +199,19 @@ func (b kofBackend) Finish() {
 		c.palfx.step()
 	}
 	c.inguarddist = false
-	if c.life <= 0 && !c.pauseBool && !c.hitPause() && c.foreign.State.Hitstop == 0 {
+	if c.life <= 0 && !c.pauseBool && !c.hitPause() && c.foreign.View().Hitstop == 0 {
 		if traceForeign && !c.scf(SCF_ko) {
-			LogMessage("[foreign-ko] owner=%d round=%d action=%d y=%.3f", c.id, sys.roundNo, c.foreign.State.RenderAction, c.foreign.State.Y)
+			LogMessage("[foreign-ko] owner=%d round=%d action=%d y=%.3f", c.id, sys.roundNo, c.foreign.View().RenderAction, c.foreign.View().Y)
 		}
 		c.setSCF(SCF_ko)
-		if c.foreign.State.Y == 0 && c.foreign.State.RenderAction == 161 {
+		if c.foreign.View().Y == 0 && c.foreign.View().RenderAction == 161 {
 			c.setSCF(SCF_over_ko)
 		}
 		c.unsetSCF(SCF_ctrl)
 	}
 	c.minus = 2
 }
-func (b kofBackend) Update() {
+func (b guestBackend) Update() {
 	c := b.c
 	if c.acttmp > 0 {
 		for i := range c.interPos {
@@ -227,7 +224,7 @@ func (b kofBackend) Update() {
 		c.minus = 3
 	}
 }
-func (b kofBackend) Tick() {
+func (b guestBackend) Tick() {
 	c := b.c
 	// Only native-owned contact bookkeeping; no native state/animation tick.
 	if len(c.hitdefTargetsBuffer) > 0 {
@@ -241,26 +238,32 @@ func (b kofBackend) Tick() {
 }
 
 func (c *Char) foreignNormal() {
-	n := c.foreign.Spec.Normal
+	n := c.foreign.Normal()
 	c.hitdef.reset(c, nil)
 	hd := &c.hitdef
-	hd.attr = int32(ST_S) | int32(AT_NA)
-	foreignAttackParams(hd, n.Damage, n.Hitstop)
+	hd.attr = int32(c.ss.stateType) | int32(AT_NA)
+	foreignAttackParams(hd, n)
 	hd.finalizeParams(c, nil)
 }
 
-func foreignAttackParams(hd *HitDef, damage, hitstop int) {
-	hd.hitdamage = int32(damage)
-	hd.guarddamage = 0
-	hd.pausetime = [2]int32{int32(hitstop), int32(hitstop)}
-	hd.guard_pausetime = hd.pausetime
-	hd.guardflag = int32(HF_H | HF_L)
+func foreignAttackParams(hd *HitDef, a AttackSpec) {
+	hd.hitdamage = int32(a.Damage)
+	hd.guarddamage = int32(a.Chip)
+	hd.pausetime = [2]int32{int32(a.Hitstop[0]), int32(a.Hitstop[1])}
+	hd.guard_pausetime = [2]int32{int32(a.Guardstop[0]), int32(a.Guardstop[1])}
+	hd.guardflag = 0
+	if a.BlockHigh {
+		hd.guardflag |= int32(HF_H)
+	}
+	if a.BlockLow {
+		hd.guardflag |= int32(HF_L)
+	}
 	hd.ground_type, hd.air_type = HT_High, HT_High
 	// ponytail: source damage/hitstop/active boxes; compatibility reaction and push.
-	hd.ground_hittime, hd.ground_slidetime = 15, 15
-	hd.guard_hittime, hd.guard_slidetime, hd.guard_ctrltime = 14, 14, 14
-	hd.ground_velocity = [3]float32{-2.4, 0, 0}
-	hd.guard_velocity = [3]float32{-1.6, 0, 0}
+	hd.ground_hittime, hd.ground_slidetime = int32(a.Hitstun), int32(a.Hitstun)
+	hd.guard_hittime, hd.guard_slidetime, hd.guard_ctrltime = int32(a.Blockstun), int32(a.Blockstun), int32(a.Blockstun)
+	hd.ground_velocity = [3]float32{-a.PushX, a.PushY, 0}
+	hd.guard_velocity = [3]float32{-a.GuardPush, 0, 0}
 	hd.air_velocity = [3]float32{-2.4, -3, 0}
 	hd.air_hittime, hd.air_fall = 20, 1
 	hd.hitonce, hd.numhits, hd.id = 1, 1, 68
@@ -272,15 +275,18 @@ func (c *Char) spawnForeignProjectile() {
 	if p == nil {
 		return
 	}
-	spec := c.foreign.Spec.Projectile
+	spec, ok := c.foreign.Projectile()
+	if !ok {
+		panic("runtime emitted an unsupported projectile")
+	}
 	p.foreignEntity = c.foreignProjectile
 	p.id, p.animNo = 475, int32(spec.Animation)
 	p.hitanim, p.remanim, p.cancelanim = int32(spec.RemoveAnimation), int32(spec.RemoveAnimation), int32(spec.RemoveAnimation)
-	p.scale, p.clsnScale = [2]float32{c.foreign.Spec.Scale, c.foreign.Spec.Scale}, [2]float32{c.foreign.Spec.Scale, c.foreign.Spec.Scale}
+	p.scale, p.clsnScale = [2]float32{spec.Scale, spec.Scale}, [2]float32{spec.Scale, spec.Scale}
 	p.velocity[0], p.velmul[0] = spec.Speed, spec.VelocityMul
 	p.removetime = int32(spec.Lifetime) // ponytail: finite source timeline; no original Lua object lifecycle.
 	p.hitdef.attr = int32(ST_S) | int32(AT_SP)
-	foreignAttackParams(&p.hitdef, spec.Damage, spec.Hitstop)
+	foreignAttackParams(&p.hitdef, spec.Attack)
 	p.hitdef.id = 475
 	p.hitdef.finalizeParams(c, p)
 	p.hitdef.statePN = c.playerNo

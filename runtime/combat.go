@@ -19,6 +19,11 @@ type HitResult struct {
 	PushX, PushY, Gravity        float32
 }
 
+func compatibilityAttack(damage, stop int) AttackSpec {
+	return AttackSpec{Damage: damage, Hitstun: 15, Blockstun: 14, Hitstop: [2]int{stop, stop},
+		Guardstop: [2]int{stop, stop}, BlockHigh: true, BlockLow: true, PushX: 2.4, GuardPush: 1.6, Gravity: .35}
+}
+
 func resolveContact(a AttackSpec, d DefenseQuery) HitResult {
 	if d.Down {
 		return HitResult{}

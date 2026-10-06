@@ -7,41 +7,6 @@ import (
 	"math"
 )
 
-type InputFrame struct{ Forward, Back, Up, Down, Punch, Special bool }
-type FrameContext struct {
-	Advance, AcceptInput bool
-	Facing               float32
-}
-type FighterState struct {
-	Frame                                      uint64
-	Action, Element, Time, AirAction           int
-	X, Y, VX, VY                               float32
-	YTarget, YRate                             float32
-	UpHeld                                     bool
-	PunchHeld, BackHeld, DownHeld              bool
-	SpecialHeld, Defeated                      bool
-	ProjectileID                               uint64
-	AttackID                                   uint64
-	Hitstop, Stun, RenderAction, RenderElement int
-	DownTime                                   int
-	Guarded, Knockdown                         bool
-	PushX, PushY, Gravity                      float32
-}
-
-// Host life remains canonical. Foreign motion, pose, reaction clocks and input
-// edges are snapshot values; immutable imported data can be shared.
-type FighterRuntime interface {
-	Step(InputFrame, FrameContext) FighterState
-	Reset(float32, float32)
-	SaveState() FighterState
-	LoadState(FighterState)
-	StateBlob() ([]byte, error)
-	LoadBlob([]byte) error
-	StateHash() ([32]byte, error)
-	QueryDefense() DefenseQuery
-	CommitHit(HitResult)
-}
-
 type KOFFrame struct {
 	Duration int
 	Calls    []json.RawMessage
@@ -70,6 +35,32 @@ type KOFSpec struct {
 type KOFRuntime struct {
 	Spec  *KOFSpec
 	State FighterState
+}
+
+func (r *KOFRuntime) Backend() string            { return "kof13" }
+func (r *KOFRuntime) View() FighterState         { return r.State }
+func (r *KOFRuntime) SetPosition(x, y float32)   { r.State.X, r.State.Y = x, y }
+func (r *KOFRuntime) Clone() FighterRuntime      { clone := *r; return &clone }
+func (r *KOFRuntime) Presentation() FighterState { return r.presentation() }
+func (r *KOFRuntime) CommitAttack(HitResult)     {}
+func (r *KOFRuntime) Pose(s FighterState) FighterPose {
+	return FighterPose{
+		Crouch:    s.Action == 25 || s.Action == 26 || s.Action == 36 || s.Action == 112,
+		Moving:    s.Action == 2 || s.Action == 3,
+		Attacking: s.Action == 68 || s.Action == 475, Normal: s.Action == 68,
+		Down: s.Knockdown && s.Y == 0,
+		CanTurn: s.Hitstop == 0 && s.RenderAction != 68 && s.RenderAction != 475 &&
+			(s.Action == 1 || s.Action == 2 || s.Action == 3 || s.Action == 26),
+	}
+}
+func (r *KOFRuntime) Normal() AttackSpec {
+	return compatibilityAttack(r.Spec.Normal.Damage, r.Spec.Normal.Hitstop)
+}
+func (r *KOFRuntime) Projectile() (RuntimeProjectile, bool) {
+	p := r.Spec.Projectile
+	return RuntimeProjectile{Attack: compatibilityAttack(p.Damage, p.Hitstop), Animation: p.Animation,
+		RemoveAnimation: p.RemoveAnimation, Lifetime: p.Lifetime, Scale: r.Spec.Scale,
+		Speed: p.Speed, VelocityMul: p.VelocityMul, SpawnX: p.SpawnX}, true
 }
 
 func loadKOFSpec(data []byte) (*KOFSpec, error) {

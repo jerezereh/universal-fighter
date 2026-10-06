@@ -45,8 +45,20 @@ func TestStateBlobAndHash(t *testing.T) {
 	before := r.SaveState()
 	var invalid runtimeStateBlob
 	json.Unmarshal(blob, &invalid)
-	invalid.Spec[0]++
+	invalid.Backend = "parry-test"
 	bad, _ := json.Marshal(invalid)
+	if r.LoadBlob(bad) == nil || r.State != before {
+		t.Fatal("wrong backend accepted or mutated state")
+	}
+	invalid.Backend = r.Backend()
+	invalid.Version = 1
+	bad, _ = json.Marshal(invalid)
+	if r.LoadBlob(bad) == nil || r.State != before {
+		t.Fatal("old version accepted or mutated state")
+	}
+	invalid.Version = 2
+	invalid.Spec[0]++
+	bad, _ = json.Marshal(invalid)
 	if r.LoadBlob(bad) == nil || r.State != before {
 		t.Fatal("wrong spec accepted or changed runtime")
 	}
@@ -61,5 +73,28 @@ func TestStateBlobAndHash(t *testing.T) {
 	bad, _ = json.Marshal(invalid)
 	if r.LoadBlob(bad) == nil || r.State != before {
 		t.Fatal("missing jump transition accepted or changed runtime")
+	}
+}
+
+func TestRuntimeOwnership(t *testing.T) {
+	original := &KOFRuntime{Spec: testSpec()}
+	original.Reset(40, 0)
+	var runtime FighterRuntime = original
+	before, _ := runtime.StateBlob()
+	clone := runtime.Clone()
+	clone.SetPosition(12, 0)
+	clone.Step(InputFrame{Punch: true}, FrameContext{Advance: true, AcceptInput: true, Facing: 1})
+	clone.CommitHit(HitResult{Accepted: true, Stun: 12})
+	after, _ := runtime.StateBlob()
+	if string(before) != string(after) || clone.View() == runtime.View() {
+		t.Fatal("runtime clone aliased mutable state")
+	}
+	view := runtime.View()
+	view.X = 99
+	if runtime.View().X != 40 {
+		t.Fatal("view exposed mutable storage")
+	}
+	if err := clone.LoadBlob(before); err != nil || clone.View() != runtime.View() {
+		t.Fatal("clone restore failed", err)
 	}
 }

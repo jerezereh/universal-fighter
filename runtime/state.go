@@ -9,12 +9,13 @@ import (
 
 type runtimeStateBlob struct {
 	Version int
+	Backend string
 	Spec    [32]byte
 	State   FighterState
 }
 
 func (r *KOFRuntime) StateBlob() ([]byte, error) {
-	return json.Marshal(runtimeStateBlob{1, r.Spec.Fingerprint, r.State})
+	return json.Marshal(runtimeStateBlob{2, r.Backend(), r.Spec.Fingerprint, r.State})
 }
 
 func (r *KOFRuntime) LoadBlob(data []byte) error {
@@ -22,7 +23,7 @@ func (r *KOFRuntime) LoadBlob(data []byte) error {
 	if err := json.Unmarshal(data, &blob); err != nil {
 		return err
 	}
-	if blob.Version != 1 || blob.Spec != r.Spec.Fingerprint {
+	if blob.Version != 2 || blob.Backend != r.Backend() || blob.Spec != r.Spec.Fingerprint {
 		return fmt.Errorf("runtime state version/spec mismatch")
 	}
 	s := blob.State

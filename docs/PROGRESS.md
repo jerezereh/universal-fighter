@@ -403,3 +403,24 @@ the synthetic architecture gate allows the first real-game adapter.
   parry, air dash/cancels/defensive resources and cross-ruleset tests. These mechanics
   remain unimplemented. Physical user play/feel, other devices/resolutions, exhaustive
   simultaneous/source interactions and online netplay remain explicitly unmeasured.
+
+### Next phase A: owned runtime boundary
+
+- Replaced the shell's concrete KOF pointer with `FighterRuntime`. Common value views,
+  position adoption, pose/attack descriptors and owned `Clone` now isolate the host
+  from backend-private mutable state. Kyo still owns its immutable imported spec.
+- KOF snapshot format is now version 2 with backend identity and spec fingerprint.
+  Old versions, wrong backends/specs and invalid clocks/transforms reject atomically.
+  A clone/view independence check joins the six existing focused checks; all seven pass.
+- Windows build passed. All five strict offline GGPO scenes passed with 6,424 matching
+  replay frames, including pause/projectiles/KO/reset. All eight melee scenes, eight
+  projectile scenes and native/native multi-round KO passed. Evidence starts with
+  `sync-melee-20261006-034804-118.stderr.txt`,
+  `melee-foreign-hit-20261006-035011-903.stderr.txt`,
+  `projectile-foreign-hit-20261006-035310-740.stderr.txt` and
+  `baseline-20261006-035709-615.txt` in the ignored runtime.
+- Reviewed the host/core diff; pristine pinned patch apply/reverse, Bash/Python syntax
+  and diff whitespace checks passed. Host changes are captured in the maintained patch.
+- This step changes runtime ownership, not Kyo mechanics. New ruleset implementation
+  and interactive validation of those mechanics remain pending; prior Kyo keyboard
+  evidence is not counted as acceptance of new mechanics.
