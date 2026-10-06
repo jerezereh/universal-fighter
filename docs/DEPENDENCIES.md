@@ -19,6 +19,9 @@ After a successful build, `./tools/smoke-host.ps1` runs a bounded hidden KFM-ver
 AI match and requires a completed statistics log, at least two rounds, and a recorded KO.
 It uses low starting health to keep this baseline short. It verifies lifecycle execution;
 human movement controls and visual presentation still require an interactive match.
+After building/importing the mixed runtime, `python tools/smoke-controls.py` exercises
+the actual SDL keyboard path and native screenshots using the pinned Universal Modder
+WinDrive script. It needs Windows PowerShell and the desktop, and adds no dependency.
 `-CheckOnly` validates the installed tools and downloads missing Go modules but does not
 install or upgrade MSYS2 packages. Network access is required for setup/module gathering.
 

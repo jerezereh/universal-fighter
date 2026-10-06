@@ -8,8 +8,9 @@ Current status: Phase 1 source reconnaissance is complete. The native Windows ho
 and an automated native/native match passes KO and round-transition checks. The KOF XIII
 backend uses imported Kyo data, sprites and collision boxes. A bounded mixed-melee
 prototype adds one source normal, a weak ground-flame projectile and native/foreign
-hit handling. Offline GGPO replay probes and state diagnostics are implemented;
-interactive acceptance and online netplay remain open.
+hit handling. The bounded first milestone now passes automated contact/lifecycle,
+offline GGPO replay and real SDL keyboard/render acceptance. The next phase is two
+synthetic rulesets; online netplay and full source-game fidelity remain open.
 
 - [Source analysis and proposed runtime seam](docs/IKEMEN_RUNTIME_ANALYSIS.md)
 - [Implementation work plan and validation gates](docs/WORK_PLAN.md)
@@ -37,6 +38,9 @@ for collision boxes and the foreign action/frame/stop/state overlay. P1 uses arr
 keys, **Z** for the normal and **X** for the standing ground flame.
 Add `-Practice` for a stationary native opponent, unlimited time and a local input
 trace. **Pause** freezes/resumes; **Scroll Lock** is the host's single-frame hotkey.
+`python tools/smoke-controls.py` drives these keys in the real Windows host and saves
+native screenshots plus a completed KO match. It requires the desktop for brief
+foreground input and no other IKEMEN instances running.
 
 Keep extracted commercial assets in ignored local storage. Universal Modder is a recon
 reference and development tool, never a runtime dependency. KOF XIII is the user's selected

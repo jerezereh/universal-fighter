@@ -1,8 +1,16 @@
 diff --git a/src/char.go b/src/char.go
-index 68c16e1..f7ea26c 100644
+index 68c16e1..0184b04 100644
 --- a/src/char.go
 +++ b/src/char.go
-@@ -2620,6 +2620,7 @@ type ProjTradeDist struct {
+@@ -165,6 +165,7 @@ const (
+ )
+ 
+ type DebugClsnText struct {
++	viewportBound bool
+ 	x, y       float32
+ 	text       string
+ 	r, g, b, a int32
+@@ -2620,6 +2621,7 @@ type ProjTradeDist struct {
  }
  
  type Projectile struct {
@@ -10,7 +18,7 @@ index 68c16e1..f7ea26c 100644
  	playerno        int
  	ownerId         int32
  	id              int32
-@@ -3219,6 +3220,19 @@ func (p *Projectile) tick() {
+@@ -3219,6 +3221,19 @@ func (p *Projectile) tick() {
  	}
  }
  
@@ -30,7 +38,7 @@ index 68c16e1..f7ea26c 100644
  func (p *Projectile) cueDraw() {
  	// Nothing to draw here. Not even debug
  	if p.anim == nil {
-@@ -3230,12 +3244,6 @@ func (p *Projectile) cueDraw() {
+@@ -3230,12 +3245,6 @@ func (p *Projectile) cueDraw() {
  
  	isPaused := p.hitpause > 0 || p.pauseBool
  
@@ -43,7 +51,7 @@ index 68c16e1..f7ea26c 100644
  	// Projectile Clsn display
  	if sys.clsnDisplay {
  		if frm := p.anim.drawFrame(); frm != nil {
-@@ -3252,10 +3260,6 @@ func (p *Projectile) cueDraw() {
+@@ -3252,10 +3261,6 @@ func (p *Projectile) cueDraw() {
  		}
  	}
  
@@ -54,7 +62,7 @@ index 68c16e1..f7ea26c 100644
  	// Set position
  	pos := [2]float32{p.interPos[0] * p.localscl, p.interPos[1] * p.localscl}
  
-@@ -3648,6 +3652,10 @@ type ForceFeedbackParams struct {
+@@ -3648,6 +3653,10 @@ type ForceFeedbackParams struct {
  }
  
  type Char struct {
@@ -65,7 +73,7 @@ index 68c16e1..f7ea26c 100644
  	name                string
  	palfx               *PalFX
  	anim                *Animation
-@@ -4130,6 +4138,7 @@ func (c *Char) resetModifyPlayer() {
+@@ -4130,6 +4139,7 @@ func (c *Char) resetModifyPlayer() {
  }
  
  func (c *Char) load(def string, gi *CharGlobalInfo) error {
@@ -73,7 +81,7 @@ index 68c16e1..f7ea26c 100644
  	// We keep the SFF so that loadSff() can reuse it if the same character is selected/reloaded
  	oldSff := gi.sff
  
-@@ -4217,6 +4226,7 @@ func (c *Char) load(def string, gi *CharGlobalInfo) error {
+@@ -4217,6 +4227,7 @@ func (c *Char) load(def string, gi *CharGlobalInfo) error {
  				}
  				info = false
  
@@ -81,7 +89,7 @@ index 68c16e1..f7ea26c 100644
  				gi.name, _, _ = is.getText("name")
  				c.name = gi.name
  				var ok bool
-@@ -4739,7 +4749,7 @@ func (c *Char) load(def string, gi *CharGlobalInfo) error {
+@@ -4739,7 +4750,7 @@ func (c *Char) load(def string, gi *CharGlobalInfo) error {
  			return nil
  		})
  	}
@@ -90,7 +98,7 @@ index 68c16e1..f7ea26c 100644
  }
  
  // Loads all of the character's palettes. Selectable or not
-@@ -6758,6 +6768,7 @@ func (c *Char) playSound(params *PlaySndParams) {
+@@ -6758,6 +6769,7 @@ func (c *Char) playSound(params *PlaySndParams) {
  }
  
  func (c *Char) autoTurn() {
@@ -98,7 +106,7 @@ index 68c16e1..f7ea26c 100644
  	if c.helperIndex == 0 && !c.asf(ASF_noautoturn) && sys.stage.autoturn && c.shouldFaceP2() {
  		switch c.ss.stateType {
  		case ST_S:
-@@ -7788,6 +7799,10 @@ func (c *Char) posReset() {
+@@ -7788,6 +7800,10 @@ func (c *Char) posReset() {
  	c.vel[0] = 0
  	c.vel[1] = 0
  	c.vel[2] = 0
@@ -109,7 +117,7 @@ index 68c16e1..f7ea26c 100644
  }
  
  func (c *Char) setPosX(x float32, all bool) {
-@@ -11166,6 +11181,7 @@ func (c *Char) hasBoxHitBy() bool {
+@@ -11166,6 +11182,7 @@ func (c *Char) hasBoxHitBy() bool {
  
  // Check if the enemy's (c) HitDef should lose to the player's (getter), if applicable
  func (c *Char) hittableByChar(getter *Char, ghd *HitDef, gst StateType, proj bool) bool {
@@ -117,7 +125,7 @@ index 68c16e1..f7ea26c 100644
  
  	// Enemy (c) always wins if they can't be hit by the player's (getter) HitDef attributes at all
  	if !c.attrCheck(getter, ghd, gst) {
-@@ -11356,6 +11372,11 @@ func (c *Char) hitspark(getter *Char, proj *Projectile,
+@@ -11356,6 +11373,11 @@ func (c *Char) hitspark(getter *Char, proj *Projectile,
  }
  
  func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) {
@@ -129,7 +137,7 @@ index 68c16e1..f7ea26c 100644
  
  	// Player hit check
  	hd := &c.hitdef
-@@ -13389,6 +13410,10 @@ func (c *Char) cueDebugDraw() {
+@@ -13389,6 +13411,10 @@ func (c *Char) cueDebugDraw() {
  		// Name, PlayerNo and ID
  		sys.debugClsnText = append(sys.debugClsnText,
  			DebugClsnText{x: x, y: y, text: fmt.Sprintf("%s, %d, %d", c.name, c.playerNo+1, c.id), r: 255, g: 255, b: 255, a: 255})
@@ -140,7 +148,7 @@ index 68c16e1..f7ea26c 100644
  		// NotHitBy
  		if nhbtxt != "" {
  			y += float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
-@@ -13852,7 +13877,7 @@ func (cl *CharList) commandUpdate() {
+@@ -13852,7 +13878,7 @@ func (cl *CharList) commandUpdate() {
  		// Select a random command for AI cheating
  		// The way this only allows one command to be cheated at a time may be the cause of issue #2022
  		cheat := int32(-1)
@@ -149,7 +157,7 @@ index 68c16e1..f7ea26c 100644
  			if sys.roundState() == 2 && RandF32(0, sys.aiLevel[i]/2+32) > 32 { // TODO: Balance AI scaling
  				cheat = Rand(0, int32(len(root.cmd[root.ss.sb.playerNo].Commands))-1)
  			}
-@@ -13989,19 +14014,19 @@ func (cl *CharList) action() {
+@@ -13989,19 +14015,19 @@ func (cl *CharList) action() {
  
  	// Prepare characters before performing their actions
  	for _, c := range cl.runOrder {
@@ -172,7 +180,7 @@ index 68c16e1..f7ea26c 100644
  	}
  }
  
-@@ -14028,7 +14053,7 @@ func (cl *CharList) update() {
+@@ -14028,7 +14054,7 @@ func (cl *CharList) update() {
  	// Run update() for the remaining characters
  	for _, c := range cl.runOrder {
  		if !c.scf(SCF_disabled) {
@@ -181,7 +189,7 @@ index 68c16e1..f7ea26c 100644
  			c.track()
  		}
  	}
-@@ -14472,6 +14497,7 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
+@@ -14472,6 +14498,7 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
  						getter.pos[2], getter.depthPlayer[0], getter.depthPlayer[1], getter.localscl) {
  
  					if hitResult := c.hitResultCheck(getter, p); hitResult != 0 {
@@ -189,7 +197,7 @@ index 68c16e1..f7ea26c 100644
  						// Apply hit consequences specific to projectile vs player
  						p.contactflag = true
  						if Abs(hitResult) == 1 {
-@@ -14617,7 +14643,7 @@ func (cl *CharList) pushDetection(c *Char) {
+@@ -14617,7 +14644,7 @@ func (cl *CharList) pushDetection(c *Char) {
  
  		// Check for Clsn2 overlap
  		// A significant difference between Mugen and commercial games is that only the former does this
@@ -198,7 +206,7 @@ index 68c16e1..f7ea26c 100644
  			continue
  		}
  
-@@ -14932,7 +14958,7 @@ func (cl *CharList) collisionDetection() {
+@@ -14932,7 +14959,7 @@ func (cl *CharList) collisionDetection() {
  
  func (cl *CharList) tick() {
  	for _, c := range cl.runOrder {
@@ -277,10 +285,22 @@ index 5fb4700..a3fc3d1 100644
  	if c.anim != nil {
  		result.anim = c.anim.Clone(gsp)
 diff --git a/src/system.go b/src/system.go
-index 91d991a..41c10df 100644
+index 91d991a..a04a0de 100644
 --- a/src/system.go
 +++ b/src/system.go
-@@ -2955,6 +2955,13 @@ func (s *System) action() {
+@@ -2558,6 +2558,11 @@ func (s *System) resetRound() {
+ 		if len(p) == 0 {
+ 			continue
+ 		}
++		// Foreign reset owns its initial action; no native intro CNS state exists.
++		if p[0].foreign != nil {
++			p[0].changeAnim(int32(p[0].foreign.State.RenderAction), -1, -1, "")
++			continue
++		}
+ 		// Select anim 0. If it is missing, choose the lowest available action
+ 		// instead of depending on Go map iteration order.
+ 		firstAnim := int32(0)
+@@ -2955,6 +2960,13 @@ func (s *System) action() {
  	s.charTextsUpdate()
  	s.matchStoryboards.update()
  
@@ -294,7 +314,7 @@ index 91d991a..41c10df 100644
  	// Adjust game speed
  	if s.tickNextFrame() && !s.motif.me.active {
  		spd := float32(s.gameLogicSpeed()) / float32(s.gameRenderSpeed())
-@@ -3073,6 +3080,8 @@ func (s *System) projectilePrune(pn int) {
+@@ -3073,6 +3085,8 @@ func (s *System) projectilePrune(pn int) {
  			// Stable swap. Move live projectiles forward while respecting the original order
  			playerProjs[writeIdx], playerProjs[j] = playerProjs[j], playerProjs[writeIdx]
  			writeIdx++
@@ -303,3 +323,18 @@ index 91d991a..41c10df 100644
  		}
  	}
  
+@@ -4000,6 +4014,14 @@ func (s *System) drawDebugText(logicState drawAspectState) {
+ 	//if s.clsnDisplay {
+ 	for _, t := range s.debugClsnText {
+ 		s.debugFont.SetColor(t.r, t.g, t.b, t.a)
++		// Clamp opt-in labels after restoring the actual draw aspect, not while queuing.
++		if t.viewportBound {
++			xscl := s.debugFont.xscl / debugScaleX
++			halfWidth := float32(s.debugFont.fnt.TextWidth(t.text, 0, 0)) * xscl / 2
++			left := (320-s.gameWidth)/2 + 1 - float32(s.debugFont.fnt.offset[0])*xscl
++			t.x = Clamp(t.x, left+halfWidth, left+s.gameWidth-2-halfWidth)
++			t.y = Max(t.y, 240-s.gameHeight+float32(s.debugFont.fnt.Size[1])*s.debugFont.yscl/debugScaleY)
++		}
+ 		s.debugFont.fnt.Print(t.text, t.x, t.y, s.debugFont.xscl/debugScaleX,
+ 			s.debugFont.yscl/debugScaleY, 0, Rotation{0, 0, 0}, 0, 0, 0, 0, &s.scrrect,
+ 			s.debugFont.palfx, s.debugFont.frgba)

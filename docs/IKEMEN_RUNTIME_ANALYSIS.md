@@ -237,7 +237,7 @@ require startup/contact/hitstop/projectile/KO/reset coverage as appropriate. A n
 Pause fixture checks that the foreign clock stays frozen across paused saves. Real
 network sessions do not enable scripted input probes. `play-foreign.ps1 -Debug` enables
 existing collision rendering plus a foreign state line. Online netplay, simultaneous
-contact combinations and complete physical-keyboard acceptance remain pending. Live
+contact combinations and physical user play/feel remain unmeasured. Live
 capture now verifies the foreign state label and collision boxes. The label uses two
 short lines above the standing size box to avoid the host's bottom debug panel.
 
@@ -287,19 +287,32 @@ skips native CNS state execution and native animation timing.
 
 | Interaction | Current support/evidence | Remaining limits |
 |---|---|---|
-| Idle/walk/crouch/jump | Imported Kyo actions; core checks and ordinary sampled AI-input renderer smoke pass. | Complete physical-keyboard sequence remains pending. |
-| Facing and boxes | Live capture shows Kyo facing the stationary native opponent with visible imported hurt boxes. | Crossovers and other display sizes have not been accepted interactively. |
+| Idle/walk/crouch/jump | Imported Kyo actions; core, ordinary sampled AI-input smoke and real SDL keyboard scenes pass. | Physical user play/feel and other devices are not measured. |
+| Facing and boxes | Native screenshots show imported boxes and Kyo facing the opponent before and after a jump crossover. | Other display sizes have not been accepted interactively. |
 | Normal melee | One Kyo source normal; authored tests pass both hit directions and activation duplicate protection. | Additional attacks, cancels and source priority/juggle fidelity are outside the subset. |
 | Guard | Ground high/low eligibility and mismatches pass controlled tests. | Air guard, parry and defensive resource spending are not implemented. |
 | Reactions | Stop/stun, ground push, launch/down/recovery and lethal contact are covered by core/host checks. | Full source reaction and native get-hit trigger equivalence remain incomplete. |
 | Projectiles | One source weak ground flame and authored native projectile; hit/block, misses, removal and reset tests pass. | Reflection, platform behavior and exhaustive simultaneous trades are unverified. |
-| KO/restart | Controlled tests finish rounds, clean entities and renew contacts after reset. | A complete human-played match is still an acceptance gate. |
+| KO/restart | Controlled tests clean entities and renew contacts after reset; a real SDL keyboard scene completes a native-versus-Kyo match by KO. | Physical human playthrough is not recorded. |
 | Restore/replay | Five offline GGPO scenes pass strict per-frame checksums over eight-frame rewind windows. | Online netplay and all native fields/interactions are not established. |
 | Debug presentation | Live inspection verifies readable backend/action/element/frame/stop/stun/activation labels and collision rendering. | Dense multi-fighter layouts and airborne label clipping are unverified. |
-| Pause/frame advance | Live Pause freezes/resumes the core; controller Pause also passes offline replay. | Injected Scroll Lock produced no accepted step; physical-keyboard single-step acceptance remains pending. |
+| Pause/frame advance | WinDrive SDL events freeze/resume the core and three Scroll Lock taps each advance exactly one frame; controller Pause also passes offline replay. | Other devices and physical-keyboard models are not measured. |
 | Throws/custom states | Explicitly excluded from foreign eligibility. | No cross-runtime state takeover, helpers, reversals or general throw contract. |
 
-The first milestone is still a candidate: the automated bounded match/replay gates
-pass, but complete keyboard and human-match acceptance has not been recorded. Further
-rulesets/adapters should follow the work-plan gate rather than treating this prototype
-as a universal compatibility guarantee.
+`smoke-controls.py` closes the first milestone's automated interactive input/render
+gate: P1 AI and scripted probes are off, WinDrive sends Windows key events, SDL records
+them, and the real host produces native screenshots and completed KO statistics. This
+does not claim a physical human playthrough. The bounded match, contact, reset, replay
+and API-record gates now pass; further rulesets should follow the next phase in the
+work plan rather than treating this prototype as a universal compatibility guarantee.
+
+Foreign round reset now selects the guest's initial render action directly, skipping
+native state 5900. The shell has no native intro CNS, so this fixes its invalid-state
+warning without introducing dummy guest CNS behavior. Native fighters retain their
+original intro path. The native test fixture declares an empty command state -1 because
+common get-hit recovery may invoke it; authored attack behavior remains in state 0.
+
+Foreign diagnostic labels opt into viewport bounds in `DebugClsnText`. Bounds are
+applied in the debug draw pass after restoring scene aspect, using the existing font's
+`TextWidth` and draw scale. Queuing-time bounds used the wrong aspect and still clipped
+at the stage edge. Native labels retain their existing behavior.

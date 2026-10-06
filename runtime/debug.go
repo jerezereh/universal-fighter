@@ -140,7 +140,7 @@ func mixedDebugOverlay(c *Char, x, y float32) {
 		fmt.Sprintf("kof13 P%d action:%d elem:%d frame:%d", c.playerNo+1, s.RenderAction, s.RenderElement, s.Frame),
 		fmt.Sprintf("stop:%d stun:%d atk:%d shot:%d", s.Hitstop, s.Stun, s.AttackID, s.ProjectileID),
 	} {
-		sys.debugClsnText = append(sys.debugClsnText, DebugClsnText{x: x, y: y, text: text, r: 255, g: 220, b: 100, a: 255})
+		sys.debugClsnText = append(sys.debugClsnText, DebugClsnText{x: x, y: y, text: text, r: 255, g: 220, b: 100, a: 255, viewportBound: true})
 		y += line
 	}
 }

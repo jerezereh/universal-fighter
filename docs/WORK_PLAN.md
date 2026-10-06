@@ -1,19 +1,17 @@
 # First milestone work plan
 
 Authority: `handoff_doc.txt`. Gate: a complete IKEMEN versus ForeignTestFighter match.
-Phase 1 is a source-only investigation. Package 2 now has a successful Windows build and
-automated native/native KO and multi-round baseline; interactive validation remains open.
-Package 3 has an implemented KOF locomotion backend and passing automated checks;
-interactive visual/controls and host pause/frame-advance acceptance remain open.
-Package 4 has a bounded mixed-melee implementation with passing controlled host checks
-for both hit directions, guard heights, knockdown and KO. Exhaustive source interactions,
-broader rollback scenarios and interactive acceptance remain open. Package 5 has a bounded source
-projectile/lifecycle implementation with passing controlled hit/block, removal and
-KO/reset checks. Package 6 now has versioned state blobs, hashes, collision/state overlays
-and offline host replay probes. Live capture verifies initial facing, collision/state
-overlays and Pause freeze/resume. Complete physical-keyboard controls, crossovers and
-actual frame-advance acceptance remain open. Package 7 now has the implemented API and
-supported-interaction matrix recorded; the complete milestone is not accepted yet.
+Status 2026-10-05: packages 1–7 are implemented and the bounded Kyo milestone is verified.
+Evidence combines the native/native KO and multi-round baseline, sixteen controlled
+combat scenes, five strict offline replay scenes, real SDL keyboard input with AI/probes
+disabled for P1, and inspected native screenshots. The keyboard scenes cover movement,
+crouch/release, jumps, both attacks, crossover facing, Pause, three exact single-frame
+advances, readable overlays and a complete mixed match by KO. The implemented API and
+supported-interaction matrix are recorded in `IKEMEN_RUNTIME_ANALYSIS.md`.
+
+This is an automated interactive acceptance result for the documented Kyo subset.
+Physical user play/feel, other displays/devices, exhaustive source interactions and
+online netplay remain unmeasured; complete original KOF behavior is not implemented.
 User scope update (2026-10-05): use locally
 installed KOF XIII for package 3 instead of the synthetic ForeignTestFighter.
 See `MODDING_PLAN.md` for the bounded import and runtime route.
@@ -32,6 +30,18 @@ After package 7, implement two synthetic rulesets (parry versus air dash/cancels
 resource spending). Prove their interactions without matchup-specific code. Only then
 begin further real-game adapters, including SFIII and eventually Xrd. KOF XIII is
 the user's explicitly selected exception to that original adapter order.
+
+## Next implementation phase (proposed)
+
+| Step | Implementation decision and required tests |
+|---|---|
+| A. Multiple guest runtimes | Replace the concrete KOF-only shell/snapshot binding with owned runtime cloning/restore that can support two authored rulesets. Preserve native/Kyo behavior and reject wrong backend/version/spec blobs before adding mechanics. |
+| B. Parry ruleset | Add a short defensive window through pure defense query and committed result. Prove zero damage on a successful parry, one contact/resource commit per activation, missed timing and snapshot/replay. |
+| C. Air-dash/cancel ruleset | Add bounded air mobility, cancels and defensive resource spending. Prove legal transitions, exhaustion, landing/round reset and state hashes across stop/pause/replay. |
+| D. Cross-ruleset proof | Test attack-to-parry and resource/cancel interactions in both directions without opponent-name branches. Repeat native/Kyo regressions before further real-game adapters. |
+
+These mechanics are not implemented by the first milestone. Choose their neutral result
+and resource representation against the actual runtime contracts before writing them.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

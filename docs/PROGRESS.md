@@ -355,3 +355,51 @@ the synthetic architecture gate allows the first real-game adapter.
   shell's missing native 5900 state warning; normal foreign ticks bind and render, but
   loader warning cleanup has not been addressed. Package 7 documentation is advanced;
   the first milestone has not been accepted.
+
+### SDL keyboard acceptance and bounded first milestone verification
+
+- Continued Ponytail and Universal Modder game-automation. The prior helper's absent
+  SDL events were a delivery limitation, not an observed defect in Z or Scroll Lock.
+  The pinned WinDrive foreground-guarded driver delivered paired native SDL key events
+  for arrows, Z, X, Pause, Scroll Lock and F12. Its initial launch hit PowerShell script
+  policy; the documented process-only execution option ran it without changing machine
+  settings. The existing user authorization covered brief keyboard checks.
+- Manual driver checks on the retained practice process proved Pause freeze/resume and
+  three single-frame advances (1,381→1,382→1,383→1,384), walking, crouch/release, normal
+  and projectile contacts, and jumping across the target. Native F12 images showed
+  Kyo facing left after crossing from the opponent's left to its right.
+- Added `smoke-controls.py`, a reproducible Windows input-path check using that existing
+  driver and the native screenshot facility. It installs no dependency. It refuses
+  existing IKEMEN processes, uses a per-scene config/log/capture folder, disables P1 AI
+  and the foreign input probe, and cleans up only its own game/helper processes. The
+  practice scene checks input/actions, both contact paths, facing and three exact steps;
+  the second sends a normal and ground flame to finish a short mixed match by KO.
+- Its initial preflight treated PowerShell's no-process exit status as an error;
+  corrected the lookup's empty-result handling. The first working edge screenshot
+  showed that queuing-time label bounds still used the wrong aspect. Moved optional
+  bounds into the actual debug draw pass and reused native font width/scale. Final
+  visual inspection verifies readable state fields at the right stage boundary.
+- Removed the foreign shell's state-5900 startup warning at the actual boundary: guest
+  reset owns initial action selection and now bypasses native intro CNS initialization.
+  Native startup is unchanged. Also declared an empty native fixture command state -1,
+  which common hit recovery invokes; this removes its warning without adding commands.
+- Final interactive scenes passed on the final rebuilt executable:
+  `controls-practice-20261006-030755-650785` and
+  `controls-match-20261006-030810-540237`. Inspected startup/crossover/KO native PNGs;
+  boxes, facing and state text are visible. Match statistics record round 1 completed,
+  P1 life 1,000, P2 life 0 and a KO win. These are real SDL/renderer results via automation,
+  not a claim that a physical human played the match.
+- All six core checks and Windows build passed. The changed initialization/fixture
+  passed the full five-scene offline GGPO matrix (6,424 matching replay frames), all
+  eight projectile scenarios, all eight melee scenarios, native/native multi-round KO
+  and ordinary foreign AI-input movement/sprite-upload regression. Evidence starts at
+  `sync-melee-20261006-025706-312.stderr.txt`,
+  `projectile-foreign-hit-20261006-025903-254.stderr.txt`,
+  `melee-foreign-hit-20261006-030251-628.stderr.txt`,
+  `baseline-20261006-030540-639.txt` and `foreign-20261006-030632-918.stderr.txt`.
+  The final draw-only adjustment was then rebuilt and the two interactive scenes repeated.
+- Updated the work plan to mark packages 1–7 technically verified for the bounded Kyo
+  milestone and record the proposed next phase: multiple runtime ownership/snapshots,
+  parry, air dash/cancels/defensive resources and cross-ruleset tests. These mechanics
+  remain unimplemented. Physical user play/feel, other devices/resolutions, exhaustive
+  simultaneous/source interactions and online netplay remain explicitly unmeasured.

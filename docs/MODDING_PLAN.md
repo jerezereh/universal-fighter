@@ -188,8 +188,21 @@ P1 uses arrows, Z (normal) and X (standing ground flame). The pinned debug hotke
 Pause (freeze/resume), Scroll Lock (single paused frame), Ctrl+C (collision boxes),
 Ctrl+D (debug panel) and F8 (clear console). Keep injected-key results separate from
 physical-keyboard results: a helper can report a successful tap without SDL receiving
-the corresponding event. Live captures have verified boxes, readable state text,
-initial facing and Pause; full physical control/frame-step acceptance remains pending.
+the corresponding event. Universal Modder's WinDrive has now delivered real SDL key
+events for arrows, Z, X, Pause and Scroll Lock, with matching action/contact traces.
+
+Run `python tools/smoke-controls.py` for a repeatable interactive check. It focuses
+the game and sends keys, so run it when the desktop is available and close other
+IKEMEN instances first. It uses the pinned WinDrive script, separate temporary config
+and logs, P1 AI level zero and no foreign scripted input probe. The first scene checks
+walking, crouch/release, jumps, both attacks, crossover facing, Pause and three exact
+single-frame advances. The second drives a normal plus ground flame against a native
+fixture with 85 starting life and requires a completed KO match with P1 alive/P2 dead.
+Native F12 capture saves startup/crossover/KO PNGs under ignored `controls-*` folders;
+the images require visual inspection in addition to the script assertions. The helper
+is hidden, the game window is visible, and cleanup stops only the processes it launched.
+No FFmpeg or additional desktop dependency is installed. These are automated keyboard
+and renderer results; physical user play/feel and other display sizes are not measured.
 
 Core checks cover walking, crouch/release, jump/landing, held-up edge behavior,
 pause, one-frame advance, reset and deterministic restore/replay with the local
