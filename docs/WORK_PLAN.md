@@ -48,10 +48,18 @@ show both guest labels, boxes and meter/window/charge values. Step D's cross-rul
 scenes and final native/Kyo regression repeat pass. See
 `SYNTHETIC_RULESETS.md` for the precise authored rules and remaining limits.
 
-The next adapter gate is reconnaissance of the user's local Steam Xrd installation:
-verify the exact edition/build, behavior and asset oracles, then choose one fighter/move
-and a presentation route for the IKEMEN arena. That real-game adapter has not begun;
-the authored mobility ruleset is an architecture proof, not Xrd behavior.
+## Xrd SIGN source phase (in progress, 2026-10-06)
+
+The installed target is SIGN, app 376300/build 1028441. Reconnaissance, pinned offline
+tool setup, bounded Sol/common extraction, independent package-table comparison and
+native instruction framing are verified. The Sol `NmlAtk5A` candidate's pose literals
+link to the extracted collision family. Original source hashes remain unchanged.
+
+Remaining gates are command semantics/defaults, source clock and coordinate/facing
+oracles, verified 3D-pose sampling/toon presentation, a distinct guest runtime and mixed
+match/replay/SDL regressions. The proposed route bakes original 3D poses into host sprite
+frames. See `XRD_SIGN_MODDING_PLAN.md` and the runnable importer/checks. The authored
+mobility ruleset remains an architecture proof, not Xrd behavior.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

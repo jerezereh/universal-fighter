@@ -537,3 +537,46 @@ the synthetic architecture gate allows the first real-game adapter.
   tool binaries, external tool source and temporary diagnostics remain ignored.
   The package reader/import deliverable is still being validated as the next step;
   no host/runtime boundary changed, so no new native match result is claimed here.
+
+### Xrd SIGN bounded import and native script framing (2026-10-06)
+
+- Added runnable `xrd-sign-import.py`, bounded package/JON readers and native instruction
+  framing. The exact SIGN executable fingerprint and tool revisions are checked before
+  import. Every run uses a fresh ignored folder, copied packages and retained logs;
+  source executable/package hashes are checked again afterward. No game/config/save,
+  host boundary, source hook or runtime dependency was changed.
+- Safe external LZO decoding yields the virtual UE3 package layout. The independent
+  reader agrees with UE Viewer on every export index/offset/size/class/name: 8 Sol data,
+  8 common data, 179 mesh, 4,490 animation and 221 default-material exports. All source
+  hashes remain unchanged. The import receipt records source/tool/decoded/virtual hashes
+  and explicitly leaves behavior and visual acceptance false.
+- Sol's FPAC directory differs from the old bbtools offset assumption. Its 1,165 JONB
+  records parse, including 116 attack records; common has 52 records. Unknown metadata
+  and trailing zero-area point records are retained as unclassified data. No coordinate,
+  facing, point-ID or engine meaning is guessed. Initial rejection exposed these trailing
+  point records; inspecting their headers/bounds resolved the reader without dropping data.
+- Replaced incompatible Rev2 lengths with a unique ushort table discovered in the actual
+  SIGN executable (no embedded retail address). Independent framing entries are checked;
+  all 16,030 instructions consume their scripts exactly: Sol 8,323/348 opcodes, Sol effect
+  1,622/122, common 3/3 and common effect 6,082/316. Every directory target points to an
+  instruction boundary. Command semantics/defaults/control flow remain opaque.
+- `NmlAtk5A` contains six source sprite literals with durations 1,2,4,2,2,2. All six link
+  to collision records; only sol200_02 has an attack rectangle. These are source literals
+  and structural linkage, not an accepted startup/active/recovery implementation.
+- Graphics export works for original Sol meshes/PSA/texture data. Structural checks show
+  219 body bones/114 body sequences, separate head/weapon rigs and a sol200 sequence in
+  all three sets. The exact sprite-to-animation sample mapping and toon material fidelity
+  remain open. No rendered pose, physical control or in-game Xrd result is claimed.
+- Authored rejection checks pass for bad/truncated headers, cursor ranges, state targets,
+  FPAC/JON bounds/finite rectangles, ambiguous native tables and invalid/truncated
+  instruction sizes. Local stock checks pass for states, all collision records, complete
+  Sol framing and pose/collision linkage. All new Python files parse; diff whitespace passes.
+- Exercised data-only and graphics imports, then repeated data mode: package fingerprints,
+  export records, virtual bytes and state/collision JSON matched exactly. After adding
+  native framing and the final source fingerprint check, both final modes passed again.
+  Final receipts: `extracted/xrd-sign/20261006-172534-545072/inspection.json` and
+  `extracted/xrd-sign/20261006-173333-690750/inspection.json`.
+- Updated README/work plan/recon gates. This completes reproducible source extraction
+  and instruction framing. Remaining work is semantic/default/clock oracles, verified
+  source-pose rendering, a distinct runtime and mixed-match/replay/SDL acceptance.
+  All game data/external tools remain ignored; only original tooling/docs are committed.

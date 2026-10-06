@@ -37,8 +37,12 @@ Revelator/Rev2 support. No hook was installed or treated as SIGN-compatible.
 The current [BBScript](https://github.com/super-continent/bbscript) `ggrev2.ron` and
 [bbtools](https://github.com/dantarion/bbtools) Rev databases misread the local SIGN
 instruction lengths after seven instructions. This is demonstrated incompatibility,
-not a parsed SIGN moveset. Retain unknown commands and find a SIGN-specific command
-length/semantic oracle before executing scripts. The original JON/FPAC format notes
+not a parsed SIGN moveset. The installed executable supplied a distinct, uniquely
+identified **ushort instruction-size table**. Checked independent framing entries and
+consumed all 16,030 instructions across four Sol/common scripts, with every state
+directory offset landing on the matching instruction boundary. Unknown command
+parameters remain opaque: native lengths do not establish their semantics, defaults
+or control flow. The original JON/FPAC format notes
 helped inspection, but the actual SIGN directory layout differs and was checked locally.
 
 ## Bounded source slice and extracted evidence
@@ -53,12 +57,16 @@ Sol contains `BBS_SOL` (210,368 bytes, 197 validated state-directory entries), `
 (41,488 bytes, 102 entries), and `COL_SOL` (402,668 bytes). Common data contains one
 character state, 236 effect states and 52 collision records. All directory offsets
 point to the matching `beginState` instruction/name; this proves directory structure,
-not complete instruction decoding.
+not complete instruction semantics. Native framing now covers 8,323 Sol, 1,622 Sol
+effect, 3 common and 6,082 common-effect instructions. `xrd_script.py` discovers the
+table from the fingerprinted executable rather than embedding a retail address.
 
 Sol's collision FPAC contains 1,165 JONB records, 116 with attack rectangles. All records
 parse with bounds/finite-value checks; trailing point records and unknown metadata are
 retained without inventing their meaning. In the `sol200_00`–`sol200_05` frame family,
-only `sol200_02` has an attack rectangle. Frame-family association, coordinate/facing
+only `sol200_02` has an attack rectangle. The actual `NmlAtk5A` sprite literals reference
+these six records in order with durations **1, 2, 4, 2, 2, 2**. This links the move
+directory, native-framed script and collision records. Branch/engine timing, coordinate/facing
 mapping and active duration need source-runtime oracles before host combat use.
 
 UE Viewer exported 15 meshes, six PSA animation sets and default-color textures from
@@ -75,9 +83,9 @@ extracted 3D mesh/animation into sprite frames, retaining original collision dat
 separately simulated SIGN rules. Validate one textured pose and one complete normal
 animation before baking broadly. This avoids a speculative 3D host rewrite.
 
-1. Reproducible, fingerprinted offline import of the bounded package set; original
-   source hashes unchanged; reader checks and independent export-table comparison.
-2. Establish edition-correct instruction lengths/semantics, normal timeline/defaults,
+1. **Verified:** reproducible, fingerprinted offline import of the bounded package set;
+   original source hashes unchanged; reader checks and independent export-table comparison.
+2. **Framing verified, semantics pending:** establish edition-correct command semantics, normal timeline/defaults,
    movement values, animation mapping and collision coordinate/facing transform.
 3. Bake and visually verify the selected original poses; import only ignored output.
 4. Bind a distinct owned SIGN runtime; unknown required behavior fails explicitly.
@@ -90,7 +98,16 @@ capture, if needed, stays in local offline training; no online hooks or services
 
 ```powershell
 ./tools/gather-xrd-tools.ps1
+python tools/test-xrd-package.py
+python tools/xrd-sign-import.py --graphics
 ```
 
-The source-build/script-reading gates remain open. This document records an extraction
-proof and decisions; it does not mark the second real-game implementation complete.
+The importer supports the exact fingerprint recorded above and fails on other builds.
+It creates a fresh ignored output folder, validates all export fields against UE Viewer,
+records tool/source/decoded/virtual hashes and confirms the original executable/packages
+remain unchanged. Data-only imports omit `--graphics`. Malformed headers, cursor ranges,
+state targets, FPAC/JON records, native-table ambiguity and invalid instruction sizes are
+covered by runnable checks. Its receipt explicitly keeps behavior/visual acceptance false.
+
+The semantic/renderer/runtime gates remain open. This document records an extraction
+and instruction-framing proof; it does not mark the second real-game implementation complete.

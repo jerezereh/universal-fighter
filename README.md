@@ -19,6 +19,7 @@ Online netplay and full source-game fidelity remain open.
 - [Windows dependency setup](docs/DEPENDENCIES.md)
 - [KOF XIII import and runtime setup](docs/MODDING_PLAN.md)
 - [Authored rulesets and controls](docs/SYNTHETIC_RULESETS.md)
+- [Xrd SIGN source inspection and adapter gates](docs/XRD_SIGN_MODDING_PLAN.md)
 
 Run `./tools/bootstrap.ps1` in PowerShell to obtain the exact upstream revisions in
 `tools/upstreams.json`. Existing checkouts are never reset or overwritten. The upstream
@@ -55,3 +56,9 @@ adapters; see the ruleset document for timing, costs and limits.
 Keep extracted commercial assets in ignored local storage. Universal Modder is a recon
 reference and development tool, never a runtime dependency. KOF XIII is the user's selected
 first adapter; broader game support remains outside the initial milestone.
+
+The next real-game target is the locally installed Xrd **SIGN** edition. Its pinned
+offline tool setup is `./tools/gather-xrd-tools.ps1`; `python tools/xrd-sign-import.py
+--graphics` inspects a copied Sol/common slice and exports original graphics into ignored
+storage. `python tools/test-xrd-package.py` checks its reader/native framing. SIGN move
+semantics, rendered fidelity and a playable guest runtime remain under implementation.
