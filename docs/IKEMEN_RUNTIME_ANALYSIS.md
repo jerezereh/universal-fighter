@@ -286,6 +286,9 @@ version 1 blobs are deliberately rejected. Concrete KOF typed save/load helpers 
 internal to its core tests and are no longer the host snapshot contract.
 Native fighters use the original methods through `nativeBackend`. Foreign dispatch
 skips native CNS state execution and native animation timing.
+Binding also accepts `parry-test` and `airdash-test`, whose authored immutable spec
+is constructed in code. Their executable rules and staging/validation commands are
+recorded in [SYNTHETIC_RULESETS.md](SYNTHETIC_RULESETS.md).
 
 | Boundary | Implemented ownership |
 |---|---|
@@ -294,7 +297,7 @@ skips native CNS state execution and native animation timing.
 | Motion/presentation | Foreign state owns action/element clocks, input edges and motion/reaction values. `Step` returns the element simulated on this tick; saved `RenderAction`/`RenderElement` retain that presentation while action clocks prepare the next tick. |
 | Coordinates | Foreign position adopts the shell's player-local coordinates: right is positive X, airborne Y is negative. Imported motion is scaled by the manifest; source vertical velocity is converted when integrating Y. Host `localscl`, facing and collision modifiers map boxes into collision space. |
 | Damage/rounds | Host life, round state, IDs, teams, stage bounds and player pushing remain authoritative. `Reset` clears guest inputs, reactions, KO and activation IDs; it does not reset host health or round data by itself. |
-| Defense/result | `QueryDefense` is a pure guest query. `resolveContact(AttackSpec, DefenseQuery)` produces `HitResult`; `CommitHit` applies guest reaction/stop/motion. The host commits canonical health and its native contact bookkeeping. Native defender negotiation still uses the host's mutating result routine. |
+| Defense/result | `QueryDefense` is a pure guest query. The arbiter produces a typed hit/guard/parry/resource result; `CommitHit` spends guest resources and applies reaction. `CommitAttack` confirms eligible guest cancels. The host commits canonical health and contact bookkeeping; native defenders retain native negotiation and notify the guest attacker afterward. |
 | Entities | A guest projectile activation emits a monotonically increasing ID. The shell acknowledges it once; host `Projectile` owns motion, collision, hit consumption, stop, removal and render data. There is no guest entity-list API yet. |
 | Snapshot | `Char.Clone` calls the guest's owned `Clone`; immutable specs may be shared. Whole-host snapshots own native fighters, projectiles, timers, RNG and contact lists. Versioned blobs/hash cover all guest state. |
 
@@ -303,7 +306,7 @@ skips native CNS state execution and native animation timing.
 | Idle/walk/crouch/jump | Imported Kyo actions; core, ordinary sampled AI-input smoke and real SDL keyboard scenes pass. | Physical user play/feel and other devices are not measured. |
 | Facing and boxes | Native screenshots show imported boxes and Kyo facing the opponent before and after a jump crossover. | Other display sizes have not been accepted interactively. |
 | Normal melee | One Kyo source normal; authored tests pass both hit directions and activation duplicate protection. | Additional attacks, cancels and source priority/juggle fidelity are outside the subset. |
-| Guard | Ground high/low eligibility and mismatches pass controlled tests. | Air guard, parry and defensive resource spending are not implemented. |
+| Guard | Ground high/low eligibility and mismatches pass controlled tests; authored guests add ground parry and resource guard through neutral result fields. | Air guard and original-game defensive fidelity remain outside the subset. |
 | Reactions | Stop/stun, ground push, launch/down/recovery and lethal contact are covered by core/host checks. | Full source reaction and native get-hit trigger equivalence remain incomplete. |
 | Projectiles | One source weak ground flame and authored native projectile; hit/block, misses, removal and reset tests pass. | Reflection, platform behavior and exhaustive simultaneous trades are unverified. |
 | KO/restart | Controlled tests clean entities and renew contacts after reset; a real SDL keyboard scene completes a native-versus-Kyo match by KO. | Physical human playthrough is not recorded. |
@@ -316,8 +319,8 @@ skips native CNS state execution and native animation timing.
 gate: P1 AI and scripted probes are off, WinDrive sends Windows key events, SDL records
 them, and the real host produces native screenshots and completed KO statistics. This
 does not claim a physical human playthrough. The bounded match, contact, reset, replay
-and API-record gates now pass; further rulesets should follow the next phase in the
-work plan rather than treating this prototype as a universal compatibility guarantee.
+and API-record gates now pass. The authored rulesets extend the same boundary; they do
+not establish a universal compatibility guarantee or a second real-game adapter.
 
 Foreign round reset now selects the guest's initial render action directly, skipping
 native state 5900. The shell has no native intro CNS, so this fixes its invalid-state

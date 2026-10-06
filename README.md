@@ -9,14 +9,16 @@ and an automated native/native match passes KO and round-transition checks. The 
 backend uses imported Kyo data, sprites and collision boxes. A bounded mixed-melee
 prototype adds one source normal, a weak ground-flame projectile and native/foreign
 hit handling. The bounded first milestone now passes automated contact/lifecycle,
-offline GGPO replay and real SDL keyboard/render acceptance. The next phase is two
-synthetic rulesets; online netplay and full source-game fidelity remain open.
+offline GGPO replay and real SDL keyboard/render acceptance. Two authored executable
+rulesets now add parry, air dash, confirmed cancels and defensive resource spending.
+Online netplay and full source-game fidelity remain open.
 
 - [Source analysis and proposed runtime seam](docs/IKEMEN_RUNTIME_ANALYSIS.md)
 - [Implementation work plan and validation gates](docs/WORK_PLAN.md)
 - [Environment and work record](docs/PROGRESS.md)
 - [Windows dependency setup](docs/DEPENDENCIES.md)
 - [KOF XIII import and runtime setup](docs/MODDING_PLAN.md)
+- [Authored rulesets and controls](docs/SYNTHETIC_RULESETS.md)
 
 Run `./tools/bootstrap.ps1` in PowerShell to obtain the exact upstream revisions in
 `tools/upstreams.json`. Existing checkouts are never reset or overwritten. The upstream
@@ -41,6 +43,14 @@ trace. **Pause** freezes/resumes; **Scroll Lock** is the host's single-frame hot
 `python tools/smoke-controls.py` drives these keys in the real Windows host and saves
 native screenshots plus a completed KO match. It requires the desktop for brief
 foreground input and no other IKEMEN instances running.
+
+Run `./tools/play-synthetic.ps1 -Rules airdash-test -Practice` for the authored mobility
+fighter, or select `parry-test`. **X** opens a ground parry for the latter; for air dash
+it spends meter on a dash in air or a confirmed normal cancel. **Back+X** requests
+resource guard. `./tools/smoke-synthetic.ps1 -Sync` checks cross-ruleset contacts and
+private state under strict offline rollback; `python tools/smoke-controls.py --synthetic`
+exercises their actual keyboard path. These are architecture experiments, not Xrd/SFIII
+adapters; see the ruleset document for timing, costs and limits.
 
 Keep extracted commercial assets in ignored local storage. Universal Modder is a recon
 reference and development tool, never a runtime dependency. KOF XIII is the user's selected

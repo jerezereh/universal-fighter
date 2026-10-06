@@ -424,3 +424,52 @@ the synthetic architecture gate allows the first real-game adapter.
 - This step changes runtime ownership, not Kyo mechanics. New ruleset implementation
   and interactive validation of those mechanics remain pending; prior Kyo keyboard
   evidence is not counted as acceptance of new mechanics.
+
+### Next phase B/C: authored parry and mobility/resource rulesets
+
+- Added separately bound `parry-test` and `airdash-test` executable guests. Reused the
+  existing body/reaction clock with an authored immutable spec, timelines and boxes;
+  staged baseline KFM art locally. Guest behavior is Go simulation, never native CNS.
+  These experiments implement neither SFIII nor Xrd source behavior/assets.
+- Added pure parry/resource eligibility and typed committed outcomes. A successful
+  six-tick ground parry consumes the contact/window without health loss, push or stun;
+  held X and expired timing cannot retrigger it. It uses native guard-contact consumption
+  and attacker guard hitpause, with a distinct two-tick defender stop. No attacker stun
+  or native parry-trigger equivalence is claimed.
+- Air dash costs 20/one airtime charge, confirmed normal cancel costs 15, and ground
+  Back+X resource guard costs 10 per committed contact and waives chip. Zero meter
+  falls back to ordinary chip guard; landing restores dash charge, round reset restores
+  100 meter. Whiff/parry/unaffordable cancels reject. Combat has no opponent-name branch.
+- Owned clones/blobs/hash include private meter, windows/cooldown, dash/charge, requests,
+  confirmation and counters. Backend/version/spec/range/cross-ruleset invalid loads reject
+  atomically. All ten focused core checks and the Windows build passed, including pure
+  repeated-query checks, exact parry expiry, dash limits/landing, exhaustion, stop/pause,
+  private hash sensitivity and per-frame restore/replay.
+- Six actual host scenes passed strict eight-frame GGPO rewind with 12,192 matching
+  replay frames: parry 2,888; miss 1,440; barrier 1,440; cancel/dash 1,440; KO/reset 2,096;
+  native-attacker parry 2,888. Evidence begins at
+  `synthetic-parry-20261006-040831-961.stderr.txt` and ends at
+  `synthetic-native-parry-20261006-041126-440.stderr.txt`. Strengthened the parry oracle
+  to attempt X cancels after deflection and assert canonical health remains 1,000;
+  it passed another 2,888 matching frames (`synthetic-parry-20261006-041734-137.stderr.txt`).
+  Native activation-ledger uniqueness is checked separately from resimulation logs.
+- Final real SDL/WinDrive keyboard scenes passed with P1 AI and both input probes off:
+  `controls-parry-20261006-041635-526419`,
+  `controls-airdash-20261006-041643-445834` and
+  `controls-barrier-20261006-041652-533239`. Keyboard X opens the window; three Scroll Lock
+  taps each advance exactly once while Pause freezes the clock. Z contacts both a guest
+  and native target; X confirms a cancel and dash (meter 100->65), and Back+X guards a
+  native strike once (meter 100->90, canonical health 1,000). Inspected native PNGs show
+  both guest backend labels, collision boxes and readable meter/window/dash/charge.
+- Added the interactive launcher and concise rules/control/API records. Python/Bash/PS
+  syntax, pristine pinned-source patch apply/reverse and whitespace checks passed.
+  Mocked launcher checks passed for opponent/practice arguments, probe suppression and
+  environment restoration after correcting the harness observation scope/null handling.
+- During validation, fixed a constructor map-decoding compile error, an invalid air
+  clock authored by the snapshot test, and the reset verifier's incorrect frame-1
+  assumption (host intro already advances animation). Non-sync smoke now explicitly
+  sets rewind frames to zero; the frame-count setting itself enables offline rollback.
+  All affected checks subsequently passed; scripts were edited only after they stopped.
+- The final native/Kyo repeat is still running for step D. Physical human feel,
+  other devices/displays, online netplay, exhaustive trades/juggles/custom states and
+  real-game adapter fidelity remain unmeasured. No further real-game adapter has begun.

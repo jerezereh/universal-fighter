@@ -8,6 +8,7 @@ import (
 
 var traceForeign = os.Getenv("UF_FOREIGN_TRACE") == "1"
 var foreignInputProbe = os.Getenv("UF_FOREIGN_INPUT_PROBE")
+var syntheticInputProbe = os.Getenv("UF_SYNTHETIC_PROBE")
 
 // Host scheduling treats native and foreign simulation through one small seam.
 type FighterBackend interface {
@@ -38,23 +39,31 @@ func (c *Char) bindForeign(def string) error {
 	if c.foreignName == "" {
 		return nil
 	}
-	if c.foreignName != "kof13" {
+	switch c.foreignName {
+	case "kof13":
+		data, err := os.ReadFile(filepath.Join(filepath.Dir(def), "foreign.json"))
+		if err != nil {
+			return err
+		}
+		spec, err := loadKOFSpec(data)
+		if err != nil {
+			return err
+		}
+		c.foreign = &KOFRuntime{Spec: spec}
+	case "parry-test", "airdash-test":
+		runtime, err := newSynthetic(c.foreignName)
+		if err != nil {
+			return err
+		}
+		c.foreign = runtime
+	default:
 		return fmt.Errorf("unsupported fighter runtime %s", c.foreignName)
 	}
-	data, err := os.ReadFile(filepath.Join(filepath.Dir(def), "foreign.json"))
-	if err != nil {
-		return err
-	}
-	spec, err := loadKOFSpec(data)
-	if err != nil {
-		return err
-	}
-	c.foreign = &KOFRuntime{Spec: spec}
 	c.foreign.Reset(c.pos[0], c.pos[1])
 	if foreignDebug {
 		sys.clsnDisplay, sys.debugDisplay = true, true
 	}
-	LogMessage("[foreign] bound %s: %d actions", def, len(spec.Actions))
+	LogMessage("[foreign] bound %s: backend=%s", def, c.foreign.Backend())
 	return nil
 }
 func (c *Char) foreignAutoTurn() {
@@ -97,6 +106,9 @@ func (b guestBackend) Run() {
 	// only the sampled buffer above; this probe is disabled for human/network play.
 	offlineSync := sys.rollback.session != nil && sys.rollback.session.syncTest && sys.netConnection == nil && sys.replayFile == nil
 	localProbe := !sys.netplay() || offlineSync
+	if syntheticInputProbe != "" && localProbe {
+		input = syntheticProbeInput(c)
+	}
 	if (foreignInputProbe == "melee" || foreignInputProbe == "projectile" || foreignInputProbe == "receive" || foreignInputProbe == "guard-high" || foreignInputProbe == "guard-low") && (c.controller < 0 || offlineSync) && localProbe {
 		input = InputFrame{}
 		if enemy := c.enemyNearTrigger(0); enemy != nil {
@@ -177,6 +189,9 @@ func (b guestBackend) Run() {
 	}
 	c.minus = 1
 	if traceForeign && (sys.roundState() == 2 || c.foreign.View().Defeated) {
+		if d, ok := c.foreign.(interface{ Diagnostics() string }); ok && !foreignReplaying() {
+			LogMessage("[ruleset-frame] owner=%d round=%d frame=%d %s %s", c.playerNo, sys.roundNo, frame.Frame, c.foreign.Backend(), d.Diagnostics())
+		}
 		rendered := c.anim != nil && c.anim.spr != nil && c.anim.spr.Tex != nil
 		LogMessage("[foreign-frame] frame=%d action=%d x=%.3f y=%.3f rendered=%t", frame.Frame, frame.Action, frame.X, frame.Y, rendered)
 		if frame.Frame%60 == 0 {
@@ -343,13 +358,63 @@ func (attacker *Char) commitForeignHit(defender *Char, projectile *Projectile) i
 		attackMul*float32(attacker.gi().attackBase)/100, attacker, true))
 	defender.lifeAdd(-float64(result.Damage), kill, true)
 	defender.foreign.CommitHit(result)
+	if attacker.foreign != nil {
+		attacker.foreign.CommitAttack(result)
+	}
+	if traceForeign && !foreignReplaying() {
+		LogMessage("[ruleset-contact] attacker=%d defender=%d parried=%t barrier=%t damage=%d cost=%d projectile=%t", attacker.id, defender.id, result.Parried, result.Barrier, result.Damage, result.ResourceCost, projectile != nil)
+	}
 	if projectile == nil {
 		attacker.hitdefTargetsBuffer = append(attacker.hitdefTargetsBuffer, defender.id)
 	}
-	defender.receivedHits++
+	if !result.Parried {
+		defender.receivedHits++
+	}
 	code := int32(1)
-	if result.Guarded {
+	if result.Guarded || result.Parried {
 		code = 2
 	}
 	return code // Existing melee loop commits native attacker hitpause/contact flags.
+}
+
+func foreignReplaying() bool { return sys.rollback.session != nil && sys.rollback.session.inRollback }
+
+// Authored offline input oracle only. This is never a matchup branch in combat.
+// Human/network/replay operation leaves UF_SYNTHETIC_PROBE empty.
+func syntheticProbeInput(c *Char) InputFrame {
+	s := c.foreign.View()
+	enemy := c.enemyNearTrigger(0)
+	if enemy == nil {
+		return InputFrame{}
+	}
+	if c.playerNo == 0 {
+		i := InputFrame{Forward: Abs(c.distX(enemy, c)) > 38, Punch: s.Frame%40 == 0}
+		if syntheticInputProbe == "parry" {
+			pose := c.foreign.Presentation()
+			i.Special = c.foreign.Pose(pose).Normal && pose.Element == 2
+		}
+		if syntheticInputProbe == "cancel" {
+			i.Up = s.Frame%120 == 60
+			if d, ok := c.foreign.(*SyntheticRuntime); ok {
+				i.Special = d.Extra.Confirmed || (s.Y < 0 && s.Frame%16 == 0)
+			}
+		}
+		return i
+	}
+	switch syntheticInputProbe {
+	case "barrier":
+		return InputFrame{Back: true, Down: true, Special: true}
+	case "native-parry":
+		return InputFrame{Special: enemy.ss.no == 200 && enemy.ss.time < 4}
+	case "parry", "miss":
+		if enemy.foreign != nil {
+			pose := enemy.foreign.Presentation()
+			elem := 0
+			if syntheticInputProbe == "miss" {
+				elem = 2
+			}
+			return InputFrame{Special: enemy.foreign.Pose(pose).Normal && pose.Element == elem}
+		}
+	}
+	return InputFrame{}
 }

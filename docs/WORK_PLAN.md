@@ -40,9 +40,13 @@ the user's explicitly selected exception to that original adapter order.
 | C. Air-dash/cancel ruleset | Add bounded air mobility, cancels and defensive resource spending. Prove legal transitions, exhaustion, landing/round reset and state hashes across stop/pause/replay. |
 | D. Cross-ruleset proof | Test attack-to-parry and resource/cancel interactions in both directions without opponent-name branches. Repeat native/Kyo regressions before further real-game adapters. |
 
-Step A is implemented: the shell uses an owned runtime interface, generic pose/attack
-descriptors and backend-tagged blobs. Steps B–D remain in progress; these mechanics were
-not implemented by the first milestone.
+Steps A–C are implemented and verified: owned runtime snapshots, a six-tick parry,
+meter-funded air dash/confirmed cancels/resource guard, and atomic private-state restore.
+All six authored host scenes pass strict offline rollback. Three SDL keyboard scenes
+verify parry, dash/cancel and resource guard plus Pause/exact frame advance; native PNGs
+show both guest labels, boxes and meter/window/charge values. Step D's cross-ruleset
+scenes pass; its final native/Kyo regression repeat is still running. See
+`SYNTHETIC_RULESETS.md` for the precise authored rules and remaining limits.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

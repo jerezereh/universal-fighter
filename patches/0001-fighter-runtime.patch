@@ -1,5 +1,5 @@
 diff --git a/src/char.go b/src/char.go
-index 68c16e1..3f958e6 100644
+index 68c16e1..506d3e9 100644
 --- a/src/char.go
 +++ b/src/char.go
 @@ -165,6 +165,7 @@ const (
@@ -125,11 +125,14 @@ index 68c16e1..3f958e6 100644
  
  	// Enemy (c) always wins if they can't be hit by the player's (getter) HitDef attributes at all
  	if !c.attrCheck(getter, ghd, gst) {
-@@ -11356,6 +11373,11 @@ func (c *Char) hitspark(getter *Char, proj *Projectile,
+@@ -11356,6 +11373,14 @@ func (c *Char) hitspark(getter *Char, proj *Projectile,
  }
  
  func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) {
-+	if traceForeign && (c.foreign != nil || getter.foreign != nil) {
++	if c.foreign != nil && getter.foreign == nil && proj == nil {
++		defer func() { if hitResult > 0 { c.foreign.CommitAttack(HitResult{Accepted: true, Guarded: hitResult == 2}) } }()
++	}
++	if traceForeign && !foreignReplaying() && (c.foreign != nil || getter.foreign != nil) {
 +		defer func() { if hitResult != 0 { LogMessage("[mixed-contact] attacker=%d foreign=%t defender=%d foreign=%t result=%d life=%d activation=%d projectile=%t", c.id, c.foreign != nil, getter.id, getter.foreign != nil, hitResult, getter.life, c.foreignAttack, proj != nil) } }()
 +	}
 +	if getter.foreign != nil { return c.commitForeignHit(getter, proj) }
@@ -137,7 +140,7 @@ index 68c16e1..3f958e6 100644
  
  	// Player hit check
  	hd := &c.hitdef
-@@ -13389,6 +13411,10 @@ func (c *Char) cueDebugDraw() {
+@@ -13389,6 +13414,10 @@ func (c *Char) cueDebugDraw() {
  		// Name, PlayerNo and ID
  		sys.debugClsnText = append(sys.debugClsnText,
  			DebugClsnText{x: x, y: y, text: fmt.Sprintf("%s, %d, %d", c.name, c.playerNo+1, c.id), r: 255, g: 255, b: 255, a: 255})
@@ -148,7 +151,7 @@ index 68c16e1..3f958e6 100644
  		// NotHitBy
  		if nhbtxt != "" {
  			y += float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
-@@ -13852,7 +13878,7 @@ func (cl *CharList) commandUpdate() {
+@@ -13852,7 +13881,7 @@ func (cl *CharList) commandUpdate() {
  		// Select a random command for AI cheating
  		// The way this only allows one command to be cheated at a time may be the cause of issue #2022
  		cheat := int32(-1)
@@ -157,7 +160,7 @@ index 68c16e1..3f958e6 100644
  			if sys.roundState() == 2 && RandF32(0, sys.aiLevel[i]/2+32) > 32 { // TODO: Balance AI scaling
  				cheat = Rand(0, int32(len(root.cmd[root.ss.sb.playerNo].Commands))-1)
  			}
-@@ -13989,19 +14015,19 @@ func (cl *CharList) action() {
+@@ -13989,19 +14018,19 @@ func (cl *CharList) action() {
  
  	// Prepare characters before performing their actions
  	for _, c := range cl.runOrder {
@@ -180,7 +183,7 @@ index 68c16e1..3f958e6 100644
  	}
  }
  
-@@ -14028,7 +14054,7 @@ func (cl *CharList) update() {
+@@ -14028,7 +14057,7 @@ func (cl *CharList) update() {
  	// Run update() for the remaining characters
  	for _, c := range cl.runOrder {
  		if !c.scf(SCF_disabled) {
@@ -189,7 +192,7 @@ index 68c16e1..3f958e6 100644
  			c.track()
  		}
  	}
-@@ -14472,6 +14498,7 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
+@@ -14472,6 +14501,7 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
  						getter.pos[2], getter.depthPlayer[0], getter.depthPlayer[1], getter.localscl) {
  
  					if hitResult := c.hitResultCheck(getter, p); hitResult != 0 {
@@ -197,7 +200,7 @@ index 68c16e1..3f958e6 100644
  						// Apply hit consequences specific to projectile vs player
  						p.contactflag = true
  						if Abs(hitResult) == 1 {
-@@ -14617,7 +14644,7 @@ func (cl *CharList) pushDetection(c *Char) {
+@@ -14617,7 +14647,7 @@ func (cl *CharList) pushDetection(c *Char) {
  
  		// Check for Clsn2 overlap
  		// A significant difference between Mugen and commercial games is that only the former does this
@@ -206,7 +209,7 @@ index 68c16e1..3f958e6 100644
  			continue
  		}
  
-@@ -14932,7 +14959,7 @@ func (cl *CharList) collisionDetection() {
+@@ -14932,7 +14962,7 @@ func (cl *CharList) collisionDetection() {
  
  func (cl *CharList) tick() {
  	for _, c := range cl.runOrder {

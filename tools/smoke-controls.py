@@ -25,15 +25,20 @@ def wait_for(predicate, seconds=10):
     raise RuntimeError('Timed out waiting for the native host; inspect the retained trace.')
 
 
-def run_scene(name, complete=False):
+def run_scene(name, complete=False, rules=None, defense=False):
     folder = RUNTIME / ('controls-' + name + '-' + datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H%M%S-%f'))
     (folder / 'screenshots').mkdir(parents=True)
     config = (RUNTIME / 'save/config.ini').read_text(encoding='utf-8-sig')
     config = re.sub(r'(?m)^ScreenshotFolder\s*=.*$', 'ScreenshotFolder = ' + folder.name + '/screenshots/', config)
     config = re.sub(r'(?m)^Rollback.DesyncTest\s*=.*$', 'Rollback.DesyncTest = 0', config)
+    config = re.sub(r'(?m)^Rollback.DesyncTestFrames\s*=.*$', 'Rollback.DesyncTestFrames = 0', config)
     (folder / 'config.ini').write_text(config, encoding='utf-8')
-    env = dict(os.environ, UF_FOREIGN_TRACE='1', UF_FOREIGN_DEBUG='1', UF_FOREIGN_INPUT_PROBE='')
-    args = ['-config', folder.name + '/config.ini', '-p1', 'kof13/kof13.def', '-p2', 'uf-probe/idle.def',
+    env = dict(os.environ, UF_FOREIGN_TRACE='1', UF_FOREIGN_DEBUG='1', UF_FOREIGN_INPUT_PROBE='', UF_SYNTHETIC_PROBE='')
+    p1 = f'uf-synthetic/{rules}.def' if rules else 'kof13/kof13.def'
+    p2 = 'uf-synthetic/airdash-test.def' if rules == 'parry-test' else 'uf-probe/idle.def'
+    if defense:
+        p2 = 'uf-probe/high.def'
+    args = ['-config', folder.name + '/config.ini', '-p1', p1, '-p2', p2,
             '-p1.ai', '0', '-p2.ai', '0', '-windowed', '-nosound', '-nojoy', '-rounds', '1', '-time', '30' if complete else '-1',
             '-log', folder.name + '/match.txt']
     if complete:
@@ -73,7 +78,64 @@ def run_scene(name, complete=False):
 
             wait_for(lambda: '[foreign-frame]' in trace(), 30)
             command('focus')
-            if complete:
+            if rules:
+                command('key 0x13')
+                time.sleep(.15)
+                before = frame()
+                time.sleep(.2)
+                if frame() != before:
+                    raise RuntimeError('Authored clock advanced during Pause')
+                if rules == 'parry-test':
+                    command('key 0x58 down')
+                    try:
+                        command('key 0x91')
+                        time.sleep(.1)
+                    finally:
+                        command('key 0x58 up')
+                    if not re.search(r'\[ruleset-frame\].*parry:6 ', trace()):
+                        raise RuntimeError('Keyboard X did not open the authored parry window')
+                    before += 1
+                for _ in range(3):
+                    command('key 0x91')
+                    time.sleep(.1)
+                    if frame() != before + 1:
+                        raise RuntimeError('Authored single-step did not advance once')
+                    before += 1
+                shot('paused')
+                command('key 0x13')
+                if defense:
+                    command('key 0x25 down')
+                    command('key 0x58 down')
+                    try:
+                        wait_for(lambda: re.search(r'\[ruleset-frame\].*barriers:1', trace()))
+                        command('key 0x13')
+                        shot('guard')
+                    finally:
+                        command('key 0x25 up')
+                        command('key 0x58 up')
+                    if not re.search(r'\[ruleset-frame\].*meter:90 .*barriers:1', trace()):
+                        raise RuntimeError('Keyboard Back+X did not spend exactly one guard cost')
+                else:
+                    command('hold 0x27 700')
+                    command('hold 0x5A 120')
+                if rules == 'airdash-test' and not defense:
+                    command('hold 0x58 120')
+                    time.sleep(.4)
+                    command('hold 0x26 140')
+                    time.sleep(.08)
+                    command('hold 0x58 120')
+                    time.sleep(.08)
+                    command('key 0x13')
+                    shot('dash')
+                    if not re.search(r'\[ruleset-frame\].*dashes:1 cancels:1 ', trace()):
+                        raise RuntimeError('Keyboard normal-confirm cancel and air dash were not both observed')
+                elif not defense:
+                    time.sleep(.3)
+                    command('key 0x13')
+                    shot('normal')
+                if 'projectile=false' not in trace():
+                    raise RuntimeError('Authored keyboard normal did not contact the native target')
+            elif complete:
                 command('hold 0x27 700')
                 command('hold 0x5A 120')
                 time.sleep(.6)
@@ -142,12 +204,21 @@ def run_scene(name, complete=False):
 
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--synthetic', action='store_true', help='check both authored rulesets instead of Kyo')
+    options = parser.parse_args()
     if os.name != 'nt' or not DRIVER.is_file():
         raise SystemExit('Windows and the pinned Universal Modder checkout are required.')
     existing = subprocess.check_output(['powershell.exe', '-NoProfile', '-Command',
                                         'Get-Process -Name Ikemen_GO -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id; exit 0'], text=True).strip()
     if existing:
         raise SystemExit('Close existing IKEMEN instances before this foreground keyboard check.')
-    run_scene('practice')
-    run_scene('match', complete=True)
-    print('Both interactive SDL scenes passed; screenshots still require visual inspection.')
+    if options.synthetic:
+        run_scene('parry', rules='parry-test')
+        run_scene('airdash', rules='airdash-test')
+        run_scene('barrier', rules='airdash-test', defense=True)
+    else:
+        run_scene('practice')
+        run_scene('match', complete=True)
+    print('All requested SDL scenes passed; screenshots still require visual inspection.')

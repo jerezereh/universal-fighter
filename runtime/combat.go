@@ -11,9 +11,12 @@ type AttackSpec struct {
 }
 type DefenseQuery struct {
 	CanGuard, Back, Crouch, Air, Down bool
+	Parry, Barrier                    bool
 }
 type HitResult struct {
 	Accepted, Guarded, Knockdown bool
+	Parried, Barrier             bool
+	ResourceCost                 int
 	Damage, Stun                 int
 	Hitstop                      [2]int
 	PushX, PushY, Gravity        float32
@@ -28,12 +31,20 @@ func resolveContact(a AttackSpec, d DefenseQuery) HitResult {
 	if d.Down {
 		return HitResult{}
 	}
+	if d.Parry && !d.Air {
+		// Deflection consumes the native contact like guard. Attacker keeps the
+		// attack's guard stop; defender owns a short two-tick stop and no stun.
+		return HitResult{Accepted: true, Parried: true, Hitstop: [2]int{a.Guardstop[0], 2}}
+	}
 	r := HitResult{Accepted: true, Damage: a.Damage, Stun: a.Hitstun,
 		Hitstop: a.Hitstop, PushX: a.PushX, PushY: a.PushY, Gravity: a.Gravity, Knockdown: a.Knockdown}
 	if d.CanGuard && d.Back && !d.Air && ((!d.Crouch && a.BlockHigh) || (d.Crouch && a.BlockLow)) {
 		r.Guarded, r.Knockdown = true, false
 		r.Damage, r.Stun, r.Hitstop = a.Chip, a.Blockstun, a.Guardstop
 		r.PushX, r.PushY, r.Gravity = a.GuardPush, 0, 0
+		if d.Barrier {
+			r.Barrier, r.ResourceCost, r.Damage = true, 10, 0
+		}
 	}
 	return r
 }

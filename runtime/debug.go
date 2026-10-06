@@ -135,11 +135,15 @@ func mixedDebugOverlay(c *Char, x, y float32) {
 	s := c.foreign.View()
 	line := float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
 	// Keep the state label above the standing size box, clear of the bottom panel.
-	y += c.size.standbox[1]*c.localscl*sys.cam.Scale - 3*line
-	for _, text := range []string{
+	texts := []string{
 		fmt.Sprintf("%s P%d action:%d elem:%d frame:%d", c.foreign.Backend(), c.playerNo+1, s.RenderAction, s.RenderElement, s.Frame),
 		fmt.Sprintf("stop:%d stun:%d atk:%d shot:%d", s.Hitstop, s.Stun, s.AttackID, s.ProjectileID),
-	} {
+	}
+	if d, ok := c.foreign.(interface{ Overlay() string }); ok {
+		texts = append(texts, d.Overlay())
+	}
+	y += c.size.standbox[1]*c.localscl*sys.cam.Scale - float32(len(texts)+1)*line
+	for _, text := range texts {
 		sys.debugClsnText = append(sys.debugClsnText, DebugClsnText{x: x, y: y, text: text, r: 255, g: 220, b: 100, a: 255, viewportBound: true})
 		y += line
 	}
