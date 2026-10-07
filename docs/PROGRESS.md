@@ -1,5 +1,46 @@
 # Progress record
 
+## 2026-10-07 — Background detection and autonomous UI tooling
+
+- The user authorized autonomous offline UI, replacing the earlier manual-menu
+  preference. Added a fingerprinted, single-process/window helper for status,
+  nonactivating restore, targeted key messages and conditional return of prior focus.
+- Verified actual nonactivating restore of minimized SIGN: the source became renderable
+  while Codex remained foreground. GPU screenshots and native observations work behind
+  Codex. Render diagnostics now automatically use this helper before capture/draw tracing.
+- The complete background probe passes three exact updates, 206 blocked opportunities,
+  stable state, matching input histories, 208 Present/416 EndScene calls, four linked
+  images and 1006 draws across 261 groups/21 targets. Source and all graphics prefixes
+  restore after detach; source EXE hash agrees. The receipt confirms foreground=false
+  and foreground unchanged. Evidence: `boundary-20261007-191040-910039` under the current
+  `20261007-181216-754630` probe.
+- Added `xrd-source-ui.py` for background observe/screenshots, one-key actions and a
+  bounded menu pause/resume check. Foreground controls reuse the pinned Universal Modder
+  driver, require an idle desktop before taking focus, recheck source identity/focus
+  before each key and return prior focus only if the source still owns it. No startup
+  macro, online route or persistent OS setting is changed. Unknown UI effects stop.
+- Authored UI checks pass: desktop-activity deferral sends no input; known-pair/menu
+  checks, unknown-action stopping, foreground focus checks, pause/resume transaction and
+  prior-focus return are exercised with fake inputs. PowerShell syntax checks pass.
+  The final one-command observe path discovers installed FFmpeg and passes native-state
+  plus GPU capture with foreground unchanged (`20261007-192051-916779`).
+  The pinned driver also compiles under PowerShell 7 and answers read-only idle/window
+  queries with no focus/key commands (`driver-read-check.json`).
+- Targeted background Escape messages were delivered without foreground changes but
+  did not open the menu or freeze the source clock. This menu path is rejected; no
+  background menu-control success is claimed. The first foreground attempt deferred
+  after its bounded idle wait without sending any input. A second foreground attempt
+  also deferred while desktop activity continued. Live foreground menu validation is
+  pending an idle interval; neither attempt stole focus or sent a key.
+- Local UI evidence: `artifacts/xrd-source-ui/background-check`, background controller
+  `20261007-190401-682123`, idle deferrals `20261007-190526-504373` and
+  `20261007-191205-810086`. Initial legacy-shell
+  execution-policy/module errors occurred before input; using process-local flags and
+  the installed PowerShell 7 runtime resolves setup without changing system policy.
+- Native capture/step/draw detection can now continue behind Codex without manual
+  window restoration. Fully background menu input and startup-to-training navigation
+  remain unverified. Sol-only rendering remains the implementation gate.
+
 ## 2026-10-07 — Bounded render-pass investigation
 
 - Added `--trace-draws` to observe two complete Present intervals on the actual source

@@ -146,7 +146,11 @@ source-state snapshots, raw pixel preservation and RGB previews. Authored bounds
 format/pitch, PNG, state-link and COM failure/cleanup checks pass. Live readback now passes
 four native images across the initial held counter and three requested updates, with
 stable held state, input-history agreement and restored code. The user retains menu
-control. These are full-scene diagnostic images; render latency and isolated alpha
+control during the original checks. On 2026-10-07 the user authorized autonomous offline
+UI scripts. Render diagnostics now restore a minimized source without activation and
+run behind the user's foreground app. See `XRD_SOURCE_UI.md` for bounded menu controls
+and desktop-activity deferral. These are full-scene diagnostic images; render latency
+and isolated alpha
 remain unverified. Next identify render-only fighter draw boundaries.
 The optional two-interval D3D9 draw observer now passes live: 980 draws, 261 binding
 groups and 21 described targets, including floating-point intermediate surfaces.

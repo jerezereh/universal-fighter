@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import queue
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -125,6 +126,14 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         input_profile=input_candidate(code,state['code_rva'],input_local,assembly_rows(text),*rows)
     gate_options=gate_evidence(gate_receipt,candidate,state) if gate_receipt else None
     if (capture or trace_draws) and (not gate_options or expire): raise ValueError('render diagnostics require the bounded stepping experiment')
+    source_window=None
+    if capture or trace_draws:
+        # Rendering needs an unminimized window, but never requires desktop keyboard focus.
+        shell=shutil.which('pwsh') or 'powershell.exe'
+        source_window=json.loads(subprocess.check_output([shell,'-NoProfile','-ExecutionPolicy','Bypass',
+            '-File',str(ROOT/'tools/xrd-source-window.ps1'),'-Action','restore'],text=True,timeout=10))
+        if source_window['pid']!=state['pid'] or source_window['minimized']:
+            raise ValueError('source render window/session mismatch')
     plan=None
     if plan_path:
         if not gate_options or not input_profile or expire or plan_path.stat().st_size>16384:
@@ -225,6 +234,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         observations_only=not bool(gate_options),boundary_experiment=bool(gate_options),boundary_aligned=True,temporary_code_interception=True,
         detached=detached,loaded_code_restored=restored,source_unchanged=fingerprint(EXE)==SIGN_HASH,
         native_tick_verified=False,atomic_native_frame=False,host_step=False,isolated_rgba=False,universal_contact=False)
+    if source_window: result['source_window']=source_window
     if gate_options:
         result['gate_check']=gate_check(records,states,presents,len(plan) if plan else 3)
         result['controlled_update_step_verified']=not expire and all(result['gate_check'][k] for k in ('exact_steps','frozen_counter','frozen_observed_state','rendering_while_frozen')) and gaps==0 and not errors

@@ -370,8 +370,10 @@ python tools/xrd-sign-boundary.py <fresh-probe> --candidate <local-owner-candida
 
 SIGN must already be in offline Sol-vs-Ky training. Reopening the game requires a fresh
 module/state probe and clean same-session boundary observation; previous PIDs, loaded
-code hashes and return traces are not portable between sessions. The user retains menu
-control. This option cannot be combined with the automatic lease-expiry experiment.
+code hashes and return traces are not portable between sessions. The user now authorizes
+autonomous offline UI via `xrd-source-ui.py`; see `XRD_SOURCE_UI.md`. Render diagnostics
+restore a minimized source using the nonactivating helper, then capture behind other
+windows. This option cannot be combined with the automatic lease-expiry experiment.
 
 On the third observed Present for a held counter, the probe uses the actual device's
 backbuffer and a matching system-memory surface. It reads on the presenting thread,
@@ -411,7 +413,8 @@ alpha/pivot/facing to the host.
 ## Bounded D3D9 draw observation
 
 Add `--trace-draws` to the same gated command, optionally with `--capture-render`.
-Keep the source window unminimized; it can be covered by another window. A minimized
+The helper restores an unminimized source without activation; it can be covered by
+another window. A prior minimized
 repeat produced EndScene calls but no Present/image output and correctly failed the
 render checks. Do not infer a successful render from source stepping alone.
 

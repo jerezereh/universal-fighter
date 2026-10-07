@@ -1,5 +1,17 @@
 # Local adapter journal
 
+## 2026-10-07: Background source automation
+
+The user now authorizes autonomous offline UI. SW_SHOWNOACTIVATE restores the minimized
+source while retaining Codex foreground. Native capture/draw diagnostics call the
+fingerprinted helper automatically; the full background proof passes three exact steps,
+four images, 1006 draws and code restoration without foreground change. Covered-window
+GPU screenshots also work. Plain targeted Escape messages are ignored by SIGN's menu;
+delivery is not acceptance. The foreground controller waits for desktop idle, checks
+source identity/focus before keys and conditionally restores prior focus. Authored
+transaction/deferral checks pass; live foreground menu verification remains pending.
+No scene-only foreground detection requirement is imposed on native runtime probes.
+
 ## 2026-10-07: SIGN render-pass observation
 
 Two held Present intervals now expose target/shader/texture/stream binding groups with
