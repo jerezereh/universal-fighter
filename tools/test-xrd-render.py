@@ -5,7 +5,7 @@ import struct
 import tempfile
 import zlib
 
-from xrd_render import png_rgb, render_pixels, save_render, render_check
+from xrd_render import png_rgb, render_pixels, save_render, render_check, draw_check
 
 
 def reject(action):
@@ -57,6 +57,26 @@ def main():
         for _ in range(6): save_render(folder, metadata, data, dict(fighters=[]))
         reject(lambda: save_render(folder, metadata, data, dict(fighters=[])))
     print('Render bounds, BGRA/RGB conversion, raw alpha preservation, PNG integrity and state linkage passed.')
+    def event(method, values): return dict(method=method, values=values, thread=7, hresult=0, caller_rva=12)
+    events = [event('DrawPrimitive', [4, 0, 1]), event('SetRenderTarget', [0, '0x100']),
+        event('SetVertexShader', ['0x200']), event('SetPixelShader', ['0x300']),
+        event('SetStreamSource', [0, '0x400', 0, 32]), event('SetTexture', [0, '0x500']),
+        event('DrawIndexedPrimitive', [4, -1, 0, 9, 0, 3])]
+    frames = [dict(frame=i, counter_before=9, counter_after=9, events=events,
+                   isolated_rgba=False) for i in (1, 2)]
+    check = draw_check(frames)
+    assert check['passed'] and check['draw_calls'] == 4 and check['unknown_binding_draws'] == 1
+    assert check['groups'][0]['primitives'] == 7 and not check['actor_draw_identity_verified']
+    for changes in (dict(frame=3), dict(counter_after=10), dict(events=[]), dict(isolated_rgba=True)):
+        reject(lambda: draw_check([frames[0] | changes, frames[1]]))
+    for changes in (dict(method='Unknown'), dict(values=[4]), dict(hresult=-1), dict(thread=8), dict(caller_rva=-1)):
+        reject(lambda: draw_check([frames[0] | dict(events=events + [events[-1] | changes]), frames[1]]))
+    reject(lambda: draw_check(frames[:1]))
+    surface = dict(format=21, type=1, usage=1, pool=0, multisample=0, width=640, height=480)
+    described = frames[0] | dict(events=[events[1] | dict(surface=surface)] + events)
+    assert draw_check([described, frames[1]])['targets'] == {'0x100': surface}
+    reject(lambda: draw_check([described | dict(events=[events[1] | dict(surface=surface | dict(width=0))] + events), frames[1]]))
+    print('Held draw intervals, cached/unknown bindings, method shapes, caller/thread/result rejection and grouping passed.')
 
 
 if __name__ == '__main__': main()

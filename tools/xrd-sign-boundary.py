@@ -15,7 +15,7 @@ from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
 from xrd_state import assembly_rows, boundary_candidate, observe
 from xrd_input import input_candidate, input_mask, input_plan, input_check, oracle_passed
 from xrd_combat import combat_fields, contact_check
-from xrd_render import render_pixels, save_render, render_check
+from xrd_render import render_pixels, save_render, render_check, draw_check
 
 ROOT=Path(__file__).resolve().parent.parent
 EXE=Path('C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-/Binaries/Win32/GuiltyGearXrd.exe')
@@ -74,7 +74,21 @@ def lease_check(records,presents,diagnostics,automatic_restore):
         hard_lifetime_removed_hook=any('hard gate lifetime' in r.get('message','') for r in diagnostics) and automatic_restore)
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False):
+def render_restored(process,receipt,detached):
+    targets=receipt.get('render_targets',[])
+    if not isinstance(targets,list) or not 1<=len(targets)<=15:
+        raise ValueError('missing/unbounded graphics restoration witnesses')
+    addresses=set()
+    for t in targets:
+        if (type(t.get('address'))!=int or not 0x10000<=t['address']<=0xffffffff-32 or
+                not isinstance(t.get('before'),str) or not re.fullmatch('[0-9a-f]{64}',t['before']) or
+                t['address'] in addresses):
+            raise ValueError('invalid graphics restoration witness')
+        addresses.add(t['address'])
+    return detached and all(process.read(t['address'],32)==bytes.fromhex(t['before']) for t in targets)
+
+
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False):
     receipt=json.loads((probe/'inspection.json').read_text())
     state=json.loads((probe/'state-profile.json').read_text())
     if scalar_path:
@@ -110,7 +124,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             rows.append(assembly_rows(disassembly))
         input_profile=input_candidate(code,state['code_rva'],input_local,assembly_rows(text),*rows)
     gate_options=gate_evidence(gate_receipt,candidate,state) if gate_receipt else None
-    if capture and (not gate_options or expire): raise ValueError('render capture requires the bounded stepping experiment')
+    if (capture or trace_draws) and (not gate_options or expire): raise ValueError('render diagnostics require the bounded stepping experiment')
     plan=None
     if plan_path:
         if not gate_options or not input_profile or expire or plan_path.stat().st_size>16384:
@@ -128,7 +142,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     def receive(message,data):
         try: messages.put_nowait((message,data,time.perf_counter()))
         except queue.Full: overflow.append(True)
-    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
+    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
     started=time.perf_counter();started_utc=datetime.datetime.now(datetime.timezone.utc).isoformat();completed=0;next_request=.5;request_log=[]
     with ReadOnlyProcess(state['pid'],EXE) as process:
         def unchanged():
@@ -139,7 +153,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             session=frida.attach(state['pid'])
             script=session.create_script((ROOT/'tools/xrd-sign-boundary.js').read_text())
             script.on('message',receive);script.load()
-            print(script.exports_sync.start(dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture)),flush=True)
+            print(script.exports_sync.start(dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws)),flush=True)
             started=time.perf_counter()
             with (out/'state.jsonl').open('w',encoding='utf-8') as log:
                 while time.perf_counter()-started<seconds:
@@ -161,6 +175,9 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         presents.append(message['payload']);continue
                     if message['type']=='send' and message['payload'].get('kind')=='input':
                         inputs.append(message['payload']);continue
+                    if message['type']=='send' and message['payload'].get('kind')=='draw-trace':
+                        if len(draws)>=2: raise ValueError('unbounded draw intervals')
+                        draws.append(message['payload']);continue
                     if message['type']=='send' and message['payload'].get('kind')=='render':
                         native=message['payload'];render_pixels(native,data)
                         observation=observe(CapturedMemory(native['segments'],data[:native['state_size']]),state)
@@ -190,6 +207,13 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                 detached=True
             except Exception as error: errors.append(dict(cleanup_error=repr(error)))
         restored=unchanged()
+        if cleanup_receipt and gate_options:
+            cleanup_receipt['render_code_restored_inside_rpc']=cleanup_receipt['render_code_restored']
+            try: cleanup_receipt['render_code_restored']=render_restored(process,cleanup_receipt,detached)
+            except (ValueError,OSError) as error:
+                cleanup_receipt['render_code_restored']=False
+                errors.append(dict(cleanup_error=str(error)))
+            cleanup_receipt['render_verification_after_detach']=detached
     if not restored: errors.append(dict(cleanup_error='loaded source code was not restored'))
     if fingerprint(EXE)!=SIGN_HASH: errors.append(dict(source_error='source executable fingerprint changed'))
     deltas=Counter(r['counter_delta'] for r in records)
@@ -222,6 +246,12 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         result['render_check']=render_check(captures,records,states)
         if len(captures)<2 or not result['render_check']['held_counter_state_linked']:
             errors.append(dict(check_error='missing/unlinked native full-scene readback'))
+    if trace_draws:
+        (out/'draw-trace.json').write_text(json.dumps(draws,indent=2))
+        try: result['draw_check']=draw_check(draws)
+        except ValueError as error:
+            result['draw_check']=dict(passed=False,error=str(error));errors.append(dict(check_error=str(error)))
+        (out/'draw-summary.json').write_text(json.dumps(result['draw_check'],indent=2))
     if plan:
         result['named_input_steps']=len(request_log)
         result['input_oracle']=oracle
@@ -240,6 +270,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if 'input_check' in result: print('Input checks:',result['input_check'],flush=True)
     if 'contact_check' in result: print('Contact checks:',result['contact_check'],flush=True)
     if capture: print('Render checks:',result['render_check'],flush=True)
+    if trace_draws: print('Draw checks:',{k:v for k,v in result['draw_check'].items() if k not in ('groups','targets')},flush=True)
     if errors or not records or not restored or not detached: raise RuntimeError('boundary trace failed; inspect local receipt')
     if expire and not all(result['lease_check'].values()): raise RuntimeError('gate lease recovery failed')
     if gate_options and not expire and not result['controlled_update_step_verified']:
@@ -264,10 +295,11 @@ if __name__=='__main__':
     p.add_argument('--scalar-fields',type=Path,help='ignored bounded field hypotheses to observe without semantic promotion')
     p.add_argument('--combat-candidate',type=Path,help='ignored local scalar getter/setter discoveries for the native contact check')
     p.add_argument('--capture-render',action='store_true',help='with --gate: capture up to eight full-scene D3D9 backbuffers and held source states; no isolated-layer claim')
+    p.add_argument('--trace-draws',action='store_true',help='with --gate: observe two Present intervals of D3D9 draw/target/shader bindings; no draw suppression')
     a=p.parse_args()
     if not 0<a.seconds<=120: p.error('seconds must be 0..120')
     if a.lease_check and not a.gate: p.error('--lease-check requires --gate')
     trace(a.probe.resolve(),a.candidate.resolve(),13 if a.lease_check else 7 if a.input_plan else 4.5 if a.gate else a.seconds,
           a.gate.resolve() if a.gate else None,a.lease_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
-          a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render)
+          a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws)

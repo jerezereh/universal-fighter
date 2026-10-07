@@ -1,5 +1,44 @@
 # Progress record
 
+## 2026-10-07 — Bounded render-pass investigation
+
+- Added `--trace-draws` to observe two complete Present intervals on the actual source
+  D3D9 device. Records target/texture/shader/stream/index bindings, clears, four draw
+  families, native HRESULT/thread/caller, and up to 32 surface descriptions. No draw
+  arguments/results are changed and no draw, HUD, camera or gameplay operation is
+  suppressed. The receiver still receives no SIGN source image.
+- Authored checks reject malformed/failed calls, mixed threads, source-counter changes,
+  target-description drift and incomplete intervals. Bindings cached before observation
+  remain unknown rather than being guessed. Traces are capped at two intervals and
+  8192 events per interval; shader/resource pointers and native callers stay ignored.
+- Live first trace: 995 draws and 261 binding groups. The described repeat passes
+  980 draws, 8184 observed API events, 261 groups, zero unknown draw bindings, one
+  renderer thread and 21 targets. Targets include A8R8G8B8, A16B16G16R16,
+  A16B16G16R16F and R32F surfaces at multiple resolutions. Shader/texture grouping is
+  diagnostic; no group is accepted as Sol yet.
+- The described repeat also passes three exact updates, 149 blocked opportunities,
+  frozen state, input-history links, 151 successful presentations and four matched
+  full-scene images. Source/update code, all graphics hook prefixes and EXE hash agree
+  after teardown. Each graphics prefix is verified externally after script unload and
+  detachment; the inside-stop-RPC check is recorded separately because an in-flight
+  graphics callback can defer restoration. Baselines are saved before installing the
+  draw hooks so overlapping prefix windows cannot include an earlier installed hook.
+  A separate read-only check using the final helper also matches all 15 original
+  graphics prefixes from the described proof while the source window is minimized.
+- One intermediate run was correctly rejected by the inside-RPC graphics check. The
+  later external check establishes restored bytes after detachment. A final repeat
+  while SIGN was minimized produced no Present intervals/images and was rejected;
+  source/graphics cleanup still passed. Read-only IsIconic confirmed minimization and
+  the user was asked to restore the window. This is not a successful render result.
+- Evidence under `20261007-181216-754630`: first trace
+  `boundary-20261007-182138-776186`, inside-RPC rejection
+  `boundary-20261007-182630-369750`, described passing trace
+  `boundary-20261007-182822-447114`, minimized rejection
+  `boundary-20261007-183108-011064`. Native traces/images remain ignored.
+- Next: identify Sol's mesh/material draw groups against native visual evidence, inspect
+  intermediate surfaces and isolate RGBA/pivot/facing with measured render delay.
+  Actor draw identity and all full guest capabilities remain unaccepted.
+
 ## 2026-10-07 — Live native backbuffer capture verified
 
 - Reopened the fingerprinted SIGN bootstrap; the user entered offline Sol-vs-Ky

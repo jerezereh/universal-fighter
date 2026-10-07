@@ -148,6 +148,12 @@ four native images across the initial held counter and three requested updates, 
 stable held state, input-history agreement and restored code. The user retains menu
 control. These are full-scene diagnostic images; render latency and isolated alpha
 remain unverified. Next identify render-only fighter draw boundaries.
+The optional two-interval D3D9 draw observer now passes live: 980 draws, 261 binding
+groups and 21 described targets, including floating-point intermediate surfaces.
+It preserves all native draws and records unknown initial bindings explicitly. Graphics
+restoration is verified after full script/session teardown. Sol's actor draw identity
+is not established yet; next compare candidate groups/intermediate surfaces with native
+visual evidence, then prove RGBA alpha/pivot/facing and source render delay.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Original menu pause,
 clash/superfreeze and universal stop/result ownership still need dedicated validation.

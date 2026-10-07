@@ -52,6 +52,17 @@ def main():
     reject(lambda:boundary.CapturedMemory(segments,data[:-1]))
     reject(lambda:boundary.CapturedMemory([segments[0]|dict(offset=1)]+segments[1:],data))
     reject(lambda:captured.read(1,4))
+    class GraphicsMemory:
+        def read(self,address,size):
+            assert address==0x10000 and size==32
+            return b'\x90'*32
+    witness=dict(render_code_restored=False,render_targets=[dict(address=0x10000,before='90'*32)])
+    assert boundary.render_restored(GraphicsMemory(),witness,True)
+    assert not boundary.render_restored(GraphicsMemory(),witness,False)
+    assert not boundary.render_restored(GraphicsMemory(),dict(render_targets=[dict(address=0x10000,before='cc'*32)]),True)
+    for targets in ([],witness['render_targets']*2,[dict(address=True,before='90'*32)],
+                    [dict(address=0x10000,before='90')]):
+        reject(lambda:boundary.render_restored(GraphicsMemory(),dict(render_targets=targets),True))
     records=[dict(executed=False,counter_delta=0),dict(executed=True,counter_delta=1),
              dict(executed=False,counter_delta=0),dict(executed=True,counter_delta=1),
              dict(executed=False,counter_delta=0),dict(executed=True,counter_delta=1)]

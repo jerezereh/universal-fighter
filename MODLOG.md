@@ -1,5 +1,20 @@
 # Local adapter journal
 
+## 2026-10-07: SIGN render-pass observation
+
+Two held Present intervals now expose target/shader/texture/stream binding groups with
+the four D3D9 draw families and surface descriptions. The described live proof has 980
+draws, 261 groups, one renderer thread, zero unknown draw bindings and 21 targets with
+integer and floating-point formats. Target dimensions include native 1920-by-1080
+intermediates and the 1366-by-768 backbuffer; final-window dimensions alone cannot define
+the fighter layer. Native IDs/callers/traces stay ignored. No actor identity is claimed.
+
+An inside-stop-RPC graphics comparison can precede completion of an in-flight callback.
+The final restoration check now reads every original prefix externally after unload and
+detachment; the described proof passes that check despite its earlier in-RPC mismatch.
+Source code and EXE hashes also agree. A minimized-window repeat had no presentations
+and was rejected with clean teardown; do not focus automatically while the user owns UI.
+
 ## 2026-10-07: SIGN native backbuffer readback
 
 Refreshed the launched SIGN module/state profile and obtained a clean 181-update trace.

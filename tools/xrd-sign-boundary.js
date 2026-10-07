@@ -7,6 +7,80 @@ let renderHooks = [];
 let inputHooks = [];
 const pendingInputs = new Map();
 let renderCapture = {attempts: 0, counter: null, presentations: 0};
+let drawTrace = null;
+
+function installDrawTrace(device) {
+    drawTrace = {device, active: false, frames: 0, events: [], counter: null, surfaces: new Map()};
+    // D3D9 interface slots, not source-game offsets. Capture two complete Present intervals.
+    const methods = [[37, 'SetRenderTarget', ['u', 'p']], [43, 'Clear', ['u', 'p', 'u', 'u', 'u', 'u']],
+        [65, 'SetTexture', ['u', 'p']], [81, 'DrawPrimitive', ['u', 'u', 'u']],
+        [82, 'DrawIndexedPrimitive', ['u', 'i', 'u', 'u', 'u', 'u']],
+        [83, 'DrawPrimitiveUP', ['u', 'u', 'p', 'u']],
+        [84, 'DrawIndexedPrimitiveUP', ['u', 'u', 'u', 'u', 'p', 'u', 'p', 'u']],
+        [92, 'SetVertexShader', ['p']], [100, 'SetStreamSource', ['u', 'p', 'u', 'u']],
+        [104, 'SetIndices', ['p']], [107, 'SetPixelShader', ['p']]];
+    const targets = new Set();
+    // Snapshot every prefix before installing any hook: nearby methods can share a 32-byte window.
+    const resolved = methods.map(([slot, method, types]) => {
+        const target = device.readPointer().add(slot * 4).readPointer();
+        const range = Process.findRangeByAddress(target);
+        if (range === null || !range.protection.includes('x') || targets.has(target.toString()))
+            throw new Error('invalid/aliased draw-trace method');
+        targets.add(target.toString());
+        return {target, method, types, before: hex(bytes(target, 32))};
+    });
+    for (const {target, method, types, before} of resolved) {
+        const listener = Interceptor.attach(target, {
+            onEnter(args) {
+                this.event = null;
+                const d = drawTrace;
+                if (d === null || !d.active || !args[0].equals(d.device)) return;
+                if (d.events.length >= 8192) {
+                    d.active = false;
+                    send({kind: 'error',phase: 'draw-trace',message: 'draw interval overflow'}); return;
+                }
+                const main = Process.mainModule, caller = this.returnAddress;
+                this.event = {method, values: types.map((type, i) => type === 'p' ? args[i + 1].toString() :
+                    type === 'i' ? args[i + 1].toInt32() : args[i + 1].toUInt32()), thread: this.threadId,
+                    caller_rva: caller.compare(main.base) >= 0 && caller.compare(main.base.add(main.size)) < 0 ?
+                        caller.sub(main.base).toUInt32() : null};
+                if (method === 'SetRenderTarget' && !args[2].isNull()) {
+                    const id = args[2].toString();
+                    try {
+                        if (!d.surfaces.has(id)) {
+                            if (d.surfaces.size >= 32) throw new Error('surface description limit');
+                            const desc = Memory.alloc(32);
+                            succeeded(com(args[2], 12, 'int', ['pointer'])(args[2], desc), 'GetDesc');
+                            d.surfaces.set(id, {format: desc.readU32(), type: desc.add(4).readU32(),
+                                usage: desc.add(8).readU32(), pool: desc.add(12).readU32(),
+                                multisample: desc.add(16).readU32(), width: desc.add(24).readU32(), height: desc.add(28).readU32()});
+                        }
+                        this.event.surface = d.surfaces.get(id);
+                    } catch (error) { send({kind: 'error',phase: 'draw-surface',message: String(error)}); }
+                }
+            },
+            onLeave(result) {
+                if (this.event && drawTrace !== null && drawTrace.active)
+                    drawTrace.events.push({...this.event, hresult: result.toInt32()});
+            }
+        });
+        renderHooks.push({listener, target, before});
+    }
+    Interceptor.flush();
+}
+
+function drawInterval(device, counter, entering, hresult = 0) {
+    const d = drawTrace;
+    if (d === null || !device.equals(d.device)) return;
+    if (entering && d.active) {
+        d.active = false;
+        send({kind: 'draw-trace', frame: ++d.frames, counter_before: d.counter, counter_after: counter,
+            device: device.toString(), events: d.events, isolated_rgba: false});
+        d.events = [];
+    } else if (!entering && hresult === 0 && d.frames < 2 && gate !== null && !gate.resumed) {
+        d.counter = counter; d.active = true;
+    }
+}
 
 function com(object, slot, result, arguments_) {
     const target = object.readPointer().add(slot * 4).readPointer();
@@ -177,6 +251,10 @@ function observePresent() {
                     const root = Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
                     this.counter = root.add(4 + config.candidate.counter_field).readU32();
                     this.device = args[0].toString(); this.method = method.method; this.valid = true;
+                    if (config.trace_draws && this.method === 'Present' && gate !== null && !gate.resumed) {
+                        if (drawTrace === null) installDrawTrace(args[0]);
+                        drawInterval(args[0], this.counter, true);
+                    }
                     if (config.capture && this.method === 'Present' && gate !== null && !gate.resumed && !gate.executing) {
                         if (renderCapture.counter !== this.counter) {
                             renderCapture.counter = this.counter; renderCapture.presentations = 0;
@@ -194,6 +272,8 @@ function observePresent() {
                     method: this.method,target: target.toString(),thread: this.threadId,hresult: result.toInt32(),wall_ms: Date.now()});
                 if (this.capture && result.toInt32() === 0)
                     send({...this.capture.metadata, thread: this.threadId, hresult: 0}, this.capture.data);
+                if (this.valid && this.method === 'Present' && config.trace_draws)
+                    drawInterval(ptr(this.device), this.counter, false, result.toInt32());
             }
         });
         renderHooks.push({listener,target,before});
@@ -333,7 +413,9 @@ rpc.exports = {
     start(p) {
         if (listener || gate) throw new Error('already observing');
         if (p.capture && !p.gate) throw new Error('render capture requires a controlled source gate');
+        if (p.trace_draws && !p.gate) throw new Error('draw trace requires a controlled source gate');
         renderCapture = {attempts: 0, counter: null, presentations: 0};
+        drawTrace = null;
         const module = Process.mainModule;
         if (Process.arch !== 'ia32' || Process.pointerSize !== 4 || Process.id !== p.state.pid ||
             !module.base.equals(ptr(p.state.module_base)) || module.size !== p.image_size ||
@@ -390,7 +472,9 @@ rpc.exports = {
         for (const h of renderHooks) h.listener.detach();
         Interceptor.flush();
         const renderRestored = renderHooks.every(h => hex(bytes(h.target, 32)) === h.before);
+        const renderTargets = renderHooks.map(h => ({address: h.target.toUInt32(), before: h.before}));
         renderHooks = [];
-        return {detached: true, samples: sequence, render_code_restored: renderRestored};
+        drawTrace = null;
+        return {detached: true, samples: sequence, render_code_restored: renderRestored, render_targets: renderTargets};
     }
 };

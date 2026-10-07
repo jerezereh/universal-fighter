@@ -2,6 +2,7 @@
 from collections import Counter
 import hashlib
 import json
+import re
 import struct
 import zlib
 
@@ -63,3 +64,62 @@ def render_check(captures, records, states):
         distinct_rgb_images=len({c['rgb_sha256'] for c in captures}),
         held_counter_state_linked=bool(captures) and all(linked),
         full_scene=True, native_render_latency_verified=False, atomic_native_frame=False, isolated_rgba=False)
+
+
+def draw_check(frames):
+    if len(frames) != 2:
+        raise ValueError('requires two complete draw intervals')
+    shapes = dict(SetRenderTarget='up', Clear='upuuuu', SetTexture='up', DrawPrimitive='uuu',
+        DrawIndexedPrimitive='uiuuuu', DrawPrimitiveUP='uupu', DrawIndexedPrimitiveUP='uuuupupu',
+        SetVertexShader='p', SetStreamSource='upuu', SetIndices='p', SetPixelShader='p')
+    threads = set(); methods = Counter(); groups = Counter(); primitives = Counter(); unknown = 0; targets = {}
+    # The first binding for each state may be cached before observation. Keep it explicitly unknown.
+    state = dict(target=None, vertex_shader=None, pixel_shader=None, vertex_buffer=None, stride=None, texture0=None)
+    for i, frame in enumerate(frames, 1):
+        if (frame.get('frame') != i or frame.get('isolated_rgba') is not False or
+                type(frame.get('counter_before')) != int or not 0 <= frame['counter_before'] <= 0xffffffff or
+                frame.get('counter_after') != frame['counter_before'] or
+                not isinstance(frame.get('events'), list) or not 1 <= len(frame['events']) <= 8192):
+            raise ValueError('incomplete/unheld draw interval')
+        for event in frame['events']:
+            name, values = event.get('method'), event.get('values')
+            shape = shapes.get(name)
+            if not shape or not isinstance(values, list) or len(values) != len(shape):
+                raise ValueError('invalid draw method/arguments')
+            for value, kind in zip(values, shape):
+                if kind == 'p': valid = isinstance(value, str) and re.fullmatch(r'0x[0-9a-f]{1,8}', value)
+                else: valid = type(value) == int and (-0x80000000 <= value <= 0x7fffffff if kind == 'i' else 0 <= value <= 0xffffffff)
+                if not valid: raise ValueError('invalid draw argument')
+            if type(event.get('thread')) != int or event['thread'] <= 0 or type(event.get('hresult')) != int or event['hresult'] != 0:
+                raise ValueError('failed draw call/thread')
+            caller = event.get('caller_rva')
+            if caller is not None and (type(caller) != int or not 0 <= caller < 64 << 20):
+                raise ValueError('invalid local draw caller')
+            threads.add(event['thread']); methods[name] += 1
+            if 'surface' in event:
+                surface = event['surface']
+                if (name != 'SetRenderTarget' or not isinstance(surface, dict) or surface.get('type') != 1 or
+                        any(type(surface.get(k)) != int or not 0 <= surface[k] <= 0xffffffff
+                            for k in ('format', 'type', 'usage', 'pool', 'multisample', 'width', 'height')) or
+                        not 1 <= surface['width'] <= 16384 or not 1 <= surface['height'] <= 16384):
+                    raise ValueError('invalid target surface description')
+                previous = targets.setdefault(values[1], surface)
+                if previous != surface or len(targets) > 32: raise ValueError('target description drift/limit')
+            if name == 'SetRenderTarget' and values[0] == 0: state['target'] = values[1]
+            elif name == 'SetVertexShader': state['vertex_shader'] = values[0]
+            elif name == 'SetPixelShader': state['pixel_shader'] = values[0]
+            elif name == 'SetStreamSource' and values[0] == 0:
+                state['vertex_buffer'], state['stride'] = values[1], values[3]
+            elif name == 'SetTexture' and values[0] == 0: state['texture0'] = values[1]
+            elif name.startswith('Draw'):
+                key = tuple(state.values())
+                groups[key] += 1
+                primitives[key] += values[5] if name == 'DrawIndexedPrimitive' else values[3] if name == 'DrawIndexedPrimitiveUP' else values[2] if name == 'DrawPrimitive' else values[1]
+                if any(value is None for value in key): unknown += 1
+    if len(threads) != 1 or not groups:
+        raise ValueError('multithreaded/missing draw trace')
+    return dict(passed=True, intervals=2, events=sum(methods.values()), methods=dict(methods),
+        threads=sorted(threads), draw_calls=sum(groups.values()), unknown_binding_draws=unknown,
+        binding_groups=len(groups), target_count=len(targets), targets=targets, isolated_rgba=False, actor_draw_identity_verified=False,
+        groups=[dict(zip(state, key)) | dict(draw_calls=count, primitives=primitives[key])
+                for key, count in groups.most_common()])

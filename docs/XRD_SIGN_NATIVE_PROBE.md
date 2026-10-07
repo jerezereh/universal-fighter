@@ -408,6 +408,42 @@ Next identify a render-only Sol boundary and
 measure pixels/state delay before excluding opponent/HUD/background or publishing
 alpha/pivot/facing to the host.
 
+## Bounded D3D9 draw observation
+
+Add `--trace-draws` to the same gated command, optionally with `--capture-render`.
+Keep the source window unminimized; it can be covered by another window. A minimized
+repeat produced EndScene calls but no Present/image output and correctly failed the
+render checks. Do not infer a successful render from source stepping alone.
+
+The observer traces two Present intervals, up to 8192 events each, without changing
+arguments/results. It records render targets, clears, textures, shaders, stream/index
+bindings and DrawPrimitive/DrawIndexedPrimitive plus both UP variants. Methods come
+from the actual device's D3D9 vtable, validated against executable memory and unique
+targets. Surface descriptions are bounded at 32 unique IDs. See Microsoft's
+[DrawIndexedPrimitive](https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-drawindexedprimitive)
+and [SetRenderTarget](https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-setrendertarget)
+contracts and the local SDK interface declaration.
+
+The checker requires complete held-counter intervals, successful native calls and one
+renderer thread. It groups observed draws by target, shaders, stream-zero buffer/stride
+and texture zero. Other sampler stages remain in the raw trace. Cached bindings before
+their first observed setter remain unknown; groups are not inferred actor identities.
+Raw events/native pointers/callers, descriptions and summary stay in ignored
+`draw-trace.json`/`draw-summary.json`.
+
+The live described proof (`boundary-20261007-182822-447114`) passes 980 draws, 8184
+events, 261 groups, no unknown draw bindings and 21 targets, including integer and
+floating-point intermediate formats. It also passes three exact source updates,
+149 blocked opportunities and four full-scene native images. All original source and
+graphics bytes agree after full teardown. The stop RPC's immediate comparison can
+precede an in-flight callback's removal; preserve it as a separate diagnostic and
+verify every saved graphics prefix externally after unload/detachment. An actual byte
+mismatch at that final check still fails the experiment.
+
+Next identify fighter groups against native visual evidence and inspect intermediate
+surfaces before altering any rendering. No draw suppression, separate fighter target,
+isolated alpha or host publication has been accepted.
+
 ## Remaining producer gates
 
 A unique signature is only a candidate. Before building a producer around it:
