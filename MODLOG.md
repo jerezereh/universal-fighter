@@ -1,5 +1,15 @@
 # Local adapter journal
 
+## 2026-10-07: SIGN native backbuffer readback
+
+Refreshed the launched SIGN module/state profile and obtained a clean 181-update trace.
+The offline native capture passes three requested updates, 241 blocked opportunities,
+243 successful presentations and four held-state-linked 1366-by-768 A8R8G8B8 images.
+Inspected native pixels show Sol, Ky, stage and HUD. Input histories agree and both
+update/presentation code restore. Full-scene readback is verified; isolated alpha and
+actual render-state latency are not. Session profiles/images remain private ignored
+evidence. No host code changed and no source menu driving occurred.
+
 ## 2026-10-06: SIGN native render capture preparation
 
 The pinned Rev2 GIF route zeroes gameplay scale fields for hidden actors/effects,

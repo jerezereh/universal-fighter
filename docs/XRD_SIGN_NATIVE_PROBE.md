@@ -360,7 +360,7 @@ also withhold the same host ticks. Original menu pause, clash/superfreeze, damag
 translation and contact suppression remain open. Next: isolated RGBA/state association,
 then persistent transport/universal results. SIGN remains unconnected to IKEMEN.
 
-## Diagnostic native backbuffer capture (live validation pending)
+## Diagnostic native backbuffer capture
 
 The same bounded gate accepts `--capture-render`:
 
@@ -393,13 +393,18 @@ settling interval, not a measured native render-delay guarantee.
 
 Verified without the game: bounded packet/format/pitch rejection, raw channel retention,
 RGB conversion, PNG integrity, mismatched-state rejection, resource cleanup failures and
-source drift. Live capture, visual comparison, native render delay and original-code
-restoration remain pending: SIGN was closed during implementation. These images contain
-the full scene; isolated RGBA and atomic-frame capabilities remain false.
+source drift. Live verification on 2026-10-07 passes four 1366-by-768 A8R8G8B8 readbacks,
+three exact requested updates, stable source state across 241 blocked opportunities,
+linked input histories and 243 successful presentations. The new same-session return
+trace has 181 consecutive increments without gaps/errors. The PNG shows Sol, Ky, stage
+and HUD correctly; update/presentation code restores, the session detaches and the EXE
+hash agrees. Evidence is in ignored `20261007-181216-754630`, capture
+`boundary-20261007-181401-013148`. These images contain the full scene; native render
+delay, isolated RGBA and atomic-frame capabilities remain unverified/false.
 
 The pinned Rev2 GIF route changes gameplay scale fields to hide entities and darkens
 the camera background. Its alpha conversion is not a verified SIGN isolated-layer path.
-Next validate this readback in training, then identify a render-only Sol boundary and
+Next identify a render-only Sol boundary and
 measure pixels/state delay before excluding opponent/HUD/background or publishing
 alpha/pivot/facing to the host.
 

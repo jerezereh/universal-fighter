@@ -1,5 +1,24 @@
 # Progress record
 
+## 2026-10-07 — Live native backbuffer capture verified
+
+- Reopened the fingerprinted SIGN bootstrap; the user entered offline Sol-vs-Ky
+  training. Refreshed PID/module/code evidence and derived the state/owner profile from
+  this session. A new observation trace passes 181 consecutive updates, no gaps/errors,
+  one caller/thread, exact counter increments and original-code restoration.
+- The bounded capture passes three requested updates and 241 blocked opportunities,
+  stable held source state, linked native input histories, 243 successful Present calls
+  and 488 EndScene calls. Four 1366-by-768 A8R8G8B8 readbacks match the held update states;
+  all four RGB hashes differ. Inspected the native PNG: Sol, Ky, stage and HUD render
+  correctly. This verifies full-scene readback, not isolated Sol or measured render lag.
+- Cleanup restores both source-update and presentation code; source EXE hash agrees,
+  and the Frida session detaches. No menu driving or desktop input was sent.
+- Local evidence: `artifacts/xrd-sign-native/20261007-181216-754630`, observation
+  `observe-20261007-181328-702576`, return trace `boundary-20261007-181335-225981`, capture
+  `boundary-20261007-181401-013148`. Images/native profiles stay ignored.
+- Next: identify render-only fighter draw boundaries and verify alpha/pivot plus render
+  delay. Full-scene pixels are not sent to IKEMEN; full guest capabilities remain false.
+
 ## 2026-10-06 — Native rendering diagnostic capture
 
 - Added optional `--capture-render` to the bounded SIGN stepping experiment. On the
