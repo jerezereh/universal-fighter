@@ -1,5 +1,31 @@
 # Progress record
 
+## 2026-10-06 — Native rendering diagnostic capture
+
+- Added optional `--capture-render` to the bounded SIGN stepping experiment. On the
+  third observed Present for a held source counter, it reads the actual D3D9 backbuffer
+  and snapshots the existing fighter state. Readback rejects source-counter drift,
+  multisampling, unsupported formats and dimensions above 2048. At most eight captures
+  are attempted; successful Present is required before publishing pixels.
+- Preserves raw BGRA/high-byte data and source pitch, writes RGB-only PNG previews and
+  metadata under ignored local evidence, and checks fighter state against the held
+  update trace. A counter link is not proof of native render latency or atomic output.
+- The pinned Rev2 reference hides entities by zeroing gameplay scale fields and uses
+  camera darkening plus a screenshot alpha conversion. This is reference behavior,
+  not verified SIGN isolation. No scale, camera, HUD or native render-state edits made.
+- Verified: authored pixel/packet bounds, padded source pitch, RGB conversion, retained
+  high bytes, PNG/CRC integrity, state mismatch rejection and eight-image limit. Authored
+  COM failure checks cover all readback stages, source drift, unlock and independent
+  release of both acquired surfaces. Existing native/state/boundary/input/combat checks
+  and JavaScript syntax checks pass.
+- Pending interactive/native validation: SIGN is no longer running (two process checks
+  found no SIGN/boot process). Requested that the user reopen offline Sol-vs-Ky training.
+  No source attach, readback or source-code cleanup verification performed this step.
+  A fresh PID/module probe and same-session boundary trace are required before live use.
+- Remaining: live pixel capture, measured source render delay, Sol-only RGBA/pivot/facing,
+  persistent producer and universal contact/result ownership. Full capabilities remain
+  false; SIGN remains unconnected to IKEMEN.
+
 ## 2026-10-05
 
 - Starting workspace contained only `handoff_doc.txt`, with no Git repository or code.

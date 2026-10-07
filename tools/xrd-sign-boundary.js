@@ -1,4 +1,4 @@
-// Development-only return observation or bounded offline gate; no input injection.
+// Development-only return observation or bounded offline gate; no desktop input.
 let listener = null;
 let config = null;
 let sequence = 0;
@@ -6,6 +6,63 @@ let gate = null;
 let renderHooks = [];
 let inputHooks = [];
 const pendingInputs = new Map();
+let renderCapture = {attempts: 0, counter: null, presentations: 0};
+
+function com(object, slot, result, arguments_) {
+    const target = object.readPointer().add(slot * 4).readPointer();
+    const range = Process.findRangeByAddress(target);
+    if (range === null || !range.protection.includes('x')) throw new Error('invalid COM method');
+    return new NativeFunction(target, result, ['pointer', ...arguments_],
+        {abi: 'stdcall', exceptions: 'propagate'});
+}
+
+function succeeded(hr, name) {
+    if (hr < 0) throw new Error(name + ' failed: ' + hr);
+}
+
+function captureBackBuffer(device, root, counter) {
+    // Diagnostic full-scene capture only. No render-state changes or fabricated alpha.
+    const buffer = Memory.alloc(4), staging = Memory.alloc(4), desc = Memory.alloc(32);
+    buffer.writePointer(ptr(0)); staging.writePointer(ptr(0));
+    let surface = ptr(0), destination = ptr(0), locked = false;
+    try {
+        succeeded(com(device, 18, 'int', ['uint', 'uint', 'uint', 'pointer'])(device, 0, 0, 0, buffer), 'GetBackBuffer');
+        surface = buffer.readPointer();
+        succeeded(com(surface, 12, 'int', ['pointer'])(surface, desc), 'GetDesc');
+        const format = desc.readU32(), multisample = desc.add(16).readU32();
+        const width = desc.add(24).readU32(), height = desc.add(28).readU32();
+        if (![21, 22].includes(format) || multisample !== 0 || width < 1 || height < 1 ||
+            width > 2048 || height > 2048) throw new Error('unsupported/bounded backbuffer description');
+        succeeded(com(device, 36, 'int', ['uint', 'uint', 'uint', 'uint', 'pointer', 'pointer'])(
+            device, width, height, format, 2, staging, ptr(0)), 'CreateOffscreenPlainSurface');
+        destination = staging.readPointer();
+        succeeded(com(device, 32, 'int', ['pointer', 'pointer'])(device, surface, destination), 'GetRenderTargetData');
+        const rect = Memory.alloc(8);
+        succeeded(com(destination, 13, 'int', ['pointer', 'pointer', 'uint'])(destination, rect, ptr(0), 0x10), 'LockRect');
+        locked = true;
+        const pitch = rect.readS32(), pixels = rect.add(4).readPointer();
+        if (pitch < width * 4 || pitch > 65536 || pixels.isNull()) throw new Error('invalid locked pitch/pixels');
+        const state = snapshot(root);
+        const output = new Uint8Array(state.data.byteLength + width * height * 4);
+        output.set(new Uint8Array(state.data));
+        for (let y = 0; y < height; ++y)
+            output.set(bytes(pixels.add(y * pitch), width * 4), state.data.byteLength + y * width * 4);
+        const global = Process.mainModule.base.add(config.state.engine_global_rva);
+        if (!global.readPointer().equals(root) || root.add(4 + config.candidate.counter_field).readU32() !== counter ||
+            gate === null || gate.resumed || gate.executing) throw new Error('source advanced during readback');
+        return {metadata: {kind: 'render', counter, width, height, format, multisample, pitch,
+            state_size: state.data.byteLength, segments: state.segments, device: device.toString(),
+            presentation_index: renderCapture.presentations, atomic_native_frame: false,
+            isolated_rgba: false, native_render_latency_verified: false}, data: output.buffer};
+    } finally {
+        // Independently release both references even if unlock or an earlier operation fails.
+        try { if (locked) succeeded(com(destination, 14, 'int', [])(destination), 'UnlockRect'); }
+        finally {
+            try { if (!destination.isNull()) com(destination, 2, 'uint', [])(destination); }
+            finally { if (!surface.isNull()) com(surface, 2, 'uint', [])(surface); }
+        }
+    }
+}
 
 function installInput(p) {
     const input = p.input;
@@ -112,6 +169,7 @@ function observePresent() {
         const listener = Interceptor.attach(target, {
             onEnter(args) {
                 this.valid = false;
+                this.capture = null;
                 try {
                     const table = args[0].readPointer();
                     const method = methods.find(c => table.add(c.slot * 4).readPointer().equals(target));
@@ -119,11 +177,23 @@ function observePresent() {
                     const root = Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
                     this.counter = root.add(4 + config.candidate.counter_field).readU32();
                     this.device = args[0].toString(); this.method = method.method; this.valid = true;
+                    if (config.capture && this.method === 'Present' && gate !== null && !gate.resumed && !gate.executing) {
+                        if (renderCapture.counter !== this.counter) {
+                            renderCapture.counter = this.counter; renderCapture.presentations = 0;
+                        }
+                        // Observe three presentations on the held counter before readback; latency still needs an oracle.
+                        if (++renderCapture.presentations === 3 && renderCapture.attempts < 8) {
+                            ++renderCapture.attempts;
+                            this.capture = captureBackBuffer(args[0], root, this.counter);
+                        }
+                    }
                 } catch (error) { send({kind: 'error',phase: 'present',message: String(error)}); }
             },
             onLeave(result) {
                 if (this.valid) send({kind: 'present',counter: this.counter,device: this.device,
                     method: this.method,target: target.toString(),thread: this.threadId,hresult: result.toInt32(),wall_ms: Date.now()});
+                if (this.capture && result.toInt32() === 0)
+                    send({...this.capture.metadata, thread: this.threadId, hresult: 0}, this.capture.data);
             }
         });
         renderHooks.push({listener,target,before});
@@ -262,6 +332,8 @@ function installGate(target, p) {
 rpc.exports = {
     start(p) {
         if (listener || gate) throw new Error('already observing');
+        if (p.capture && !p.gate) throw new Error('render capture requires a controlled source gate');
+        renderCapture = {attempts: 0, counter: null, presentations: 0};
         const module = Process.mainModule;
         if (Process.arch !== 'ia32' || Process.pointerSize !== 4 || Process.id !== p.state.pid ||
             !module.base.equals(ptr(p.state.module_base)) || module.size !== p.image_size ||

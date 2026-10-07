@@ -360,6 +360,49 @@ also withhold the same host ticks. Original menu pause, clash/superfreeze, damag
 translation and contact suppression remain open. Next: isolated RGBA/state association,
 then persistent transport/universal results. SIGN remains unconnected to IKEMEN.
 
+## Diagnostic native backbuffer capture (live validation pending)
+
+The same bounded gate accepts `--capture-render`:
+
+```powershell
+python tools/xrd-sign-boundary.py <fresh-probe> --candidate <local-owner-candidate> --gate <same-session-observation> --capture-render
+```
+
+SIGN must already be in offline Sol-vs-Ky training. Reopening the game requires a fresh
+module/state probe and clean same-session boundary observation; previous PIDs, loaded
+code hashes and return traces are not portable between sessions. The user retains menu
+control. This option cannot be combined with the automatic lease-expiry experiment.
+
+On the third observed Present for a held counter, the probe uses the actual device's
+backbuffer and a matching system-memory surface. It reads on the presenting thread,
+copies rows using the returned pitch, snapshots the existing state and rejects counter
+drift. It publishes only after that Present succeeds. See Microsoft's
+[GetBackBuffer](https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-getbackbuffer),
+[GetRenderTargetData](https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-getrendertargetdata)
+and [LockRect](https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3dsurface9-lockrect)
+contracts. Acquired surface references are released independently in cleanup, including
+when readback/unlock fails. Device/render/gameplay state is not changed by capture.
+
+Limits: eight attempted captures, 2048 by 2048, A8R8G8B8 or X8R8G8B8 and no multisampling.
+Unsupported descriptions fail the experiment instead of changing source settings.
+Ignored `render-XX.bgra` retains raw bytes; `render-XX.png` is an RGB-only visual preview;
+`render-XX.json` records the held counter, state, pitch, format, high-byte histogram and
+hashes. X8's high byte is not alpha. `render_check` compares each captured fighter state
+with all update-trace states for its counter. Three presentations are a diagnostic
+settling interval, not a measured native render-delay guarantee.
+
+Verified without the game: bounded packet/format/pitch rejection, raw channel retention,
+RGB conversion, PNG integrity, mismatched-state rejection, resource cleanup failures and
+source drift. Live capture, visual comparison, native render delay and original-code
+restoration remain pending: SIGN was closed during implementation. These images contain
+the full scene; isolated RGBA and atomic-frame capabilities remain false.
+
+The pinned Rev2 GIF route changes gameplay scale fields to hide entities and darkens
+the camera background. Its alpha conversion is not a verified SIGN isolated-layer path.
+Next validate this readback in training, then identify a render-only Sol boundary and
+measure pixels/state delay before excluding opponent/HUD/background or publishing
+alpha/pivot/facing to the host.
+
 ## Remaining producer gates
 
 A unique signature is only a candidate. Before building a producer around it:

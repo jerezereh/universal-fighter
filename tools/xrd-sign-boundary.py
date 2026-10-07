@@ -15,6 +15,7 @@ from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
 from xrd_state import assembly_rows, boundary_candidate, observe
 from xrd_input import input_candidate, input_mask, input_plan, input_check, oracle_passed
 from xrd_combat import combat_fields, contact_check
+from xrd_render import render_pixels, save_render, render_check
 
 ROOT=Path(__file__).resolve().parent.parent
 EXE=Path('C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-/Binaries/Win32/GuiltyGearXrd.exe')
@@ -73,7 +74,7 @@ def lease_check(records,presents,diagnostics,automatic_restore):
         hard_lifetime_removed_hook=any('hard gate lifetime' in r.get('message','') for r in diagnostics) and automatic_restore)
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False):
     receipt=json.loads((probe/'inspection.json').read_text())
     state=json.loads((probe/'state-profile.json').read_text())
     if scalar_path:
@@ -109,6 +110,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             rows.append(assembly_rows(disassembly))
         input_profile=input_candidate(code,state['code_rva'],input_local,assembly_rows(text),*rows)
     gate_options=gate_evidence(gate_receipt,candidate,state) if gate_receipt else None
+    if capture and (not gate_options or expire): raise ValueError('render capture requires the bounded stepping experiment')
     plan=None
     if plan_path:
         if not gate_options or not input_profile or expire or plan_path.stat().st_size>16384:
@@ -126,7 +128,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     def receive(message,data):
         try: messages.put_nowait((message,data,time.perf_counter()))
         except queue.Full: overflow.append(True)
-    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
+    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
     started=time.perf_counter();started_utc=datetime.datetime.now(datetime.timezone.utc).isoformat();completed=0;next_request=.5;request_log=[]
     with ReadOnlyProcess(state['pid'],EXE) as process:
         def unchanged():
@@ -137,7 +139,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             session=frida.attach(state['pid'])
             script=session.create_script((ROOT/'tools/xrd-sign-boundary.js').read_text())
             script.on('message',receive);script.load()
-            print(script.exports_sync.start(dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile)),flush=True)
+            print(script.exports_sync.start(dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture)),flush=True)
             started=time.perf_counter()
             with (out/'state.jsonl').open('w',encoding='utf-8') as log:
                 while time.perf_counter()-started<seconds:
@@ -159,6 +161,10 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         presents.append(message['payload']);continue
                     if message['type']=='send' and message['payload'].get('kind')=='input':
                         inputs.append(message['payload']);continue
+                    if message['type']=='send' and message['payload'].get('kind')=='render':
+                        native=message['payload'];render_pixels(native,data)
+                        observation=observe(CapturedMemory(native['segments'],data[:native['state_size']]),state)
+                        captures.append(save_render(out,native,data,observation));continue
                     if expire and message['type']=='send' and message['payload'].get('phase')=='watchdog':
                         diagnostics.append(message['payload']);continue
                     if message['type']!='send' or message['payload'].get('kind')!='frame':
@@ -212,6 +218,10 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         if gate_options and not expire:
             result['input_check']=input_check(records,states,inputs,request_log)
             result['source_input_routing_verified']=result['controlled_update_step_verified'] and result['input_check']['source_history_linked'] and not errors
+    if capture:
+        result['render_check']=render_check(captures,records,states)
+        if len(captures)<2 or not result['render_check']['held_counter_state_linked']:
+            errors.append(dict(check_error='missing/unlinked native full-scene readback'))
     if plan:
         result['named_input_steps']=len(request_log)
         result['input_oracle']=oracle
@@ -229,6 +239,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if expire: print('Lease checks:',result['lease_check'],flush=True)
     if 'input_check' in result: print('Input checks:',result['input_check'],flush=True)
     if 'contact_check' in result: print('Contact checks:',result['contact_check'],flush=True)
+    if capture: print('Render checks:',result['render_check'],flush=True)
     if errors or not records or not restored or not detached: raise RuntimeError('boundary trace failed; inspect local receipt')
     if expire and not all(result['lease_check'].values()): raise RuntimeError('gate lease recovery failed')
     if gate_options and not expire and not result['controlled_update_step_verified']:
@@ -252,10 +263,11 @@ if __name__=='__main__':
     p.add_argument('--oracle',choices=('movement','crossover','contact'),default='movement',help='required input-plan evidence; contact without --combat-candidate records discovery only')
     p.add_argument('--scalar-fields',type=Path,help='ignored bounded field hypotheses to observe without semantic promotion')
     p.add_argument('--combat-candidate',type=Path,help='ignored local scalar getter/setter discoveries for the native contact check')
+    p.add_argument('--capture-render',action='store_true',help='with --gate: capture up to eight full-scene D3D9 backbuffers and held source states; no isolated-layer claim')
     a=p.parse_args()
     if not 0<a.seconds<=120: p.error('seconds must be 0..120')
     if a.lease_check and not a.gate: p.error('--lease-check requires --gate')
     trace(a.probe.resolve(),a.candidate.resolve(),13 if a.lease_check else 7 if a.input_plan else 4.5 if a.gate else a.seconds,
           a.gate.resolve() if a.gate else None,a.lease_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
-          a.combat_candidate.resolve() if a.combat_candidate else None)
+          a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render)

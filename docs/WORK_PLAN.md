@@ -141,6 +141,11 @@ stop countdown only on requested updates, pause stability and recovery. Explicit
 absolute directions take precedence over relative input, avoiding a conflicting source
 facing. Next is isolated RGBA with state/image association, then a persistent producer
 and universal result/contact integration. Full guest capabilities remain unaccepted.
+The bounded experiment now includes optional native D3D9 backbuffer readback with held
+source-state snapshots, raw pixel preservation and RGB previews. Authored bounds,
+format/pitch, PNG, state-link and COM failure/cleanup checks pass. Live readback is
+pending: SIGN was not running during this step, and the user retains menu control.
+These are full-scene diagnostic images, with render latency and isolated alpha unverified.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Original menu pause,
 clash/superfreeze and universal stop/result ownership still need dedicated validation.

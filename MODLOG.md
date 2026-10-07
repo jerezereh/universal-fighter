@@ -1,5 +1,19 @@
 # Local adapter journal
 
+## 2026-10-06: SIGN native render capture preparation
+
+The pinned Rev2 GIF route zeroes gameplay scale fields for hidden actors/effects,
+darkens the camera background and converts screenshot alpha. Its source does not
+establish safe SIGN layer isolation. The new bounded diagnostic captures the D3D9
+backbuffer on its presenting thread, alongside held source state, without changing
+render/gameplay state. Raw BGRA bytes retain the original high byte; RGB previews
+do not assert transparency. COM interface slots/signatures were checked against
+the local SDK header and Microsoft's D3D9 method documentation.
+
+Authored pixel/state/PNG and COM failure/release checks pass. Live capture and render
+latency remain pending because SIGN is closed; the user was asked to reopen offline
+Sol-vs-Ky training. No native image or isolated-RGBA result is claimed by this step.
+
 ## 2026-10-05: KOF XIII import
 
 Read-only Steam discovery and Universal Modder scan identified app 222940/build
