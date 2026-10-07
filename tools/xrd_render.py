@@ -66,6 +66,54 @@ def render_check(captures, records, states):
         full_scene=True, native_render_latency_verified=False, atomic_native_frame=False, isolated_rgba=False)
 
 
+def pass_pixels(metadata,data):
+    """Keep native integer/half/float bytes; previews clamp channels, never derive a mask."""
+    import numpy as np
+    formats={21: ('u1',4),22: ('u1',4),36: ('<u2',4),113: ('<f2',4),114: ('<f4',1)}
+    for key,low,high in (('width',1,2048),('height',1,2048),('state_size',1,0x80000),
+                         ('counter',0,0xffffffff),('pass_index',1,24),('trace_event',0,8192)):
+        if type(metadata.get(key))!=int or not low<=metadata[key]<=high: raise ValueError('invalid pass '+key)
+    if (type(metadata.get('format'))!=int or metadata['format'] not in formats or
+        metadata.get('capture_boundary')!='before-target-switch' or metadata.get('hresult')!=0 or
+        metadata.get('multisample')!=0 or any(metadata.get(k) is not False for k in
+            ('atomic_native_frame','isolated_rgba','native_render_latency_verified'))):
+        raise ValueError('unsupported/promoted intermediate readback')
+    dtype,channels=formats[metadata['format']]
+    pixel_bytes=np.dtype(dtype).itemsize*channels
+    width,height,size=metadata['width'],metadata['height'],metadata['state_size']
+    if (metadata.get('pixel_bytes')!=pixel_bytes or type(metadata.get('pitch'))!=int or
+            not width*pixel_bytes<=metadata['pitch']<=65536 or len(data)!=size+width*height*pixel_bytes):
+        raise ValueError('incomplete/invalid intermediate pixels')
+    pixels=data[size:];values=np.frombuffer(pixels,dtype=dtype).reshape(height,width,channels)
+    floating=metadata['format'] in (113,114)
+    alpha=values[:,:,3] if channels==4 and metadata['format']!=22 else None
+    alpha_range=None
+    if alpha is not None and np.isfinite(alpha).any():
+        finite_alpha=alpha[np.isfinite(alpha)]
+        alpha_range=[float(finite_alpha.min()),float(finite_alpha.max())]
+    if metadata['format'] in (21,22): rgb=values[:,:,[2,1,0]]
+    elif metadata['format']==36: rgb=np.rint(values[:,:,:3].astype(np.float32)*(255/65535)).astype(np.uint8)
+    else:
+        preview=np.nan_to_num(values[:,:,:min(3,channels)].astype(np.float32),nan=0,posinf=1,neginf=0)
+        rgb=np.rint(np.clip(preview,0,1)*255).astype(np.uint8)
+        if channels==1: rgb=np.repeat(rgb,3,axis=2)
+    return pixels,rgb.tobytes(),dict(alpha_range=alpha_range,alpha_is_source_channel=alpha is not None,
+        nonfinite_values=int((~np.isfinite(values)).sum()) if floating else 0,
+        preview_clamps_float=floating,preview_rgb_only=True,isolated_rgba=False)
+
+
+def save_pass(folder,metadata,data,observation):
+    pixels,rgb,analysis=pass_pixels(metadata,data)
+    name=f"pass-{metadata['pass_index']:02}"
+    result={k:v for k,v in metadata.items() if k!='segments'}|analysis|dict(
+        image=name+'.png',raw=name+'.raw',raw_sha256=hashlib.sha256(pixels).hexdigest(),
+        observation=observation,first_completed_binding=True)
+    (folder/(name+'.raw')).write_bytes(pixels)
+    (folder/(name+'.png')).write_bytes(png_rgb(metadata['width'],metadata['height'],rgb))
+    (folder/(name+'.json')).write_text(json.dumps(result,indent=2))
+    return result
+
+
 def draw_check(frames):
     if len(frames) != 2:
         raise ValueError('requires two complete draw intervals')

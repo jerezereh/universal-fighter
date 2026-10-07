@@ -5,7 +5,7 @@ import struct
 import tempfile
 import zlib
 
-from xrd_render import png_rgb, render_pixels, save_render, render_check, draw_check
+from xrd_render import png_rgb, render_pixels, save_render, render_check, draw_check, pass_pixels
 
 
 def reject(action):
@@ -77,6 +77,22 @@ def main():
     assert draw_check([described, frames[1]])['targets'] == {'0x100': surface}
     reject(lambda: draw_check([described | dict(events=[events[1] | dict(surface=surface | dict(width=0))] + events), frames[1]]))
     print('Held draw intervals, cached/unknown bindings, method shapes, caller/thread/result rejection and grouping passed.')
+    meta=dict(width=1,height=1,state_size=4,counter=9,pass_index=1,trace_event=0,
+        capture_boundary='before-target-switch',hresult=0,multisample=0,pitch=8,pixel_bytes=8,
+        format=113,atomic_native_frame=False,isolated_rgba=False,native_render_latency_verified=False)
+    pixels=struct.pack('<4e',.5,1.,0.,.25)
+    raw,rgb,analysis=pass_pixels(meta,b'abcd'+pixels)
+    assert raw==pixels and rgb==bytes([128,255,0]) and analysis['alpha_range']==[.25,.25]
+    raw,rgb,analysis=pass_pixels(meta|dict(format=36),b'abcd'+struct.pack('<4H',0,65535,0,32768))
+    assert rgb==bytes([0,255,0]) and analysis['alpha_range']==[32768.,32768.]
+    raw,rgb,analysis=pass_pixels(meta|dict(format=114,pixel_bytes=4,pitch=4),b'abcd'+struct.pack('<f',.5))
+    assert rgb==bytes([128]*3) and analysis['alpha_range'] is None and not analysis['alpha_is_source_channel']
+    raw,rgb,analysis=pass_pixels(meta,b'abcd'+struct.pack('<4e',float('nan'),2.,-1.,1.))
+    assert rgb==bytes([0,255,0]) and analysis['nonfinite_values']==1
+    for changes in (dict(format=23),dict(pixel_bytes=4),dict(pitch=7),dict(pass_index=25),dict(trace_event=8193),dict(isolated_rgba=True)):
+        reject(lambda:pass_pixels(meta|changes,b'abcd'+pixels))
+    reject(lambda:pass_pixels(meta,b'abcd'+pixels[:-1]))
+    print('Native half/float/integer pass decoding, source alpha retention, nonfinite preview handling and bounds passed.')
 
 
 if __name__ == '__main__': main()

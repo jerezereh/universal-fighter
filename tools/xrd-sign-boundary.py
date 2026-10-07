@@ -16,7 +16,7 @@ from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
 from xrd_state import assembly_rows, boundary_candidate, observe
 from xrd_input import input_candidate, input_mask, input_plan, input_check, oracle_passed
 from xrd_combat import combat_fields, contact_check
-from xrd_render import render_pixels, save_render, render_check, draw_check
+from xrd_render import render_pixels, save_render, render_check, draw_check, save_pass
 
 ROOT=Path(__file__).resolve().parent.parent
 EXE=Path('C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-/Binaries/Win32/GuiltyGearXrd.exe')
@@ -89,7 +89,7 @@ def render_restored(process,receipt,detached):
     return detached and all(process.read(t['address'],32)==bytes.fromhex(t['before']) for t in targets)
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None):
     receipt=json.loads((probe/'inspection.json').read_text())
     state=json.loads((probe/'state-profile.json').read_text())
     if scalar_path:
@@ -126,6 +126,19 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         input_profile=input_candidate(code,state['code_rva'],input_local,assembly_rows(text),*rows)
     gate_options=gate_evidence(gate_receipt,candidate,state) if gate_receipt else None
     if (capture or trace_draws) and (not gate_options or expire): raise ValueError('render diagnostics require the bounded stepping experiment')
+    if capture_passes and not trace_draws: raise ValueError('render-pass capture requires a draw trace')
+    identity=None
+    if suppress_path:
+        identity=json.loads(suppress_path.read_text())
+        if (not trace_draws or not capture or capture_passes or plan_path or expire or identity.get('pid')!=state['pid'] or
+                identity.get('exe_sha256')!=SIGN_HASH or not identity.get('geometry_match_verified') or
+                identity.get('actor_identity_verified') is not False or identity.get('isolated_rgba') is not False or
+                set(identity.get('parts',{}))!={'body','head','weapon'} or
+                not re.fullmatch('0x[0-9a-f]{1,8}',identity.get('device','')) or
+                any(set(part)!={'index_buffer','vertex_buffer'} or
+                    any(not re.fullmatch('0x[0-9a-f]{1,8}',v) or v=='0x0' for v in part.values())
+                    for part in identity['parts'].values())):
+            raise ValueError('requires bounded same-session unaccepted mesh identity, capture and draw trace')
     source_window=None
     if capture or trace_draws:
         # Rendering needs an unminimized window, but never requires desktop keyboard focus.
@@ -151,8 +164,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     def receive(message,data):
         try: messages.put_nowait((message,data,time.perf_counter()))
         except queue.Full: overflow.append(True)
-    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
-    started=time.perf_counter();started_utc=datetime.datetime.now(datetime.timezone.utc).isoformat();completed=0;next_request=.5;request_log=[]
+    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
+    started=time.perf_counter();started_utc=datetime.datetime.now(datetime.timezone.utc).isoformat();completed=0;next_request=.5 if plan else 1;request_log=[]
     with ReadOnlyProcess(state['pid'],EXE) as process:
         def unchanged():
             base,size=process.module_base()
@@ -162,7 +175,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             session=frida.attach(state['pid'])
             script=session.create_script((ROOT/'tools/xrd-sign-boundary.js').read_text())
             script.on('message',receive);script.load()
-            print(script.exports_sync.start(dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws)),flush=True)
+            print(script.exports_sync.start(dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,suppress_draws=identity)),flush=True)
             started=time.perf_counter()
             with (out/'state.jsonl').open('w',encoding='utf-8') as log:
                 while time.perf_counter()-started<seconds:
@@ -174,8 +187,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         packet=plan[requests];mask=input_mask(packet['input'],states[-1][0]['facing_left'],packet['accept_input'])
                         script.exports_sync.step([mask,0]);request_log.append(dict(step=requests+1,mask=mask,**packet));requests+=1
                         next_request=time.perf_counter()-started+.03+packet['hold_ms']/1000
-                    elif not plan and gate_options and not expire and requests<3 and time.perf_counter()-started>=requests+1:
-                        script.exports_sync.step([0,0]);requests+=1
+                    elif not plan and gate_options and not expire and requests<3 and time.perf_counter()-started>=next_request and (not capture_passes or draws):
+                        script.exports_sync.step([0,0]);requests+=1;next_request=time.perf_counter()-started+1
                     if expire and time.perf_counter()-started>12.5 and not automatic_restore:
                         automatic_restore=unchanged()
                     try: message,data,wall=messages.get(timeout=.1)
@@ -187,6 +200,10 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                     if message['type']=='send' and message['payload'].get('kind')=='draw-trace':
                         if len(draws)>=2: raise ValueError('unbounded draw intervals')
                         draws.append(message['payload']);continue
+                    if message['type']=='send' and message['payload'].get('kind')=='render-pass':
+                        pass_bytes+=len(data)
+                        if len(passes)>=24 or pass_bytes>128<<20: raise ValueError('unbounded intermediate capture')
+                        passes.append((message['payload'],data));continue
                     if message['type']=='send' and message['payload'].get('kind')=='render':
                         native=message['payload'];render_pixels(native,data)
                         observation=observe(CapturedMemory(native['segments'],data[:native['state_size']]),state)
@@ -235,6 +252,11 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         detached=detached,loaded_code_restored=restored,source_unchanged=fingerprint(EXE)==SIGN_HASH,
         native_tick_verified=False,atomic_native_frame=False,host_step=False,isolated_rgba=False,universal_contact=False)
     if source_window: result['source_window']=source_window
+    if identity:
+        (out/'draw-identity.json').write_text(json.dumps(identity,indent=2))
+        result['diagnostic_mesh_suppression']=True
+        if not cleanup_receipt or cleanup_receipt.get('diagnostic_mesh_draws_skipped',0)<=0:
+            errors.append(dict(filter_error='no matching mesh draws suppressed'))
     if gate_options:
         result['gate_check']=gate_check(records,states,presents,len(plan) if plan else 3)
         result['controlled_update_step_verified']=not expire and all(result['gate_check'][k] for k in ('exact_steps','frozen_counter','frozen_observed_state','rendering_while_frozen')) and gaps==0 and not errors
@@ -262,6 +284,16 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         except ValueError as error:
             result['draw_check']=dict(passed=False,error=str(error));errors.append(dict(check_error=str(error)))
         (out/'draw-summary.json').write_text(json.dumps(result['draw_check'],indent=2))
+    if capture_passes:
+        pass_results=[]
+        for native,data in passes:
+            try:
+                observation=observe(CapturedMemory(native['segments'],data[:native['state_size']]),state)
+                pass_results.append(save_pass(out,native,data,observation))
+            except ValueError as error: errors.append(dict(pass_error=str(error)))
+        result['pass_captures']=len(pass_results)
+        result['pass_bytes']=pass_bytes
+        if not pass_results: errors.append(dict(pass_error='missing intermediate readbacks'))
     if plan:
         result['named_input_steps']=len(request_log)
         result['input_oracle']=oracle
@@ -281,6 +313,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if 'contact_check' in result: print('Contact checks:',result['contact_check'],flush=True)
     if capture: print('Render checks:',result['render_check'],flush=True)
     if trace_draws: print('Draw checks:',{k:v for k,v in result['draw_check'].items() if k not in ('groups','targets')},flush=True)
+    if capture_passes: print('Intermediate captures:',result['pass_captures'],'bytes:',pass_bytes,flush=True)
     if errors or not records or not restored or not detached: raise RuntimeError('boundary trace failed; inspect local receipt')
     if expire and not all(result['lease_check'].values()): raise RuntimeError('gate lease recovery failed')
     if gate_options and not expire and not result['controlled_update_step_verified']:
@@ -306,10 +339,13 @@ if __name__=='__main__':
     p.add_argument('--combat-candidate',type=Path,help='ignored local scalar getter/setter discoveries for the native contact check')
     p.add_argument('--capture-render',action='store_true',help='with --gate: capture up to eight full-scene D3D9 backbuffers and held source states; no isolated-layer claim')
     p.add_argument('--trace-draws',action='store_true',help='with --gate: observe two Present intervals of D3D9 draw/target/shader bindings; no draw suppression')
+    p.add_argument('--capture-passes',action='store_true',help='with --trace-draws: capture first completed target bindings, up to 24/128 MiB, for native layer investigation')
+    p.add_argument('--suppress-draws',type=Path,help='with --capture-render and --trace-draws: briefly suppress locally derived mesh-buffer candidates for visual identity proof')
     a=p.parse_args()
     if not 0<a.seconds<=120: p.error('seconds must be 0..120')
     if a.lease_check and not a.gate: p.error('--lease-check requires --gate')
-    trace(a.probe.resolve(),a.candidate.resolve(),13 if a.lease_check else 7 if a.input_plan else 4.5 if a.gate else a.seconds,
+    trace(a.probe.resolve(),a.candidate.resolve(),13 if a.lease_check else 8 if a.capture_passes else 7 if a.input_plan else 4.5 if a.gate else a.seconds,
           a.gate.resolve() if a.gate else None,a.lease_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
-          a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws)
+          a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
+          a.suppress_draws.resolve() if a.suppress_draws else None)

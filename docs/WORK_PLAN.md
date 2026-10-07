@@ -158,6 +158,12 @@ It preserves all native draws and records unknown initial bindings explicitly. G
 restoration is verified after full script/session teardown. Sol's actor draw identity
 is not established yet; next compare candidate groups/intermediate surfaces with native
 visual evidence, then prove RGBA alpha/pivot/facing and source render delay.
+Intermediate readback now exposes 21 actual targets; the inspected completed bindings
+do not provide an accepted isolated Sol layer. Complete mesh-section layouts derived
+from local source imports match three native buffer pairs. A bounded visual suppression
+proof removes Sol's body/head/weapon while retaining Ky/stage/HUD and source collision
+state, with restored graphics code. Current-scene Sol mesh identity is established;
+next duplicate those draws into a private transparent target and validate native pixels.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Original menu pause,
 clash/superfreeze and universal stop/result ownership still need dedicated validation.

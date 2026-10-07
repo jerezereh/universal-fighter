@@ -1,5 +1,39 @@
 # Progress record
 
+## 2026-10-07 — Intermediate GPU targets and Sol mesh identity
+
+- Added bounded native intermediate-target readback before target switches: up to
+  24 captures/128 MiB, with source snapshots, pitch-aware copies and native raw bytes.
+  A8/X8, 16-bit integer, half-float RGBA and float R targets are decoded for RGB previews;
+  float previews clamp explicitly and retain the original alpha/data channels separately.
+  Conversion happens after native teardown to keep the stepping watchdog responsive.
+- Live capture reads 21 targets/117333552 packet bytes, preserves three exact updates
+  and 332 blocked opportunities, obtains four state-linked native images and 335 Present
+  calls, and restores source/graphics code. The inspected first completed bindings mix
+  stage/fighters, HUD, postprocess/depth data and unused areas. None is accepted as an
+  isolated Sol RGBA layer; their alpha values do not establish coverage.
+- Added a local UEViewer-section matcher. It derives complete D3D9 index/vertex-range
+  signatures from the user's mesh metadata, without publishing counts or source assets.
+  Sol body/head/weapon each match one stable buffer pair in both observed frames. Partial,
+  ambiguous, shared-pair or changing-device matches are rejected; geometry matches alone
+  remain candidates.
+- A bounded native visual proof suppresses only those three candidate mesh-buffer pairs.
+  Sol's body/head/weapon disappear while Ky, stage and HUD remain. Source states remain
+  frozen between three exact updates; input histories agree, 115 Present calls continue,
+  four images are captured and 2530 matching draws are skipped. Original source and all
+  graphics prefixes restore after detach. This identifies the current scene's Sol mesh
+  draws without changing scale/collision/gameplay; it is not a producer rendering mode.
+- Authored section matching/ambiguity tests, pixel/channel/format bounds, native COM
+  readback failure/release checks and the existing boundary checks pass. No game bytes,
+  raw GPU data, native buffer addresses or mesh counts are committed.
+- Evidence under `20261007-181216-754630`: target capture
+  `boundary-20261007-195653-657685`, `pass-sheet.png`, local geometry/identity receipts,
+  and suppression proof `boundary-20261007-201046-185747`.
+- Next: duplicate the identified native draws into a private transparent target while
+  restoring all source graphics state; verify coverage/colors, pivot/facing and native
+  render delay. Persistent transport and universal contact/results remain subsequent
+  gates. Full source RGBA/atomic-frame/guest capabilities stay false.
+
 ## 2026-10-07 — Background detection and autonomous UI tooling
 
 - The user authorized autonomous offline UI, replacing the earlier manual-menu

@@ -1,5 +1,19 @@
 # Local adapter journal
 
+## 2026-10-07: Sol mesh draw identity
+
+Captured 21 native target bindings (117333552 packet bytes), including integer/half/float
+formats, with three exact updates and clean restoration. RGB previews retain raw source
+channels and do not manufacture coverage. The inspected surfaces contain stage/fighter,
+HUD and postprocess/depth data rather than an accepted isolated Sol layer.
+
+Local UEViewer section layouts match complete D3D9 triangle/index/vertex-range signatures
+for Sol body/head/weapon across two frames, each on one buffer pair. The bounded visual
+identity proof skips 2530 selected draws: Sol's mesh disappears while Ky/stage/HUD remain,
+native state/input/three-step checks pass and all source/graphics code restores. IDs,
+counts, target bytes and images stay ignored. No physics scale or collision is changed.
+Next: private native draw duplication/coverage with explicit source state restoration.
+
 ## 2026-10-07: Background source automation
 
 The user now authorizes autonomous offline UI. SW_SHOWNOACTIVATE restores the minimized

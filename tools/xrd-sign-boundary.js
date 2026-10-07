@@ -8,9 +8,36 @@ let inputHooks = [];
 const pendingInputs = new Map();
 let renderCapture = {attempts: 0, counter: null, presentations: 0};
 let drawTrace = null;
+let drawFilter = null;
+
+function removeDrawFilter() {
+    if (drawFilter !== null) {
+        Interceptor.revert(drawFilter.target); Interceptor.flush(); drawFilter = null;
+    }
+}
+
+function installDrawFilter(device, identity) {
+    if (!device.equals(ptr(identity.device))) throw new Error('draw identity device changed');
+    const pairs = Object.values(identity.parts);
+    const target = device.readPointer().add(82 * 4).readPointer();
+    const original = new NativeFunction(target, 'int', ['pointer','uint','int','uint','uint','uint','uint'],
+        {abi: 'stdcall', exceptions: 'propagate'});
+    const replacement = new NativeCallback(function(object, type, base, min, vertices, start, primitives) {
+        const d = drawTrace, g = gate, filter = drawFilter;
+        if (filter !== null && d !== null && object.equals(d.device) && g !== null && !g.resumed &&
+            Date.now() <= g.deadline && pairs.some(p => p.index_buffer === d.indexBuffer && p.vertex_buffer === d.vertexBuffer)) {
+            ++filter.skipped;
+            return 0; // Diagnostic mesh suppression only; original source simulation stays intact.
+        }
+        return original(object, type, base, min, vertices, start, primitives);
+    }, 'int', ['pointer','uint','int','uint','uint','uint','uint'], 'stdcall');
+    drawFilter = {target, replacement, skipped: 0};
+    Interceptor.replace(target, replacement); Interceptor.flush();
+}
 
 function installDrawTrace(device) {
-    drawTrace = {device, active: false, frames: 0, events: [], counter: null, surfaces: new Map()};
+    drawTrace = {device, active: false, frames: 0, events: [], counter: null, surfaces: new Map(),
+        currentTarget: null, passSeen: new Set(), passBytes: 0, passIndex: 0};
     // D3D9 interface slots, not source-game offsets. Capture two complete Present intervals.
     const methods = [[37, 'SetRenderTarget', ['u', 'p']], [43, 'Clear', ['u', 'p', 'u', 'u', 'u', 'u']],
         [65, 'SetTexture', ['u', 'p']], [81, 'DrawPrimitive', ['u', 'u', 'u']],
@@ -33,8 +60,13 @@ function installDrawTrace(device) {
         const listener = Interceptor.attach(target, {
             onEnter(args) {
                 this.event = null;
+                this.binding = null;
                 const d = drawTrace;
-                if (d === null || !d.active || !args[0].equals(d.device)) return;
+                if (d === null || !args[0].equals(d.device)) return;
+                if (method === 'SetIndices') this.binding = ['indexBuffer', args[1].toString()];
+                if (method === 'SetStreamSource' && args[1].toUInt32() === 0)
+                    this.binding = ['vertexBuffer', args[2].toString()];
+                if (!d.active) return;
                 if (d.events.length >= 8192) {
                     d.active = false;
                     send({kind: 'error',phase: 'draw-trace',message: 'draw interval overflow'}); return;
@@ -58,10 +90,33 @@ function installDrawTrace(device) {
                         this.event.surface = d.surfaces.get(id);
                     } catch (error) { send({kind: 'error',phase: 'draw-surface',message: String(error)}); }
                 }
+                if (config.capture_passes && method === 'SetRenderTarget' && args[1].toUInt32() === 0 &&
+                    d.frames === 0 && d.passSeen.size < 24 && d.passBytes < 128 * 1024 * 1024 &&
+                    !d.passSeen.has(d.currentTarget) && gate !== null && !gate.executing && !gate.resumed) {
+                    try {
+                        const root = Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
+                        const captured = captureBackBuffer(device, root, d.counter, true);
+                        if (!d.passSeen.has(captured.metadata.surface)) {
+                            if (d.passBytes + captured.data.byteLength > 128 * 1024 * 1024)
+                                throw new Error('render-pass byte limit exceeded');
+                            d.passSeen.add(captured.metadata.surface); d.passBytes += captured.data.byteLength;
+                            send({...captured.metadata, pass_index: ++d.passIndex, trace_event: d.events.length,
+                                capture_boundary: 'before-target-switch', hresult: 0}, captured.data);
+                        }
+                    } catch (error) {
+                        d.passSeen.add(d.currentTarget); // One diagnostic attempt per target, including failures.
+                        send({kind: 'error',phase: 'render-pass',message: String(error)});
+                    }
+                }
             },
             onLeave(result) {
-                if (this.event && drawTrace !== null && drawTrace.active)
+                if (this.binding && drawTrace !== null && result.toInt32() === 0)
+                    drawTrace[this.binding[0]] = this.binding[1];
+                if (this.event && drawTrace !== null && drawTrace.active) {
+                    if (result.toInt32() === 0 && this.event.method === 'SetRenderTarget' && this.event.values[0] === 0)
+                        drawTrace.currentTarget = this.event.values[1];
                     drawTrace.events.push({...this.event, hresult: result.toInt32()});
+                }
             }
         });
         renderHooks.push({listener, target, before});
@@ -94,18 +149,20 @@ function succeeded(hr, name) {
     if (hr < 0) throw new Error(name + ' failed: ' + hr);
 }
 
-function captureBackBuffer(device, root, counter) {
+function captureBackBuffer(device, root, counter, intermediate = false) {
     // Diagnostic full-scene capture only. No render-state changes or fabricated alpha.
     const buffer = Memory.alloc(4), staging = Memory.alloc(4), desc = Memory.alloc(32);
     buffer.writePointer(ptr(0)); staging.writePointer(ptr(0));
     let surface = ptr(0), destination = ptr(0), locked = false;
     try {
-        succeeded(com(device, 18, 'int', ['uint', 'uint', 'uint', 'pointer'])(device, 0, 0, 0, buffer), 'GetBackBuffer');
+        if (intermediate) succeeded(com(device, 38, 'int', ['uint', 'pointer'])(device, 0, buffer), 'GetRenderTarget');
+        else succeeded(com(device, 18, 'int', ['uint', 'uint', 'uint', 'pointer'])(device, 0, 0, 0, buffer), 'GetBackBuffer');
         surface = buffer.readPointer();
         succeeded(com(surface, 12, 'int', ['pointer'])(surface, desc), 'GetDesc');
         const format = desc.readU32(), multisample = desc.add(16).readU32();
         const width = desc.add(24).readU32(), height = desc.add(28).readU32();
-        if (![21, 22].includes(format) || multisample !== 0 || width < 1 || height < 1 ||
+        const pixelBytes = [36, 113].includes(format) ? 8 : 4;
+        if (!(intermediate ? [21, 22, 36, 113, 114] : [21, 22]).includes(format) || multisample !== 0 || width < 1 || height < 1 ||
             width > 2048 || height > 2048) throw new Error('unsupported/bounded backbuffer description');
         succeeded(com(device, 36, 'int', ['uint', 'uint', 'uint', 'uint', 'pointer', 'pointer'])(
             device, width, height, format, 2, staging, ptr(0)), 'CreateOffscreenPlainSurface');
@@ -115,18 +172,20 @@ function captureBackBuffer(device, root, counter) {
         succeeded(com(destination, 13, 'int', ['pointer', 'pointer', 'uint'])(destination, rect, ptr(0), 0x10), 'LockRect');
         locked = true;
         const pitch = rect.readS32(), pixels = rect.add(4).readPointer();
-        if (pitch < width * 4 || pitch > 65536 || pixels.isNull()) throw new Error('invalid locked pitch/pixels');
+        if (pitch < width * pixelBytes || pitch > 65536 || pixels.isNull()) throw new Error('invalid locked pitch/pixels');
         const state = snapshot(root);
-        const output = new Uint8Array(state.data.byteLength + width * height * 4);
+        const output = new Uint8Array(state.data.byteLength + width * height * pixelBytes);
         output.set(new Uint8Array(state.data));
-        for (let y = 0; y < height; ++y)
-            output.set(bytes(pixels.add(y * pitch), width * 4), state.data.byteLength + y * width * 4);
+        if (pitch === width * pixelBytes) output.set(bytes(pixels, width * height * pixelBytes), state.data.byteLength);
+        else for (let y = 0; y < height; ++y)
+            output.set(bytes(pixels.add(y * pitch), width * pixelBytes), state.data.byteLength + y * width * pixelBytes);
         const global = Process.mainModule.base.add(config.state.engine_global_rva);
         if (!global.readPointer().equals(root) || root.add(4 + config.candidate.counter_field).readU32() !== counter ||
             gate === null || gate.resumed || gate.executing) throw new Error('source advanced during readback');
-        return {metadata: {kind: 'render', counter, width, height, format, multisample, pitch,
+        return {metadata: {kind: intermediate ? 'render-pass' : 'render', counter, width, height, format, multisample, pitch,
+            surface: surface.toString(), pixel_bytes: pixelBytes,
             state_size: state.data.byteLength, segments: state.segments, device: device.toString(),
-            presentation_index: renderCapture.presentations, atomic_native_frame: false,
+            presentation_index: intermediate ? null : renderCapture.presentations, atomic_native_frame: false,
             isolated_rgba: false, native_render_latency_verified: false}, data: output.buffer};
     } finally {
         // Independently release both references even if unlock or an earlier operation fails.
@@ -253,6 +312,7 @@ function observePresent() {
                     this.device = args[0].toString(); this.method = method.method; this.valid = true;
                     if (config.trace_draws && this.method === 'Present' && gate !== null && !gate.resumed) {
                         if (drawTrace === null) installDrawTrace(args[0]);
+                        if (config.suppress_draws && drawFilter === null) installDrawFilter(args[0], config.suppress_draws);
                         drawInterval(args[0], this.counter, true);
                     }
                     if (config.capture && this.method === 'Present' && gate !== null && !gate.resumed && !gate.executing) {
@@ -402,7 +462,7 @@ function installGate(target, p) {
     // A disconnected controller cannot leave this development gate installed indefinitely.
     gate.timer = setTimeout(() => {
         if (gate !== null) {
-            Interceptor.revert(target); removeInputHooks(); Interceptor.flush(); gate = null;
+            Interceptor.revert(target); removeInputHooks(); removeDrawFilter(); Interceptor.flush(); gate = null;
             send({kind: 'error',phase: 'watchdog',message: 'hard gate lifetime expired; hook removed'});
         }
     }, 12000);
@@ -414,6 +474,8 @@ rpc.exports = {
         if (listener || gate) throw new Error('already observing');
         if (p.capture && !p.gate) throw new Error('render capture requires a controlled source gate');
         if (p.trace_draws && !p.gate) throw new Error('draw trace requires a controlled source gate');
+        if (p.capture_passes && !p.trace_draws) throw new Error('render-pass capture requires a draw trace');
+        if (p.suppress_draws && !p.trace_draws) throw new Error('mesh suppression requires a draw trace');
         renderCapture = {attempts: 0, counter: null, presentations: 0};
         drawTrace = null;
         const module = Process.mainModule;
@@ -463,6 +525,8 @@ rpc.exports = {
         return {accepted: true};
     },
     stop() {
+        const skipped = drawFilter === null ? 0 : drawFilter.skipped;
+        removeDrawFilter();
         if (listener) { listener.detach(); listener = null; Interceptor.flush(); }
         if (gate) {
             clearTimeout(gate.timer);
@@ -475,6 +539,7 @@ rpc.exports = {
         const renderTargets = renderHooks.map(h => ({address: h.target.toUInt32(), before: h.before}));
         renderHooks = [];
         drawTrace = null;
-        return {detached: true, samples: sequence, render_code_restored: renderRestored, render_targets: renderTargets};
+        return {detached: true, samples: sequence, render_code_restored: renderRestored, render_targets: renderTargets,
+            diagnostic_mesh_draws_skipped: skipped};
     }
 };

@@ -13,7 +13,7 @@ function fixture(failure = null, drift = false) {
                 return {readU32: () => this.values.get(offset), readPointer: () => this.pointer};
             }};
     }
-    const source = {isNull: () => false}, destination = {isNull: () => false};
+    const source = {isNull: () => false, toString: () => '0x10000'}, destination = {isNull: () => false};
     const pixels = {isNull: () => false, add: offset => ({offset})};
     const root = {add: () => ({readU32: () => drift ? 10 : 9})};
     const module = {base: {add: () => ({readPointer: () => ({equals: p => p === root})})}};
@@ -23,10 +23,11 @@ function fixture(failure = null, drift = false) {
     context.fixtureCom = (object, slot) => (...args) => {
         const method = object === source || object === destination ?
             ({2: 'Release', 12: 'GetDesc', 13: 'LockRect', 14: 'UnlockRect'})[slot] :
-            ({18: 'GetBackBuffer', 36: 'CreateOffscreenPlainSurface', 32: 'GetRenderTargetData'})[slot];
+            ({18: 'GetBackBuffer', 38: 'GetRenderTarget', 36: 'CreateOffscreenPlainSurface', 32: 'GetRenderTargetData'})[slot];
         calls.push([method, object]);
         if (failure === method) return -1;
         if (method === 'GetBackBuffer') args[4].pointer = source;
+        if (method === 'GetRenderTarget') args[2].pointer = source;
         if (method === 'GetDesc') {
             for (const [offset, value] of [[0, 21], [16, 0], [24, 2], [28, 2]]) args[1].values.set(offset, value);
         }
@@ -44,7 +45,8 @@ function fixture(failure = null, drift = false) {
     vm.runInContext('com = fixtureCom; snapshot = fixtureSnapshot; bytes = fixtureBytes;' +
         'config = {state: {engine_global_rva: 0}, candidate: {counter_field: 0}};' +
         'gate = {resumed: false, executing: false}; renderCapture.presentations = 3;', context);
-    return {calls, source, destination, run: () => vm.runInContext('captureBackBuffer(device, root, 9)', context)};
+    return {calls, source, destination, run: () => vm.runInContext('captureBackBuffer(device, root, 9)', context),
+        intermediate: () => vm.runInContext('captureBackBuffer(device, root, 9, true)', context)};
 }
 
 const normal = fixture();
@@ -66,4 +68,14 @@ const drift = fixture(null, true);
 assert.throws(drift.run, /source advanced during readback/);
 assert.equal(drift.calls.filter(([name]) => name === 'Release').length, 2);
 assert.equal(drift.calls.filter(([name]) => name === 'UnlockRect').length, 1);
+const target = fixture();
+const pass = target.intermediate();
+assert.equal(pass.metadata.kind, 'render-pass');
+assert.equal(pass.metadata.surface, '0x10000');
+assert.equal(pass.metadata.pixel_bytes, 4);
+assert.equal(pass.metadata.presentation_index, null);
+assert.equal(target.calls.filter(([name]) => name === 'Release').length, 2);
+const missing = fixture('GetRenderTarget');
+assert.throws(missing.intermediate, /GetRenderTarget failed/);
+assert.equal(missing.calls.filter(([name]) => name === 'Release').length, 0);
 console.log('Authored COM readback failure, source drift, unlock and independent release checks passed.');

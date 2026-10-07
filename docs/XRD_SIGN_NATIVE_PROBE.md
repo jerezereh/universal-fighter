@@ -447,6 +447,45 @@ Next identify fighter groups against native visual evidence and inspect intermed
 surfaces before altering any rendering. No draw suppression, separate fighter target,
 isolated alpha or host publication has been accepted.
 
+## Intermediate targets and mesh identity
+
+Use `--trace-draws --capture-passes` with a clean same-session gate to capture the first
+completed binding of each target before its next switch. Limits are 24 readbacks and
+128 MiB. The source renderer continues its original calls; GPU copies use same-format
+system-memory surfaces and release both acquired references. Native bytes/alpha are
+retained. RGB previews decode A8/X8, 16-bit integer RGBA, half RGBA and float R; floating
+channels are explicitly clamped for viewing. NumPy is an existing local tooling
+dependency, used after teardown rather than while source stepping is held.
+
+The live proof reads 21 targets/117333552 bytes, passes three exact updates, 332 blocked
+opportunities and restored code. The inspected first bindings include HUD, mixed scene,
+depth/postprocess data and unused regions. Alpha is not accepted as fighter coverage;
+reuse later in a frame may change a target's contents. No isolated native layer is
+claimed from this capture.
+
+`xrd-sign-draw-identity.py <clean-draw-trace> <local-Sol-SkeletalMesh3-folder>` derives
+candidate buffer pairs from complete local UEViewer section layouts. It compares
+triangle type, base/minimum vertex, remaining vertex range, starting index and triangle
+count, requiring the nontrivial sections on one pair in both frames. Missing/ambiguous
+matches and shared part identities fail. Source metadata, counts and pointers remain
+ignored; the versioned code contains only the derivation and authored fixtures.
+
+`--suppress-draws <local-draw-identity.json>` with capture/draw tracing briefly skips
+only those candidate body/head/weapon buffer pairs. This is a visual identity test,
+not an accepted guest rendering mode. It is bounded by the same lease/hard lifetime,
+and cleanup reverts the draw replacement before verifying original graphics bytes.
+The live test skips 2530 selected draws: Sol's mesh disappears, Ky/stage/HUD remain,
+native state stays held between three exact updates and four images are captured.
+All original code restores; a later background screenshot shows Sol again.
+
+Evidence is under `20261007-181216-754630`, target capture
+`boundary-20261007-195653-657685` and suppression proof
+`boundary-20261007-201046-185747`; restored UI image is under
+`artifacts/xrd-source-ui/20261007-201835-114664`. This establishes the current scene's
+mesh draw identity. The next step is private native draw duplication with source
+graphics state restored, followed by coverage/color, pivot/facing and render-delay
+validation. Contact/result and persistent producer gates remain open.
+
 ## Remaining producer gates
 
 A unique signature is only a candidate. Before building a producer around it:
