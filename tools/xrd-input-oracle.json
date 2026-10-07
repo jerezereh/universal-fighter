@@ -1,0 +1,13 @@
+[
+  {"frames": 2, "input": {}, "label": "neutral"},
+  {"frames": 8, "input": {"back": true}, "label": "walk-back"},
+  {"frames": 2, "input": {}, "label": "release"},
+  {"frames": 8, "input": {"forward": true}, "label": "walk-forward"},
+  {"frames": 2, "input": {}, "label": "release"},
+  {"frames": 1, "input": {"up": true}, "label": "jump"},
+  {"frames": 60, "input": {}, "label": "landing"},
+  {"frames": 1, "input": {"punch": true}, "label": "standing-punch-1"},
+  {"frames": 22, "input": {}, "label": "recovery-1"},
+  {"frames": 1, "input": {"punch": true}, "label": "standing-punch-2"},
+  {"frames": 22, "input": {}, "label": "recovery-2"}
+]

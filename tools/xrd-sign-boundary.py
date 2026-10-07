@@ -12,6 +12,7 @@ import time
 
 from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
 from xrd_state import assembly_rows, boundary_candidate, observe
+from xrd_input import input_candidate, input_mask, input_plan, input_check
 
 ROOT=Path(__file__).resolve().parent.parent
 EXE=Path('C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-/Binaries/Win32/GuiltyGearXrd.exe')
@@ -42,7 +43,7 @@ def gate_evidence(folder,candidate,state):
     return dict(thread=evidence['threads'][0],return_address=evidence['return_addresses'][0])
 
 
-def gate_check(records,states,presents=()):
+def gate_check(records,states,presents=(),expected_steps=3):
     executed=[r for r in records if r['executed']]
     blocked=[r for r in records if not r['executed']]
     changed=0;previous=None
@@ -52,7 +53,7 @@ def gate_check(records,states,presents=()):
     successful=Counter(r['counter'] for r in presents if r['hresult']==0)
     held=set(r['before'] for r in blocked)
     return dict(executed=len(executed),blocked=len(blocked),
-        exact_steps=len(executed)==3 and all(r['counter_delta']==1 for r in executed),
+        exact_steps=len(executed)==expected_steps and all(r['counter_delta']==1 for r in executed),
         frozen_counter=bool(blocked) and all(r['counter_delta']==0 for r in blocked),
         frozen_state_changes=changed,frozen_observed_state=bool(blocked) and changed==0,
         successful_presentations=sum(r['hresult']==0 and r.get('method')=='Present' for r in presents),
@@ -69,7 +70,7 @@ def lease_check(records,presents,diagnostics,automatic_restore):
         hard_lifetime_removed_hook=any('hard gate lifetime' in r.get('message','') for r in diagnostics) and automatic_restore)
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None):
     receipt=json.loads((probe/'inspection.json').read_text())
     state=json.loads((probe/'state-profile.json').read_text())
     if receipt.get('mode')!='loaded-module' or state['exe_sha256']!=SIGN_HASH or fingerprint(EXE)!=SIGN_HASH or state['pid']!=receipt['pid']:
@@ -83,18 +84,35 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False):
         '--adjust-vma='+hex(state['code_rva']),'--start-address='+hex(local['rva']),
         '--stop-address='+hex(local['rva']+local['code_size']),str(probe/'text-loaded.bin')],text=True)
     candidate=boundary_candidate(code,state['code_rva'],local,assembly_rows(text))
+    input_profile=None
+    if input_path:
+        input_local=json.loads(input_path.read_text())
+        rows=[]
+        for label in ('sampler','writer'):
+            disassembly=subprocess.check_output([str(objdump),'-D','-b','binary','-m','i386','-Mintel',
+                '--adjust-vma='+hex(state['code_rva']),'--start-address='+hex(input_local[label+'_rva']),
+                '--stop-address='+hex(input_local[label+'_rva']+input_local[label+'_size']),str(probe/'text-loaded.bin')],text=True)
+            rows.append(assembly_rows(disassembly))
+        input_profile=input_candidate(code,state['code_rva'],input_local,assembly_rows(text),*rows)
     gate_options=gate_evidence(gate_receipt,candidate,state) if gate_receipt else None
+    plan=None
+    if plan_path:
+        if not gate_options or not input_profile or expire or plan_path.stat().st_size>16384:
+            raise ValueError('bounded input plan requires a native gate and validated input ingress')
+        plan=input_plan(json.loads(plan_path.read_text()))
     sys.path.insert(0,str(ROOT/'local-cache/xrd-tools/frida/python'))
     import frida
     if frida.__version__!='17.22.2': raise ValueError('run gather-xrd-instrumentation.py for pinned Frida')
     out=probe/('boundary-'+datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H%M%S-%f'))
     out.mkdir();(out/'candidate.json').write_text(json.dumps(candidate,indent=2))
+    if input_profile: (out/'input-profile.json').write_text(json.dumps(input_profile,indent=2))
+    if plan: (out/'input-plan.json').write_text(json.dumps(plan,indent=2))
     messages=queue.Queue(maxsize=8192);overflow=[]
     def receive(message,data):
         try: messages.put_nowait((message,data,time.perf_counter()))
         except queue.Full: overflow.append(True)
-    errors=[];records=[];states=[];presents=[];diagnostics=[];session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
-    started=time.perf_counter();started_utc=datetime.datetime.now(datetime.timezone.utc).isoformat()
+    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
+    started=time.perf_counter();started_utc=datetime.datetime.now(datetime.timezone.utc).isoformat();completed=0;next_request=.5;request_log=[]
     with ReadOnlyProcess(state['pid'],EXE) as process:
         def unchanged():
             base,size=process.module_base()
@@ -104,19 +122,27 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False):
             session=frida.attach(state['pid'])
             script=session.create_script((ROOT/'tools/xrd-sign-boundary.js').read_text())
             script.on('message',receive);script.load()
-            print(script.exports_sync.start(dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options)),flush=True)
+            print(script.exports_sync.start(dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile)),flush=True)
             started=time.perf_counter()
             with (out/'state.jsonl').open('w',encoding='utf-8') as log:
                 while time.perf_counter()-started<seconds:
                     if overflow: raise ValueError('instrumentation queue overflow')
-                    if gate_options and not expire and requests<3 and time.perf_counter()-started>=requests+1:
-                        script.exports_sync.step();requests+=1
+                    if plan and requests<len(plan) and requests==completed and time.perf_counter()-started>=next_request:
+                        if requests==0 and (not states or any(s['y_raw'] or s['hit_count'] for s in states[0]) or not any(n['value'].startswith('sol000_') for n in states[0][0]['pose_candidates']) or abs(states[0][0]['x_raw']-states[0][1]['x_raw'])<350000):
+                            raise ValueError('input oracle requires grounded idle Sol versus a distant grounded idle opponent')
+                        packet=plan[requests];mask=input_mask(packet['input'],states[-1][0]['facing_left'],packet['accept_input'])
+                        script.exports_sync.step([mask,0]);request_log.append(dict(step=requests+1,mask=mask,**packet));requests+=1
+                        next_request=time.perf_counter()-started+.03
+                    elif not plan and gate_options and not expire and requests<3 and time.perf_counter()-started>=requests+1:
+                        script.exports_sync.step([0,0]);requests+=1
                     if expire and time.perf_counter()-started>12.5 and not automatic_restore:
                         automatic_restore=unchanged()
                     try: message,data,wall=messages.get(timeout=.1)
                     except queue.Empty: continue
                     if message['type']=='send' and message['payload'].get('kind')=='present':
                         presents.append(message['payload']);continue
+                    if message['type']=='send' and message['payload'].get('kind')=='input':
+                        inputs.append(message['payload']);continue
                     if expire and message['type']=='send' and message['payload'].get('phase')=='watchdog':
                         diagnostics.append(message['payload']);continue
                     if message['type']!='send' or message['payload'].get('kind')!='frame':
@@ -127,6 +153,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False):
                     log.write(json.dumps(observation,separators=(',',':'))+'\n')
                     records.append(native)
                     states.append(observation['fighters'])
+                    if native['executed']: completed+=1
         except Exception as error:
             errors.append(dict(controller_error=repr(error)))
         finally:
@@ -153,7 +180,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False):
         detached=detached,loaded_code_restored=restored,source_unchanged=fingerprint(EXE)==SIGN_HASH,
         native_tick_verified=False,atomic_native_frame=False,host_step=False,isolated_rgba=False,universal_contact=False)
     if gate_options:
-        result['gate_check']=gate_check(records,states,presents)
+        result['gate_check']=gate_check(records,states,presents,len(plan) if plan else 3)
         result['controlled_update_step_verified']=not expire and all(result['gate_check'][k] for k in ('exact_steps','frozen_counter','frozen_observed_state','rendering_while_frozen')) and gaps==0 and not errors
         if expire: result['lease_check']=lease_check(records,presents,diagnostics,automatic_restore)
         result['diagnostics']=diagnostics
@@ -161,14 +188,30 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False):
         (out/'present.jsonl').write_text(''.join(json.dumps(r,separators=(',',':'))+'\n' for r in presents))
         if not cleanup_receipt or not cleanup_receipt['render_code_restored']:
             errors.append(dict(cleanup_error='Direct3D presentation code not restored'))
+    if input_profile:
+        (out/'input.jsonl').write_text(''.join(json.dumps(r,separators=(',',':'))+'\n' for r in inputs))
+        result['input_observations']=len(inputs)
+        result['input_slots']=dict(Counter(r['slot'] for r in inputs))
+        result['input_values']=sorted(set(r['incoming'] for r in inputs))
+        if gate_options and not expire:
+            result['input_check']=input_check(records,states,inputs)
+            result['source_input_routing_verified']=result['controlled_update_step_verified'] and result['input_check']['source_history_linked'] and not errors
+    if plan:
+        result['named_input_steps']=len(request_log)
+        (out/'requests.json').write_text(json.dumps(request_log,indent=2))
     (out/'inspection.json').write_text(json.dumps(result,indent=2))
     print('Boundary trace:',len(records),'samples; counter deltas',dict(deltas),'gaps',gaps,'errors',len(errors),';',out,flush=True)
-    if gate_options: print('Gate checks:',result['gate_check'],flush=True)
+    if gate_options: print('Gate checks:',{k:v for k,v in result['gate_check'].items() if k!='graphics_completions_per_held_counter'},flush=True)
     if expire: print('Lease checks:',result['lease_check'],flush=True)
+    if 'input_check' in result: print('Input checks:',result['input_check'],flush=True)
     if errors or not records or not restored or not detached: raise RuntimeError('boundary trace failed; inspect local receipt')
     if expire and not all(result['lease_check'].values()): raise RuntimeError('gate lease recovery failed')
     if gate_options and not expire and not result['controlled_update_step_verified']:
         raise RuntimeError('native gate experiment failed; no host-step capability accepted')
+    if input_profile and gate_options and not expire and not result['input_check']['source_history_linked']:
+        raise RuntimeError('source input does not match requested native steps')
+    if plan and not (all(result['input_check'][k] for k in ('walk_left','walk_right','airborne','grounded_at_end','opponent_neutral')) and result['input_check']['standing_punch_activations']>=2 and result['input_check']['active_normal_steps']>0):
+        raise RuntimeError('source movement/standing-normal input oracle failed')
     return out
 
 
@@ -179,8 +222,11 @@ if __name__=='__main__':
     p.add_argument('--seconds',type=float,default=10)
     p.add_argument('--gate',type=Path,help='clean same-session boundary trace: run a bounded 4.5-second freeze/three-step experiment')
     p.add_argument('--lease-check',action='store_true',help='with --gate: omit steps and verify automatic resume/removal over 13 seconds')
+    p.add_argument('--input-candidate',type=Path,help='ignored local sampler/writer/ingress discovery JSON')
+    p.add_argument('--input-plan',type=Path,help='bounded named-input oracle plan, with --gate and --input-candidate')
     a=p.parse_args()
     if not 0<a.seconds<=120: p.error('seconds must be 0..120')
     if a.lease_check and not a.gate: p.error('--lease-check requires --gate')
-    trace(a.probe.resolve(),a.candidate.resolve(),13 if a.lease_check else 4.5 if a.gate else a.seconds,
-          a.gate.resolve() if a.gate else None,a.lease_check)
+    trace(a.probe.resolve(),a.candidate.resolve(),13 if a.lease_check else 7 if a.input_plan else 4.5 if a.gate else a.seconds,
+          a.gate.resolve() if a.gate else None,a.lease_check,a.input_candidate.resolve() if a.input_candidate else None,
+          a.input_plan.resolve() if a.input_plan else None)

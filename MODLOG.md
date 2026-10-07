@@ -32,3 +32,19 @@ removal before controller cleanup. Native and graphics code restore; source file
 remain unchanged. No source input or UI driving was performed. Input, movement/normal,
 hitstop, isolated RGBA and universal contact/result integration remain open. All producer
 capabilities stay unaccepted; this is a bounded development proof.
+
+## SIGN input ingress and non-idle source updates
+
+Rev2 input signatures do not match SIGN. The actual update owner's sampler/history
+writer instead derives the local ring layout and input callsite. Observation checks
+previous/current/latest input and held duration. The gated callsite substitutes the
+named packet's sampled register only during its owned update; original instructions
+write history and record that value. Relocated caller addresses use a same-thread
+ingress/writer association rather than the original return address. No OS keyboard input.
+
+Two 129-step tests prove walking both directions, jump/landing and two standing Punches,
+with per-step history agreement and eight executed active-normal updates. All 697 Sol
+pose/box observations match source collision. Observed state remains frozen between
+requests, graphics work continues, and timeout recovery removes input/update hooks.
+Source-window video confirms movement/jump. Only private local profiles contain native
+addresses/layouts. Crossover, hitstop, isolated RGBA and universal contacts remain gates.

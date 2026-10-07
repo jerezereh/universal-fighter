@@ -907,3 +907,55 @@ the synthetic architecture gate allows the first real-game adapter.
   movement/normal/hitstop and same-tick image association need validation. SIGN has no
   connected producer, isolated fighter RGBA or universal result/contact suppression yet.
   Next is source input routing and non-idle stepping, then isolated render/combat work.
+
+### SIGN source input ingress and non-idle step oracle (2026-10-06)
+
+- Read the actual sampler called by the verified update owner. Rev2 input discovery
+  patterns have no SIGN matches. Added `xrd_input.py` to derive bounded sampler/writer/
+  callsite and ring layout from loaded instructions; exact byte/owner/caller checks
+  precede instrumentation. No retail addresses/layout profiles are tracked.
+- Added per-player named input compilation (absolute/relative directions and core
+  buttons), strict names/boolean/plan bounds, neutral opposing-axis policy and neutral
+  packets when input is not accepted. Menu/training controls and macros are excluded.
+  Mapping is source-side; the multi-game IKEMEN receiving boundary is unchanged.
+- The observer validates incoming versus previous/current/latest history and held
+  duration. Initial return-address checking failed because Frida relocates the call;
+  observation now leaves ingress untouched, and injected calls use same-thread ingress/
+  writer association. A clean five-second trace has 581 calls across both players,
+  all neutral, no errors, clean source-code restoration. An initial neutral-step RPC
+  lacked an explicit input packet; explicit two-player packets fix that rejected call.
+- The gate changes the source's sampled input register only during an owned update.
+  Original history and recording instructions consume it. Added the authored 129-step
+  oracle: release/back/forward/jump/landing/two isolated Punches. Its scene guard requires
+  grounded idle Sol and a distant grounded opponent, and each next credit waits for
+  the preceding native return. Native UI remains under manual user control.
+- First non-idle trace: 370 opportunities, 129 requested updates, 241 blocked, exactly
+  one increment per request, matching two-player history at every request, unchanged
+  observed state between requests, zero gaps/errors, 370 successful presentations.
+  Sol walks both ways, reaches positive Y then lands, and activates `NmlAtk5A` twice.
+  Each normal's active `sol200_02` lasts four executed source updates. All 370 source
+  pose/box records match collision exactly; pose counts agree with prior parsed literals.
+- Visual repeat: 327 opportunities/129 updates/198 blocked, the same input/state/normal
+  proofs and 327 exact collision matches. A GPU-safe full-window recording and inspected
+  contact sheets confirm original-renderer walking, jump rise/fall and landing. The
+  recording is unsynchronized source-window evidence, not isolated fighter RGBA.
+- Recovery with input hooks: 453 blocked updates and no requested credits preserve
+  state; lease resumes ordinary execution and the hard lifetime removes update/input
+  hooks. The complete source code hash restores before cleanup; graphics bytes restore
+  at cleanup. The original executable hash remains unchanged and the game stays open.
+- Authored checks pass: names/facing/opposing-axis/input-acceptance, bounded segment
+  expansion, invented native layout/byte/owner/caller rejection and packet/history
+  association rejection. Existing native/state/boundary checks and Python/JavaScript
+  syntax/whitespace pass. No host runtime changed or new mixed-match result is claimed.
+- Evidence under ignored live probe `20261006-231049-679826`: `input-candidate.json`,
+  local sampler/writer disassembly, failed observation `boundary-20261007-001532-607643`,
+  clean input observation `boundary-20261007-001641-677741`, neutral ingress proof
+  `boundary-20261007-001800-535938`, non-idle proof `boundary-20261007-002013-108202`,
+  timeout proof `boundary-20261007-002128-239063`, visual repeat
+  `boundary-20261007-002414-613589`. The artifact root holds
+  `native-input-oracle.mkv`, `native-input-oracle-sheet.png` and
+  `native-input-oracle-actions.png`; no assets or source bytes are staged.
+- This establishes bounded named-input/source-history and non-idle update control.
+  Live K/S/HS/D/taunt, crossover/facing, source pause/hitstop and image association
+  remain unverified. Next are those native ownership/render gates, a persistent
+  producer and universal result/contact integration. SIGN remains unconnected to IKEMEN.

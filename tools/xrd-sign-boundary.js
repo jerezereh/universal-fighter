@@ -4,6 +4,83 @@ let config = null;
 let sequence = 0;
 let gate = null;
 let renderHooks = [];
+let inputHooks = [];
+const pendingInputs = new Map();
+
+function installInput(p) {
+    const input = p.input;
+    for (const label of ['sampler', 'writer']) {
+        const address = Process.mainModule.base.add(input[label + '_rva']);
+        if (hex(bytes(address, input[label + '_size'])) !== input[label + '_hex'])
+            throw new Error('native input function bytes changed');
+    }
+    const writer = Process.mainModule.base.add(input.writer_rva);
+    const writerListener = Interceptor.attach(writer, {
+        onEnter() {
+            this.sample = null;
+            try {
+                const root = Process.mainModule.base.add(p.state.engine_global_rva).readPointer();
+                const ring = this.context.ecx;
+                const delta = ring.sub(root.add(4 + input.ring_field)).toInt32();
+                if (delta !== 0 && delta !== input.stride) return;
+                const incoming = this.context.esp.add(4).readU32() & 0xffff;
+                if (p.gate) {
+                    // The instruction hook relocates the CALL's return address into a trampoline.
+                    const event = pendingInputs.get(this.threadId);
+                    pendingInputs.delete(this.threadId);
+                    if (!event || event.slot !== delta / input.stride || event.incoming !== incoming)
+                        throw new Error('source input did not follow validated ingress');
+                } else if (!this.returnAddress.equals(Process.mainModule.base.add(input.ingress_rva + 8)))
+                    throw new Error('unexpected source input caller');
+                this.sample = {ring, slot: delta / input.stride,
+                    incoming,
+                    previous: ring.add(input.current).readU16(),
+                    counter: root.add(4 + p.candidate.counter_field).readU32(),thread: this.threadId};
+            } catch (error) { send({kind: 'error',phase: 'input-enter',message: String(error)}); }
+        },
+        onLeave() {
+            if (this.sample === null) return;
+            try {
+                const s = this.sample;
+                const index = s.ring.add(input.index).readU16();
+                if (index >= input.capacity) throw new Error('invalid native input history index');
+                const current = s.ring.add(input.current).readU16();
+                const last = s.ring.readU16();
+                const entry = s.ring.add(input.inputs + index * 2).readU16();
+                const held = s.ring.add(input.held + index * 2).readU16();
+                if (current !== s.incoming || last !== s.previous || entry !== current || held === 0)
+                    throw new Error('native input history disagrees with call');
+                send({kind: 'input',slot: s.slot,counter: s.counter,incoming: s.incoming,
+                    previous: s.previous,current,last,entry,held,index,thread: s.thread,
+                    injected: gate !== null && gate.executing});
+            } catch (error) { send({kind: 'error',phase: 'input-return',message: String(error)}); }
+        }
+    });
+    inputHooks.push(writerListener);
+    if (!p.gate) return;
+    const ingress = Process.mainModule.base.add(input.ingress_rva);
+    const ingressListener = Interceptor.attach(ingress, function() {
+        const g = gate;
+        try {
+            const slot = this.context.ebp.toUInt32();
+            const root = Process.mainModule.base.add(p.state.engine_global_rva).readPointer();
+            if (slot > 1 || !this.context.edi.equals(root.add(4 + input.ring_field + slot * input.stride)))
+                throw new Error('native input player/receiver mismatch');
+            // Original instructions push ESI into history and subsequently record it.
+            if (g !== null && g.executing && !g.resumed) this.context.esi = ptr(g.inputs[slot]);
+            pendingInputs.set(this.threadId, {slot, incoming: this.context.esi.toUInt32() & 0xffff});
+        } catch (error) {
+            if (g !== null) g.resumed = true;
+            send({kind: 'error',phase: 'input-ingress',message: String(error)});
+        }
+    });
+    inputHooks.push(ingressListener);
+}
+
+function removeInputHooks() {
+    for (const h of inputHooks) h.detach();
+    inputHooks = []; pendingInputs.clear(); Interceptor.flush();
+}
 
 function hex(data) {
     return Array.from(data, x => x.toString(16).padStart(2, '0')).join('');
@@ -100,6 +177,7 @@ function publish(s, after, executed) {
         counter_delta: (after - s.before) >>> 0, thread: s.thread, depth: s.depth,
         return_address: s.return_address, this_delta: s.this_delta,
         entered_ms: s.entered_ms, returned_ms: Date.now(), executed,
+        requested_inputs: executed && gate !== null && config.input ? gate.inputs : null,
         segments: captured.segments}, captured.data);
 }
 
@@ -132,7 +210,8 @@ function installGate(target, p) {
     const render = observePresent();
     const root = Process.mainModule.base.add(p.state.engine_global_rva).readPointer();
     const original = new NativeFunction(target, 'void', ['pointer'], {abi: 'thiscall', exceptions: 'propagate'});
-    gate = {target, root, credits: 0, pending: false, deadline: Date.now() + 8000, resumed: false, timer: null};
+    gate = {target, root, credits: 0, pending: false, deadline: Date.now() + 8000, resumed: false, timer: null,
+        executing: false, inputs: [0, 0]};
     const replacement = new NativeCallback(function(object) {
         const g = gate;
         if (g === null || g.resumed) { original(object); return; }
@@ -157,7 +236,10 @@ function installGate(target, p) {
             original(object); return;
         }
         const execute = g.credits === 1;
-        if (execute) { g.credits = 0; original(object); }
+        if (execute) {
+            g.credits = 0; g.executing = true;
+            try { original(object); } finally { g.executing = false; }
+        }
         try {
             publish(s, object.add(p.candidate.counter_field).readU32(), execute);
         } catch (error) {
@@ -170,7 +252,7 @@ function installGate(target, p) {
     // A disconnected controller cannot leave this development gate installed indefinitely.
     gate.timer = setTimeout(() => {
         if (gate !== null) {
-            Interceptor.revert(target); Interceptor.flush(); gate = null;
+            Interceptor.revert(target); removeInputHooks(); Interceptor.flush(); gate = null;
             send({kind: 'error',phase: 'watchdog',message: 'hard gate lifetime expired; hook removed'});
         }
     }, 12000);
@@ -188,6 +270,7 @@ rpc.exports = {
         const actual = hex(bytes(target, p.candidate.code_size));
         if (actual !== p.candidate.function_hex) throw new Error('native function bytes changed');
         config = p;
+        if (p.input) installInput(p);
         if (p.gate) return installGate(target, p);
         listener = Interceptor.attach(target, {
             onEnter() {
@@ -214,10 +297,14 @@ rpc.exports = {
         });
         return {installed: true, mutation: 'temporary Frida entry interception; original routine runs unchanged'};
     },
-    step() {
+    step(inputs) {
         if (gate === null || gate.resumed || gate.pending || gate.credits !== 0)
             throw new Error('gate unavailable or step already pending');
+        if (!Array.isArray(inputs) || inputs.length !== 2 || inputs.some(x => !Number.isInteger(x) || x < 0 || x > 0x3ff))
+            throw new Error('invalid core input masks');
+        if (!config.input && inputs.some(x => x !== 0)) throw new Error('native input ingress is not installed');
         gate.deadline = Date.now() + 8000;
+        gate.inputs = inputs.slice();
         gate.pending = true; gate.credits = 1;
         return {accepted: true};
     },
@@ -227,6 +314,7 @@ rpc.exports = {
             clearTimeout(gate.timer);
             Interceptor.revert(gate.target); Interceptor.flush(); gate = null;
         }
+        removeInputHooks();
         for (const h of renderHooks) h.listener.detach();
         Interceptor.flush();
         const renderRestored = renderHooks.every(h => hex(bytes(h.target, 32)) === h.before);

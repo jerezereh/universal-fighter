@@ -3,7 +3,8 @@
 The generic IKEMEN receiver is implemented. SIGN investigation includes a VM_READ-only
 probe/state recorder, a temporary native return observer and a bounded freeze/step
 experiment. The last two inject development instrumentation; the probe/recorder do not.
-None sends input, exposes a guest endpoint or advertises passthrough capabilities.
+The optional named-input experiment writes only the source update's input register;
+none sends desktop keyboard input, exposes a guest endpoint or advertises full passthrough capabilities.
 All discovered addresses and loaded game bytes remain in ignored local
 `artifacts/xrd-sign-native`; they are not source profiles to distribute.
 
@@ -225,6 +226,78 @@ not yet a playable guest. Source UI remains under manual user control.
 
 Implementation uses the official [Frida API](https://frida.re/docs/javascript-api/)
 and [Direct3D Present contract](https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-present).
+
+## Native input routing and non-idle stepping (2026-10-06)
+
+The pinned Rev2 input-holder/history discovery patterns have no loaded SIGN matches.
+Tracing the actual update owner's calls instead resolves SIGN's input sampler and the
+history writer it invokes for each player. Local bounded disassembly derives the ring
+origin/stride, current input, history index, entries, held durations and capacity. The
+ingress instruction pushes the sampled register into the writer and then records that
+same value; its exact call bytes and link to the validated owner are checked. Sampler
+and writer function bytes must match before installing instrumentation. Layouts, addresses
+and disassembly remain ignored local profiles, not reusable retail constants.
+
+The input observer verifies each writer call against previous/current input, newest ring
+entry, bounded index and positive held duration. A five-second pass gives 581 valid calls
+across the two players (one call at the observation-window edge), all neutral, no errors
+and clean restoration. The initial instruction-hook caller check failed because Frida
+relocates the call's return address; observation mode now keeps the original callsite
+untouched, while gate mode associates the validated ingress event with its writer call
+on the same thread. No first-match or guessed Rev2 input holder is used.
+
+During a requested original update only, the ingress callback substitutes the packet's
+core mask into the register consumed by the original instructions. Each player has a
+separate mask; this oracle controls Sol and supplies neutral Ky input. Normal execution
+outside the gate retains its original inputs. Named direction/P/K/S/HS/D/taunt mapping
+lives in `xrd_input.py`, not the generic IKEMEN receiver. Absolute and facing-relative
+directions are supported; conflicting axes become neutral, an explicit adapter policy
+pending a source SOCD oracle. Unknown names/non-booleans, oversized plans and training/
+menu/macros are rejected. `accept_input=false` compiles neutral input. K/S/HS/D/taunt
+state semantics and crossover mirroring have not yet been exercised live.
+
+```powershell
+python tools/xrd-sign-boundary.py <live-probe-folder> --candidate <local-owner.json> --input-candidate <local-input.json> --seconds 5
+python tools/xrd-sign-boundary.py <live-probe-folder> --candidate <local-owner.json> --input-candidate <local-input.json> --gate <clean-boundary-folder> --input-plan tools/xrd-input-oracle.json
+python tools/test-xrd-input.py
+```
+
+The local input candidate records `sampler_rva`, `sampler_size`, `writer_rva`,
+`writer_size` and `ingress_rva` from the bounded discovery. The authored plan expands to
+129 requests over a seven-second gate: releases, backward/forward walking, one jump,
+landing, and two isolated Punch presses with recovery. It requires grounded idle Sol
+and a distant grounded opponent; one request remains pending until its native return is
+received. Post-update facing resolves relative directions. This is a source input oracle,
+not a persistent session accepting the host's complete request protocol.
+
+Verified native results:
+
+- Both runs execute exactly 129 original calls, each with one counter increment and a
+  two-player input-history pair matching its requested masks. Each produces walking
+  both ways, positive jump height, landing and two `NmlAtk5A` activations. Eight executed
+  source steps have active attack boxes, four for each normal's `sol200_02` pose.
+- The first run has 370 update opportunities with 241 blocked; the visual repeat has
+  327 with 198 blocked. Observed fighter state/counter stays unchanged between requests,
+  with zero continuity gaps or trace errors. Successful presentations continue: 370/327.
+  All 370/327 Sol pose/box lists match the imported collision archive exactly.
+- The first normal pair gives pose counts of 1, 2, 4, 2, 2, 2 per activation across the
+  six `sol200` poses. These are **executed native update observations** in this gate;
+  they are stronger than prior polling samples, but do not establish every source
+  timing condition or a synchronized image contract.
+- With input hooks installed, the no-credit timeout proof records 453 blocked calls,
+  unchanged observed state, automatic lease resume, hard-lifetime removal of update
+  **and input** hooks before cleanup, and native/graphics code restoration. The original
+  executable hash remains unchanged. No tool edits source files, injects keyboard input
+  or focuses the window.
+- The full-size source-window video/contact sheets show walking, jump rise/fall and
+  landing through the original renderer. Whole-window video is an unsynchronized visual
+  oracle, not the isolated RGBA layer the host requires. UI control remains with the user.
+
+`source_input_routing_verified` records the bounded packet/history proof. Full `host_step`,
+`native_tick_verified`, `atomic_native_frame`, isolated RGBA and universal contacts stay
+unaccepted. The next gates are crossover/facing, native pause/hitstop ownership and
+isolated rendering with state/image association, followed by a persistent producer and
+universal result/contact integration. No SIGN fighter is connected to IKEMEN yet.
 
 ## Gate after a loaded-module match
 

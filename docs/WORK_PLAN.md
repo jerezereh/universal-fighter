@@ -60,8 +60,9 @@ renders successfully. This is a presentation investigation, not accepted source 
 native timing/scale evaluation, facial blending and toon passes remain incomplete.
 Independent glTF/Blender skinning checks now pass, and a source-game reference corrected
 the chosen standard-color material from palette 0100 to 0101. Original SIGN training has
-been reached through its official bootstrap and the local DirectX cache; the user drives
-the UI and source inputs while capture remains read-only.
+been reached through its official bootstrap and the local DirectX cache. The user drives
+the UI; bounded native experiments now route inputs during requested source updates.
+Window capture remains read-only.
 
 Remaining gates are command semantics/defaults, source clock and coordinate/facing
 oracles, verified 3D-pose sampling/toon presentation, a distinct guest runtime and mixed
@@ -115,7 +116,7 @@ supplies fighter facing/idle boxes and a J/Punch `NmlAtk5A` collision oracle. So
 box comparison passes all 4,468 samples in the normal capture. Another idle capture
 contains three mismatches, so observation is explicitly not an atomic native frame.
 Movement/crossover, source simulation frame identity, native stepping, isolated RGBA
-and contact suppression remain pending. See `XRD_SIGN_NATIVE_PROBE.md` for the exact
+and contact suppression were pending at the polling stage. See `XRD_SIGN_NATIVE_PROBE.md` for the exact
 probe/observation commands and evidence limits.
 
 A temporary native entry/return observer now verifies one bounded engine update routine:
@@ -128,8 +129,14 @@ are still false. A bounded fail-open gate now passes an idle three-step proof: o
 call per request, unchanged counter/state between requests, successful graphics work at
 held counters and clean native/graphics code restoration. Automatic lease resume and
 hard-lifetime hook removal pass. This is a short development gate, not a persistent
-SIGN producer; next are input sampling/routing and movement/normal/hitstop oracles,
-then isolated RGBA and universal result/contact integration.
+SIGN producer. Native input ingress is now derived from actual SIGN sampler/history
+instructions, with named input mapping kept in the source adapter. Two 129-step oracles
+prove walking both ways, jumping/landing, two standing Punch activations, matching source
+input histories and exact source collision. Both preserve frozen state between requests,
+renderer progress and cleanup; timeout recovery also removes the input hooks. Source-window
+video confirms movement/jump. Next are crossover/facing and hitstop ownership, isolated
+RGBA with state/image association, then a persistent producer and universal result/contact
+integration. Full guest capabilities remain unaccepted.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

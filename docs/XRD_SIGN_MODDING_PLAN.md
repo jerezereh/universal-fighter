@@ -202,7 +202,10 @@ A temporary return observer and bounded native gate now verify an idle update bo
 exactly three requested calls, frozen observed state between requests, graphics work
 while held, automatic timeout recovery and native/graphics code restoration. Candidates
 are derived and validated locally, not installed from unverified reference offsets.
-There is still no accepted atomic source-frame/image contract, input routing, isolated
-render layer or connected SIGN guest. See
+Native input routing now passes two 129-step source oracles: backward/forward walk,
+jump/landing, two standing Punch activations and exactly matching per-player input
+histories/collision. The source-window oracle confirms visible movement/jump. Input
+hooks also pass bounded timeout recovery. There is still no accepted atomic source-frame/
+image contract, isolated render layer or connected SIGN guest. See
 [XRD_SIGN_NATIVE_PROBE.md](XRD_SIGN_NATIVE_PROBE.md) for tool tests, actual source evidence
 and the next native gates.
