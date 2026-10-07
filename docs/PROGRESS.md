@@ -1,5 +1,60 @@
 # Progress record
 
+## 2026-10-07 — Private native Sol mesh layer
+
+- Added bounded pixel-shader inspection for the verified body/head/weapon buffer pairs.
+  Original draws always execute; local bytecode, shader IDs and targets stay ignored.
+  The first uncached inspection was too slow and rejected. Caching observed bindings
+  produces a clean five-program inspection with three exact updates and four native
+  images. Programs are validated locally before a private opaque-alpha variant is made;
+  the source program remains unchanged. Calls/returns, reserved/dynamic constants,
+  malformed token framing and missing color output reject.
+- Added private native draw replay after each original source draw. A transparent A8
+  target receives the same geometry, vertex state, textures and RGB shader instructions.
+  Only private shader alpha changes. Source depth is read without writes; MRTs, viewport,
+  constants, shaders and render states restore through a full state block and explicit
+  target restoration. Acquired references and private targets/programs release on the
+  renderer thread. Private replay is excluded from source binding traces and cannot
+  recursively replay. The controller waits for a step acknowledgment before another
+  request; cached COM wrappers remove excessive native-call construction overhead.
+- An alpha-dependent draw is initially refused. Its actual state establishes a
+  destination/source-color product, which uses no alpha in its RGB equation. The private
+  replay preserves that color operation and the opaque alpha underneath. Other blends
+  and alpha tests remain explicitly skipped and recorded, not silently promoted.
+- Final background proof: 292 update opportunities, three exact requested updates,
+  289 blocked opportunities, no gaps/errors, 291 successful Present calls, four native
+  scene images and four private mesh images. Each private image contains 13 mesh draws
+  with no skipped material draw and restored device state. Loaded source/graphics bytes
+  restore after detach; the original executable fingerprint agrees.
+- Native A8 pixels have alpha 0/255 and zero RGB outside coverage. Inspected checker
+  previews show Sol without Ky/stage/HUD, including covered black materials. The crop
+  is 285–286 by 513 pixels in this idle scene. It uses the GPU alpha channel, not a color
+  key or screenshot segmentation. Crops are diagnostics and have no accepted foot pivot.
+- Authored tests pass for shader guards, replay state restoration, COM failures,
+  independent release, native-alpha bounds/black coverage and existing render/boundary
+  behavior. Failed and slow experiments preserve their receipts and restored code.
+- A subsequent repeat (`boundary-20261007-205643-225714`) captured four private/scene
+  images but stalled after code restoration, so it is not accepted as a clean teardown.
+  Independent readback confirms restored native/graphics prefixes. Only the verified
+  probe controller was stopped. SIGN's process subsequently has no usable main window;
+  the next full game check rejects before attachment rather than using a stale window.
+  Added five-second bounds around native RPC/load/unload/detach, with native cancellation
+  and a daemon fallback for the pinned shim's noncancellable RPC wait. An owned native
+  helper verifies a never-resolving RPC timeout followed by successful unload/detach
+  while the helper survives. The complete updated path still needs another SIGN session.
+- Evidence under `20261007-181216-754630`: shader inspection
+  `boundary-20261007-202735-770677`, failed/rejected private checks
+  `boundary-20261007-204702-294974`, `boundary-20261007-204759-539151`,
+  `boundary-20261007-204946-746643`, opaque proof `boundary-20261007-205116-240024`,
+  and final color-product proof `boundary-20261007-205242-036919`. Native files and
+  previews remain ignored. No host source or runtime boundary changed.
+- Remaining: match native HDR/postprocess colors, verify moving/attacking coverage and
+  image delay, derive foot pivot/source units and both facings. This is a diagnostic
+  mesh layer; effects/translucency and complete isolated-RGBA/atomic-frame capabilities
+  stay unaccepted. Persistent producer, opponent mirroring, contact suppression,
+  universal results, KO/reset and mixed IKEMEN validation remain open.
+  A fresh visible offline training session/profile is required for further live checks.
+
 ## 2026-10-07 — Intermediate GPU targets and Sol mesh identity
 
 - Added bounded native intermediate-target readback before target switches: up to

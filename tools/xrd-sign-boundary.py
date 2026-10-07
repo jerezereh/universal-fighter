@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 
 from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
@@ -17,9 +18,26 @@ from xrd_state import assembly_rows, boundary_candidate, observe
 from xrd_input import input_candidate, input_mask, input_plan, input_check, oracle_passed
 from xrd_combat import combat_fields, contact_check
 from xrd_render import render_pixels, save_render, render_check, draw_check, save_pass
+from xrd_shader import opaque_alpha_variant
+from xrd_layer import save_layer_preview
 
 ROOT=Path(__file__).resolve().parent.parent
 EXE=Path('C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-/Binaries/Win32/GuiltyGearXrd.exe')
+
+
+def bounded_call(frida,operation,seconds=5):
+    # The pinned shim's synchronous RPC waits are not cancellable; a daemon also bounds them.
+    cancellation=frida.Cancellable();finished=threading.Event();outcome={}
+    def run():
+        try:
+            with cancellation: outcome['value']=operation()
+        except Exception as error: outcome['error']=error
+        finally: finished.set()
+    threading.Thread(target=run,daemon=True).start()
+    if not finished.wait(seconds):
+        cancellation.cancel();raise TimeoutError('native instrumentation operation timed out')
+    if 'error' in outcome: raise outcome['error']
+    return outcome['value']
 
 
 class CapturedMemory:
@@ -89,7 +107,30 @@ def render_restored(process,receipt,detached):
     return detached and all(process.read(t['address'],32)==bytes.fromhex(t['before']) for t in targets)
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None):
+def layer_programs(folder,state,identity):
+    evidence=json.loads((folder/'inspection.json').read_text())
+    if (evidence['pid']!=state['pid'] or evidence['errors'] or not evidence['detached'] or
+            not evidence['loaded_code_restored'] or not evidence['source_unchanged'] or
+            not evidence['controlled_update_step_verified'] or
+            json.loads((folder/'draw-identity.json').read_text())!=identity):
+        raise ValueError('layer requires clean same-session shader inspection')
+    inventory=json.loads((folder/'mesh-shaders.json').read_text())
+    if not isinstance(inventory,list) or not 2<=len(inventory)<=32: raise ValueError('invalid shader inventory')
+    targets=Counter(s['source_target'] for s in inventory)
+    color=[target for target,count in targets.items() if count>=2]
+    if len(color)!=1: raise ValueError('ambiguous main mesh color target')
+    programs={}
+    for s in inventory:
+        if s['source_target']!=color[0]: continue
+        if not re.fullmatch(r'shader-[0-9]{2}\.bin',s['file']): raise ValueError('invalid shader filename')
+        data=(folder/s['file']).read_bytes()
+        if hashlib.sha256(data).hexdigest()!=s['sha256']: raise ValueError('shader inventory drift')
+        variant,_=opaque_alpha_variant(data)
+        programs[s['shader']]=dict(original_hex=data.hex(),variant_hex=variant.hex())
+    return dict(target=color[0],programs=programs)
+
+
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None):
     receipt=json.loads((probe/'inspection.json').read_text())
     state=json.loads((probe/'state-profile.json').read_text())
     if scalar_path:
@@ -128,6 +169,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if (capture or trace_draws) and (not gate_options or expire): raise ValueError('render diagnostics require the bounded stepping experiment')
     if capture_passes and not trace_draws: raise ValueError('render-pass capture requires a draw trace')
     identity=None
+    if inspect_shaders and not suppress_path: raise ValueError('mesh shader inspection requires local buffer identity')
     if suppress_path:
         identity=json.loads(suppress_path.read_text())
         if (not trace_draws or not capture or capture_passes or plan_path or expire or identity.get('pid')!=state['pid'] or
@@ -139,6 +181,10 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                     any(not re.fullmatch('0x[0-9a-f]{1,8}',v) or v=='0x0' for v in part.values())
                     for part in identity['parts'].values())):
             raise ValueError('requires bounded same-session unaccepted mesh identity, capture and draw trace')
+    layer=None
+    if layer_path:
+        if not identity or inspect_shaders: raise ValueError('layer capture requires exclusive mesh identity')
+        layer=layer_programs(layer_path,state,identity)
     source_window=None
     if capture or trace_draws:
         # Rendering needs an unminimized window, but never requires desktop keyboard focus.
@@ -164,7 +210,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     def receive(message,data):
         try: messages.put_nowait((message,data,time.perf_counter()))
         except queue.Full: overflow.append(True)
-    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
+    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];layers=[];pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
     started=time.perf_counter();started_utc=datetime.datetime.now(datetime.timezone.utc).isoformat();completed=0;next_request=.5 if plan else 1;request_log=[]
     with ReadOnlyProcess(state['pid'],EXE) as process:
         def unchanged():
@@ -172,10 +218,13 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             return base==state['module_base'] and size==receipt['image_size'] and hashlib.sha256(process.read(base+state['code_rva'],state['code_size'])).hexdigest()==state['code_sha256']
         if not unchanged(): raise ValueError('source session/code changed; run a fresh probe')
         try:
-            session=frida.attach(state['pid'])
-            script=session.create_script((ROOT/'tools/xrd-sign-boundary.js').read_text())
-            script.on('message',receive);script.load()
-            print(script.exports_sync.start(dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,suppress_draws=identity)),flush=True)
+            session=bounded_call(frida,lambda:frida.attach(state['pid']))
+            source=(ROOT/'tools/xrd-sign-boundary.js').read_text()
+            if layer: source+='\n'+(ROOT/'tools/xrd-sign-layer.js').read_text()
+            script=session.create_script(source)
+            script.on('message',receive);bounded_call(frida,script.load)
+            settings=dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,layer=layer)
+            print(bounded_call(frida,lambda:script.exports_sync.start(settings)),flush=True)
             started=time.perf_counter()
             with (out/'state.jsonl').open('w',encoding='utf-8') as log:
                 while time.perf_counter()-started<seconds:
@@ -185,10 +234,10 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                             (abs(states[0][0]['x_raw']-states[0][1]['x_raw'])>350000 if oracle=='contact' else abs(states[0][0]['x_raw']-states[0][1]['x_raw'])<350000)):
                             raise ValueError('input oracle requires grounded idle Sol/opponent within its scene distance bounds')
                         packet=plan[requests];mask=input_mask(packet['input'],states[-1][0]['facing_left'],packet['accept_input'])
-                        script.exports_sync.step([mask,0]);request_log.append(dict(step=requests+1,mask=mask,**packet));requests+=1
+                        bounded_call(frida,lambda:script.exports_sync.step([mask,0]));request_log.append(dict(step=requests+1,mask=mask,**packet));requests+=1
                         next_request=time.perf_counter()-started+.03+packet['hold_ms']/1000
-                    elif not plan and gate_options and not expire and requests<3 and time.perf_counter()-started>=next_request and (not capture_passes or draws):
-                        script.exports_sync.step([0,0]);requests+=1;next_request=time.perf_counter()-started+1
+                    elif not plan and gate_options and not expire and requests<3 and requests==completed and time.perf_counter()-started>=next_request and (not capture_passes or draws):
+                        bounded_call(frida,lambda:script.exports_sync.step([0,0]));requests+=1;next_request=time.perf_counter()-started+1
                     if expire and time.perf_counter()-started>12.5 and not automatic_restore:
                         automatic_restore=unchanged()
                     try: message,data,wall=messages.get(timeout=.1)
@@ -200,10 +249,24 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                     if message['type']=='send' and message['payload'].get('kind')=='draw-trace':
                         if len(draws)>=2: raise ValueError('unbounded draw intervals')
                         draws.append(message['payload']);continue
+                    if message['type']=='send' and message['payload'].get('kind')=='mesh-shader':
+                        native=message['payload']
+                        if len(shaders)>=32 or not 8<=len(data)<=65536 or len(data)%4 or native['code_size']!=len(data):
+                            raise ValueError('invalid shader readback')
+                        name=f'shader-{len(shaders)+1:02}.bin';(out/name).write_bytes(data)
+                        shaders.append(native|dict(file=name,sha256=hashlib.sha256(data).hexdigest()));continue
+                    if message['type']=='send' and message['payload'].get('kind')=='mesh-layer-skipped':
+                        diagnostics.append(message['payload']);continue
                     if message['type']=='send' and message['payload'].get('kind')=='render-pass':
                         pass_bytes+=len(data)
                         if len(passes)>=24 or pass_bytes>128<<20: raise ValueError('unbounded intermediate capture')
                         passes.append((message['payload'],data));continue
+                    if message['type']=='send' and message['payload'].get('kind')=='render-layer':
+                        native=message['payload'];render_pixels(native,data)
+                        if len(layers)>=4: raise ValueError('private layer capture limit')
+                        observation=observe(CapturedMemory(native['segments'],data[:native['state_size']]),state)
+                        folder=out/'layers';folder.mkdir(exist_ok=True)
+                        layers.append(save_render(folder,native,data,observation));continue
                     if message['type']=='send' and message['payload'].get('kind')=='render':
                         native=message['payload'];render_pixels(native,data)
                         observation=observe(CapturedMemory(native['segments'],data[:native['state_size']]),state)
@@ -224,17 +287,22 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         finally:
             # A failed RPC must not prevent script/session teardown from removing the hook.
             if script is not None:
-                try: cleanup_receipt=script.exports_sync.stop()
+                try:
+                    for _ in range(20):
+                        cleanup_receipt=bounded_call(frida,script.exports_sync.stop)
+                        if not cleanup_receipt.get('pending_layer_release'): break
+                        time.sleep(.05)
+                    else: raise ValueError('renderer did not release private resources before teardown')
                 except Exception as error: errors.append(dict(cleanup_error=repr(error)))
-                try: script.unload()
+                try: bounded_call(frida,script.unload)
                 except Exception as error: errors.append(dict(cleanup_error=repr(error)))
             try:
-                if session is not None: session.detach()
+                if session is not None: bounded_call(frida,session.detach)
                 detached=True
             except Exception as error: errors.append(dict(cleanup_error=repr(error)))
         restored=unchanged()
         if cleanup_receipt and gate_options:
-            cleanup_receipt['render_code_restored_inside_rpc']=cleanup_receipt['render_code_restored']
+            cleanup_receipt['render_code_restored_inside_rpc']=cleanup_receipt.get('render_code_restored',False)
             try: cleanup_receipt['render_code_restored']=render_restored(process,cleanup_receipt,detached)
             except (ValueError,OSError) as error:
                 cleanup_receipt['render_code_restored']=False
@@ -254,9 +322,24 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if source_window: result['source_window']=source_window
     if identity:
         (out/'draw-identity.json').write_text(json.dumps(identity,indent=2))
-        result['diagnostic_mesh_suppression']=True
-        if not cleanup_receipt or cleanup_receipt.get('diagnostic_mesh_draws_skipped',0)<=0:
+        result['diagnostic_mesh_suppression']=not inspect_shaders and not layer
+        if not inspect_shaders and not layer and (not cleanup_receipt or cleanup_receipt.get('diagnostic_mesh_draws_skipped',0)<=0):
             errors.append(dict(filter_error='no matching mesh draws suppressed'))
+        if inspect_shaders:
+            (out/'mesh-shaders.json').write_text(json.dumps(shaders,indent=2));result['mesh_shaders']=len(shaders)
+            if not shaders: errors.append(dict(shader_error='no matching mesh shaders observed'))
+    if layer:
+        for image in layers:
+            try:
+                image.update(save_layer_preview(out/'layers',image))
+                (out/'layers'/Path(image['image']).with_suffix('.json')).write_text(json.dumps(image,indent=2))
+            except ValueError as error: errors.append(dict(layer_pixels_error=str(error)))
+        result['private_layer_captures']=len(layers)
+        result['private_layer_complete']=False
+        result['layer_check']=render_check(layers,records,states)
+        result['private_layer_state_restored']=bool(layers) and all(c['source_graphics_state_verified'] for c in layers)
+        if len(layers)<2 or not result['layer_check']['held_counter_state_linked'] or not result['private_layer_state_restored']:
+            errors.append(dict(layer_error='missing/unlinked private layer or graphics-state restoration'))
     if gate_options:
         result['gate_check']=gate_check(records,states,presents,len(plan) if plan else 3)
         result['controlled_update_step_verified']=not expire and all(result['gate_check'][k] for k in ('exact_steps','frozen_counter','frozen_observed_state','rendering_while_frozen')) and gaps==0 and not errors
@@ -341,11 +424,13 @@ if __name__=='__main__':
     p.add_argument('--trace-draws',action='store_true',help='with --gate: observe two Present intervals of D3D9 draw/target/shader bindings; no draw suppression')
     p.add_argument('--capture-passes',action='store_true',help='with --trace-draws: capture first completed target bindings, up to 24/128 MiB, for native layer investigation')
     p.add_argument('--suppress-draws',type=Path,help='with --capture-render and --trace-draws: briefly suppress locally derived mesh-buffer candidates for visual identity proof')
+    p.add_argument('--inspect-mesh-shaders',action='store_true',help='with --suppress-draws: read matching mesh pixel shader programs while preserving every original draw')
+    p.add_argument('--capture-layer',type=Path,help='with --suppress-draws: clean shader inspection folder for bounded private opaque mesh replay')
     a=p.parse_args()
     if not 0<a.seconds<=120: p.error('seconds must be 0..120')
     if a.lease_check and not a.gate: p.error('--lease-check requires --gate')
-    trace(a.probe.resolve(),a.candidate.resolve(),13 if a.lease_check else 8 if a.capture_passes else 7 if a.input_plan else 4.5 if a.gate else a.seconds,
+    trace(a.probe.resolve(),a.candidate.resolve(),13 if a.lease_check else 8 if a.capture_passes or a.capture_layer else 7 if a.input_plan else 4.5 if a.gate else a.seconds,
           a.gate.resolve() if a.gate else None,a.lease_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None)

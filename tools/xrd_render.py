@@ -48,7 +48,7 @@ def save_render(folder, metadata, data, observation):
         image=name + '.png', raw=name + '.bgra', observation=observation,
         rgb_sha256=hashlib.sha256(rgb).hexdigest(), raw_sha256=hashlib.sha256(pixels).hexdigest(),
         high_byte_histogram=dict(Counter(pixels[3::4])), high_byte_is_alpha=metadata['format'] == 21,
-        preview_rgb_only=True, full_scene=True)
+        preview_rgb_only=True, full_scene=metadata.get('kind')!='render-layer')
     (folder / (name + '.bgra')).write_bytes(pixels)
     (folder / (name + '.png')).write_bytes(png_rgb(metadata['width'], metadata['height'], rgb))
     (folder / (name + '.json')).write_text(json.dumps(result, indent=2))
@@ -63,7 +63,7 @@ def render_check(captures, records, states):
     return dict(captures=len(captures), counters=[c['counter'] for c in captures],
         distinct_rgb_images=len({c['rgb_sha256'] for c in captures}),
         held_counter_state_linked=bool(captures) and all(linked),
-        full_scene=True, native_render_latency_verified=False, atomic_native_frame=False, isolated_rgba=False)
+        full_scene=all(c.get('full_scene',True) for c in captures), native_render_latency_verified=False, atomic_native_frame=False, isolated_rgba=False)
 
 
 def pass_pixels(metadata,data):

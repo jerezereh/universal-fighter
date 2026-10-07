@@ -486,6 +486,46 @@ mesh draw identity. The next step is private native draw duplication with source
 graphics state restored, followed by coverage/color, pivot/facing and render-delay
 validation. Contact/result and persistent producer gates remain open.
 
+## Private mesh replay
+
+After the visual mesh identity proof, `--inspect-mesh-shaders` together with the local
+`--suppress-draws` identity reads matching shader programs while keeping every original
+draw. Despite the shared identity option, this mode performs no suppression. Programs
+and GPU pointers remain private. A clean same-session inspection folder is required by
+`--capture-layer <folder>`; both modes require `--capture-render --trace-draws` and the
+bounded native gate.
+
+The private replay runs each original draw first, then duplicates matching opaque color
+draws into a transparent A8 target. A guarded Shader Model 3 epilogue changes only private
+output alpha; source shaders are not edited. The private pass preserves RGB instructions,
+textures and vertex state, uses source depth without writes, restores MRTs/full state,
+and independently releases resources on the renderer thread. Observed destination/
+source-color blending is preserved in RGB and keeps the prior opaque alpha. Other blend
+semantics/alpha tests are skipped and recorded. The API values are checked against
+[Microsoft's blend enumeration](https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dblend)
+and [render-state enumeration](https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3drenderstatetype).
+
+The final live proof `boundary-20261007-205242-036919` passes three exact steps, 289
+blocked opportunities, 291 Present calls and four private images with 13 draws each,
+no skipped material draws and restored source graphics state. Original code restores
+after detach. Native alpha is 0/255 with zero RGB outside coverage; checker previews
+show Sol alone and preserve opaque black pixels. The idle crop is 285–286 by 513 pixels.
+`xrd_layer.py` writes RGBA/checker crops using native alpha after teardown. All raw source
+data and generated previews remain ignored.
+
+Shader-inspection caching, replay recursion rejection, acknowledged step requests and
+cached COM call wrappers address failed/slow diagnostic runs; their cleanup evidence
+remains in the progress record. This is bounded render investigation. Native HDR/final
+postprocess color matching, dynamic coverage, both facings, foot pivot and render latency
+are still unverified; no `isolated-rgba` or atomic-frame capability is promoted.
+Native instrumentation calls now have five-second controller bounds. The pinned Frida
+shim honors cancellation for native calls but its synchronous RPC wait needs a daemon
+fallback. `test-xrd-cleanup.py` verifies timeout/unload/detach on an owned helper rather
+than injecting failures into a game. A later SIGN repeat stalled after independently
+verified source/graphics restoration; its teardown is explicitly unaccepted. The source
+window then became unavailable, so subsequent live work requires fresh training/profile
+evidence. No disappeared/stale window or failed teardown is accepted as a producer frame.
+
 ## Remaining producer gates
 
 A unique signature is only a candidate. Before building a producer around it:

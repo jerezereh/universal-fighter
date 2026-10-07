@@ -9,6 +9,7 @@ const pendingInputs = new Map();
 let renderCapture = {attempts: 0, counter: null, presentations: 0};
 let drawTrace = null;
 let drawFilter = null;
+const comMethods = new Map();
 
 function removeDrawFilter() {
     if (drawFilter !== null) {
@@ -23,16 +24,57 @@ function installDrawFilter(device, identity) {
     const original = new NativeFunction(target, 'int', ['pointer','uint','int','uint','uint','uint','uint'],
         {abi: 'stdcall', exceptions: 'propagate'});
     const replacement = new NativeCallback(function(object, type, base, min, vertices, start, primitives) {
+        if (config.layer && layerDrawing) return original(object, type, base, min, vertices, start, primitives);
         const d = drawTrace, g = gate, filter = drawFilter;
         if (filter !== null && d !== null && object.equals(d.device) && g !== null && !g.resumed &&
             Date.now() <= g.deadline && pairs.some(p => p.index_buffer === d.indexBuffer && p.vertex_buffer === d.vertexBuffer)) {
+            if (config.layer) {
+                const result = original(object, type, base, min, vertices, start, primitives);
+                if (result === 0) try { replayMeshDraw(object, original, [type,base,min,vertices,start,primitives], d); }
+                catch (error) {
+                    layerFailed = true;
+                    if (meshLayer !== null) meshLayer.state_verified = false;
+                    send({kind: 'error',phase: 'mesh-layer',message: String(error)});
+                }
+                return result;
+            }
+            if (config.inspect_mesh_shaders) {
+                try { inspectMeshShader(object, d, filter); }
+                catch (error) { send({kind: 'error',phase: 'mesh-shader',message: String(error)}); }
+                return original(object, type, base, min, vertices, start, primitives);
+            }
             ++filter.skipped;
             return 0; // Diagnostic mesh suppression only; original source simulation stays intact.
         }
         return original(object, type, base, min, vertices, start, primitives);
     }, 'int', ['pointer','uint','int','uint','uint','uint','uint'], 'stdcall');
-    drawFilter = {target, replacement, skipped: 0};
+    drawFilter = {target, replacement, skipped: 0, shaders: new Set()};
     Interceptor.replace(target, replacement); Interceptor.flush();
+}
+
+function inspectMeshShader(device, d, filter) {
+    if (d.pixelShader && filter.shaders.has(d.pixelShader)) return;
+    const output = Memory.alloc(4); output.writePointer(ptr(0));
+    let shader = ptr(0);
+    try {
+        succeeded(com(device, 108, 'int', ['pointer'])(device, output), 'GetPixelShader');
+        shader = output.readPointer();
+        if (shader.isNull()) throw new Error('missing mesh pixel shader');
+        const id = shader.toString();
+        d.pixelShader = id;
+        if (filter.shaders.has(id)) return;
+        if (filter.shaders.size >= 32) throw new Error('mesh shader limit');
+        const size = Memory.alloc(4); size.writeU32(0);
+        succeeded(com(shader, 4, 'int', ['pointer','pointer'])(shader, ptr(0), size), 'GetFunction size');
+        const length = size.readU32();
+        if (length < 8 || length > 65536 || length % 4) throw new Error('invalid shader bytecode bounds');
+        const data = Memory.alloc(length);
+        succeeded(com(shader, 4, 'int', ['pointer','pointer'])(shader, data, size), 'GetFunction');
+        if (size.readU32() !== length) throw new Error('shader size changed');
+        filter.shaders.add(id);
+        send({kind: 'mesh-shader', shader: id, code_size: length, source_target: d.currentTarget,
+            index_buffer: d.indexBuffer, vertex_buffer: d.vertexBuffer}, data.readByteArray(length));
+    } finally { if (!shader.isNull()) com(shader, 2, 'uint', [])(shader); }
 }
 
 function installDrawTrace(device) {
@@ -61,11 +103,15 @@ function installDrawTrace(device) {
             onEnter(args) {
                 this.event = null;
                 this.binding = null;
+                this.targetBinding = null;
+                if (config.layer && layerDrawing) return;
                 const d = drawTrace;
                 if (d === null || !args[0].equals(d.device)) return;
                 if (method === 'SetIndices') this.binding = ['indexBuffer', args[1].toString()];
+                if (method === 'SetPixelShader') this.binding = ['pixelShader', args[1].toString()];
                 if (method === 'SetStreamSource' && args[1].toUInt32() === 0)
                     this.binding = ['vertexBuffer', args[2].toString()];
+                if (method === 'SetRenderTarget' && args[1].toUInt32() === 0) this.targetBinding = args[2].toString();
                 if (!d.active) return;
                 if (d.events.length >= 8192) {
                     d.active = false;
@@ -112,6 +158,8 @@ function installDrawTrace(device) {
             onLeave(result) {
                 if (this.binding && drawTrace !== null && result.toInt32() === 0)
                     drawTrace[this.binding[0]] = this.binding[1];
+                if (this.targetBinding && drawTrace !== null && result.toInt32() === 0)
+                    drawTrace.currentTarget = this.targetBinding;
                 if (this.event && drawTrace !== null && drawTrace.active) {
                     if (result.toInt32() === 0 && this.event.method === 'SetRenderTarget' && this.event.values[0] === 0)
                         drawTrace.currentTarget = this.event.values[1];
@@ -139,23 +187,29 @@ function drawInterval(device, counter, entering, hresult = 0) {
 
 function com(object, slot, result, arguments_) {
     const target = object.readPointer().add(slot * 4).readPointer();
+    const key = target.toString() + ':' + result + ':' + arguments_.join(',');
+    if (comMethods.has(key)) return comMethods.get(key);
     const range = Process.findRangeByAddress(target);
     if (range === null || !range.protection.includes('x')) throw new Error('invalid COM method');
-    return new NativeFunction(target, result, ['pointer', ...arguments_],
+    if (comMethods.size >= 256) throw new Error('COM method cache limit');
+    const method = new NativeFunction(target, result, ['pointer', ...arguments_],
         {abi: 'stdcall', exceptions: 'propagate'});
+    comMethods.set(key, method); return method;
 }
 
 function succeeded(hr, name) {
     if (hr < 0) throw new Error(name + ' failed: ' + hr);
 }
 
-function captureBackBuffer(device, root, counter, intermediate = false) {
+function captureBackBuffer(device, root, counter, intermediate = false, privateSurface = null) {
     // Diagnostic full-scene capture only. No render-state changes or fabricated alpha.
     const buffer = Memory.alloc(4), staging = Memory.alloc(4), desc = Memory.alloc(32);
     buffer.writePointer(ptr(0)); staging.writePointer(ptr(0));
     let surface = ptr(0), destination = ptr(0), locked = false;
     try {
-        if (intermediate) succeeded(com(device, 38, 'int', ['uint', 'pointer'])(device, 0, buffer), 'GetRenderTarget');
+        if (privateSurface !== null) {
+            com(privateSurface, 1, 'uint', [])(privateSurface); buffer.writePointer(privateSurface);
+        } else if (intermediate) succeeded(com(device, 38, 'int', ['uint', 'pointer'])(device, 0, buffer), 'GetRenderTarget');
         else succeeded(com(device, 18, 'int', ['uint', 'uint', 'uint', 'pointer'])(device, 0, 0, 0, buffer), 'GetBackBuffer');
         surface = buffer.readPointer();
         succeeded(com(surface, 12, 'int', ['pointer'])(surface, desc), 'GetDesc');
@@ -328,6 +382,12 @@ function observePresent() {
                 } catch (error) { send({kind: 'error',phase: 'present',message: String(error)}); }
             },
             onLeave(result) {
+                if (this.valid && this.method === 'EndScene' && result.toInt32() === 0 && config.layer && meshLayer !== null) {
+                    try {
+                        if (layerStopping) releaseLayer();
+                        else finishMeshLayer(ptr(this.device));
+                    } catch (error) { send({kind: 'error',phase: 'layer-end',message: String(error)}); }
+                }
                 if (this.valid) send({kind: 'present',counter: this.counter,device: this.device,
                     method: this.method,target: target.toString(),thread: this.threadId,hresult: result.toInt32(),wall_ms: Date.now()});
                 if (this.capture && result.toInt32() === 0)
@@ -476,6 +536,8 @@ rpc.exports = {
         if (p.trace_draws && !p.gate) throw new Error('draw trace requires a controlled source gate');
         if (p.capture_passes && !p.trace_draws) throw new Error('render-pass capture requires a draw trace');
         if (p.suppress_draws && !p.trace_draws) throw new Error('mesh suppression requires a draw trace');
+        if (p.inspect_mesh_shaders && !p.suppress_draws) throw new Error('mesh shader inspection requires buffer identity');
+        if (p.layer && (!p.suppress_draws || p.inspect_mesh_shaders)) throw new Error('private layer requires exclusive buffer identity');
         renderCapture = {attempts: 0, counter: null, presentations: 0};
         drawTrace = null;
         const module = Process.mainModule;
@@ -525,6 +587,7 @@ rpc.exports = {
         return {accepted: true};
     },
     stop() {
+        if (config.layer && meshLayer !== null) { layerStopping = true; return {pending_layer_release: true}; }
         const skipped = drawFilter === null ? 0 : drawFilter.skipped;
         removeDrawFilter();
         if (listener) { listener.detach(); listener = null; Interceptor.flush(); }

@@ -5,6 +5,7 @@ from pathlib import Path
 import runpy
 import struct
 import tempfile
+import threading
 
 from xrd_state import boundary_candidate, observe
 
@@ -21,6 +22,22 @@ def reject(action):
 
 
 def main():
+    class Cancellation:
+        cancelled=False
+        def __enter__(self): return self
+        def __exit__(self,*args): pass
+        def cancel(self): self.cancelled=True
+    class FakeFrida:
+        def Cancellable(self): self.token=Cancellation();return self.token
+    fake=FakeFrida();assert boundary.bounded_call(fake,lambda:7)==7
+    try: boundary.bounded_call(fake,lambda:1/0)
+    except ZeroDivisionError: pass
+    else: raise AssertionError('operation error swallowed')
+    release=threading.Event()
+    try: boundary.bounded_call(fake,release.wait,.02)
+    except TimeoutError: assert fake.token.cancelled
+    else: raise AssertionError('operation timeout ignored')
+    finally: release.set()
     code=b'\xcc\x8b\xf1'+b'\x90'*9+b'\xff\x86'+struct.pack('<I',0x200)+b'\x90'*5+b'\xc3'
     candidate=dict(rva=0x1001,writer_rva=0x100c,code_size=23)
     rows=[dict(address=0x1001,op='mov',args='esi,ecx'),

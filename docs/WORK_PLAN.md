@@ -164,6 +164,13 @@ from local source imports match three native buffer pairs. A bounded visual supp
 proof removes Sol's body/head/weapon while retaining Ky/stage/HUD and source collision
 state, with restored graphics code. Current-scene Sol mesh identity is established;
 next duplicate those draws into a private transparent target and validate native pixels.
+Private native replay now captures four Sol mesh layers while preserving every original
+source draw, source update ownership and graphics state. Local shader inspection/opaque
+alpha variants retain native RGB instructions, and the observed color-product overlay
+preserves underlying coverage. Inspected native alpha excludes the opponent/stage/HUD
+and preserves black materials. The crop is diagnostic: color/postprocess fidelity,
+moving/attack coverage, pivot/facing and image delay remain gates before publication.
+Persistent producer and universal contact/result ownership still follow those checks.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Original menu pause,
 clash/superfreeze and universal stop/result ownership still need dedicated validation.
