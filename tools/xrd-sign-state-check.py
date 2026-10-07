@@ -8,8 +8,8 @@ from xrd_package import collision_archive
 
 def check(folder,collision):
     receipt=json.loads((folder/'inspection.json').read_text())
-    if not receipt.get('observations_only') or any(receipt.get(k) for k in ('native_tick_verified','host_step','isolated_rgba','universal_contact')):
-        raise ValueError('requires an observation-only capture receipt')
+    if not (receipt.get('observations_only') or receipt.get('boundary_experiment')) or any(receipt.get(k) for k in ('native_tick_verified','host_step','isolated_rgba','universal_contact')):
+        raise ValueError('requires an unaccepted observation/boundary-experiment capture receipt')
     frames=collision_archive(collision.read_bytes())
     matched=unmapped=mismatched=0;active=[];x=[];y=[];facing=set();poses=set()
     with (folder/'state.jsonl').open() as log:

@@ -198,7 +198,11 @@ The fifteen legacy discovery signatures have no on-disk code candidates. Live no
 startup exposes eleven unique and four ambiguous candidate groups. Native load/getter
 instructions and caller relationships now establish bounded engine/position access;
 the original offline scene supplies a standing-Punch state/pose/collision oracle.
-No reference offsets have been installed as hooks. Read-only sampling still has no
-verified atomic source frame, native step control or isolated render layer. See
+A temporary return observer and bounded native gate now verify an idle update boundary,
+exactly three requested calls, frozen observed state between requests, graphics work
+while held, automatic timeout recovery and native/graphics code restoration. Candidates
+are derived and validated locally, not installed from unverified reference offsets.
+There is still no accepted atomic source-frame/image contract, input routing, isolated
+render layer or connected SIGN guest. See
 [XRD_SIGN_NATIVE_PROBE.md](XRD_SIGN_NATIVE_PROBE.md) for tool tests, actual source evidence
 and the next native gates.

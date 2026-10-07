@@ -865,3 +865,45 @@ the synthetic architecture gate allows the first real-game adapter.
   `boundary-20261006-235242-143310` and `boundary-20261006-235324-797061`.
   The next native experiment is a bounded fail-open freeze/step gate, followed by input
   routing and isolated source RGBA. Source UI remains under the user's control.
+
+### SIGN bounded native stepping and renderer progress (2026-10-06)
+
+- Extended the native observer with an opt-in, same-session gate. Clean return-trace
+  evidence is required before installation. An authored scratch thiscall oracle verifies
+  argument register/original-call bypass/restoration first. The temporary replacement
+  invokes the original only on its existing source thread/caller when one credit is
+  available; it preserves native exception handling. Scene/caller/read changes resume
+  normal execution. No source keyboard/menu input or arbitrary-thread source call.
+- Added an eight-second fail-open lease and twelve-second hard gate lifetime. Normal
+  runs remove the gate at 4.5 seconds. The thirteen-second no-credit experiment proves
+  automatic native execution resumes and the entire source code hash restores before
+  controller cleanup, with subsequent successful presentations at increasing counters.
+- Added bounded Direct3D device-method observation. Two constructor-table candidates
+  give four method targets; actual device method entries are validated at invocation.
+  The first strict constructor-table identity check failed the render gate with no
+  presentations; the actual method-entry check fixes that observation failure. Both
+  runs restore native/graphics code. No source render/material data was replaced.
+- Final live idle proof: 230 update opportunities, three requested single increments,
+  227 blocked calls, zero continuity gaps/errors and zero changes to either fighter's
+  observed state between requests. All 230 Sol pose/box records match source collision.
+  There are 230 successful Present returns and 460 successful EndScene returns,
+  repeatedly at held counters. These calls prove renderer progress, not isolated RGBA.
+- Timeout recovery: 456 blocked observations, no requested steps, unchanged observed
+  state/counter and 456 exact source collision matches. Lease resume/hard hook removal
+  pass. Source and graphics hooks restore, original disk hashes remain unchanged and
+  the game stays running under the user's UI control.
+- Checks: authored same-session trace rejection, exact/missing/multiple step and frozen
+  counter/state classification, successful/failed graphics calls, lease resume/removal
+  classification, existing native/state reader tests, Python/JavaScript syntax and diff.
+  No host changes or new IKEMEN mixed match/replay results are claimed.
+- Evidence: ignored live probe `20261006-231049-679826`, first bounded gate
+  `boundary-20261006-235802-368510`, initial graphics check
+  `boundary-20261007-000019-921004`, combined proof
+  `boundary-20261007-000139-191482`, timeout proof
+  `boundary-20261007-000234-874993`, final guarded proof
+  `boundary-20261007-000353-577673`. Artifact UTC names can fall on the following date.
+- `controlled_update_step_verified` records this development proof. Full native tick
+  identity/atomicity and advertised `host-step` remain unaccepted: source input sampling,
+  movement/normal/hitstop and same-tick image association need validation. SIGN has no
+  connected producer, isolated fighter RGBA or universal result/contact suppression yet.
+  Next is source input routing and non-idle stepping, then isolated render/combat work.

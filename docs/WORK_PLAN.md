@@ -102,8 +102,9 @@ configurable ten-button mappings, tick-tagged state/isolated RGBA/collision, hos
 stepping, universal contact callbacks, health/KO/reset and unsupported-mode rejection.
 Two authored processes exercise the same receiver without game-name branches. See
 `PASSTHROUGH.md` for the protocol, launcher and current evidence. This establishes the
-receiver; no SIGN native hook/isolated source layer/native stepping/contact suppression
-has been implemented or accepted. Those real-game producer gates above remain open.
+receiver; SIGN has no connected producer or accepted isolated source layer/contact
+suppression. Its temporary native investigation and stepping proof are recorded below;
+the real-game producer gates above remain open.
 The existing Kyo and authored in-process runtimes stay usable.
 
 The SIGN producer investigation now has pinned legacy/Rev2 source references and a
@@ -123,7 +124,12 @@ one thread/caller and clean hook removal with restored loaded-code hashes. Sourc
 function bytes and counter fields are derived locally, never committed as retail profiles.
 This establishes a consistent observed return boundary. Exact stepping, input/render
 association, hitstop/pause and other-thread ownership remain gates; producer capabilities
-are still false. The next experiment is a bounded fail-open gate around this routine.
+are still false. A bounded fail-open gate now passes an idle three-step proof: one original
+call per request, unchanged counter/state between requests, successful graphics work at
+held counters and clean native/graphics code restoration. Automatic lease resume and
+hard-lifetime hook removal pass. This is a short development gate, not a persistent
+SIGN producer; next are input sampling/routing and movement/normal/hitstop oracles,
+then isolated RGBA and universal result/contact integration.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

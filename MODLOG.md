@@ -16,3 +16,19 @@ render projection and host size pushing. Core movement/restore tests and a mixed
 renderer smoke passed. All 13 imported actions appeared in the initial AI-input trace.
 Native KO/round regression passed. No game installation files changed; no game
 resources are tracked. Combat, pixel-level and human acceptance remain open.
+
+## 2026-10-06: SIGN native boundary and bounded stepping
+
+Exact SIGN executable/session checks and local disassembly identify an engine-inner-object
+update routine containing a counter increment. One caller ignores its return value. Two
+return traces give 1,702 consecutive increments and exact Sol pose/collision matches.
+Retail addresses, counter fields, function bytes and local profiles stay ignored.
+
+A temporary Frida gate now suppresses ordinary source-thread calls and grants one original
+call per request. The final idle test has three single increments and 227 unchanged blocked
+observations; all 230 collision records match. Successful Direct3D presentations continue
+at held counters. A no-credit timeout test proves automatic lease resume and native hook
+removal before controller cleanup. Native and graphics code restore; source file hashes
+remain unchanged. No source input or UI driving was performed. Input, movement/normal,
+hitstop, isolated RGBA and universal contact/result integration remain open. All producer
+capabilities stay unaccepted; this is a bounded development proof.

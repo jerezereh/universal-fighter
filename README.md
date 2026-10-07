@@ -82,3 +82,8 @@ original SIGN bootstrap for manual offline comparisons. They change no global ru
 installation or permanent PATH. For newer 3D fighters, the next investigation is a native
 passthrough feasibility slice; see the work plan. The importer/baker remains a fallback
 and a source-data oracle.
+
+SIGN's native investigation now includes a bounded idle freeze/three-step proof with
+graphics progress and automatic recovery. This is development instrumentation, not a
+playable SIGN guest. Setup, commands and the remaining input/render/combat gates are in
+[XRD_SIGN_NATIVE_PROBE.md](docs/XRD_SIGN_NATIVE_PROBE.md).

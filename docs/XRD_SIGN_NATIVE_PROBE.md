@@ -1,9 +1,10 @@
 # SIGN native passthrough investigation
 
-The generic IKEMEN receiver is implemented. This step adds an original, read-only
-probe for finding SIGN's native producer boundary. It does not install a hook, inject
-code, freeze the game, send input, expose a guest endpoint or advertise passthrough
-capabilities. All discovered addresses and loaded game bytes remain in ignored local
+The generic IKEMEN receiver is implemented. SIGN investigation includes a VM_READ-only
+probe/state recorder, a temporary native return observer and a bounded freeze/step
+experiment. The last two inject development instrumentation; the probe/recorder do not.
+None sends input, exposes a guest endpoint or advertises passthrough capabilities.
+All discovered addresses and loaded game bytes remain in ignored local
 `artifacts/xrd-sign-native`; they are not source profiles to distribute.
 
 ## Run the next source check
@@ -170,6 +171,60 @@ This verifies a consistent **observed update boundary**, not a complete simulati
 contract. Movement/attacks under this hook, other-thread state ownership, input sampling,
 hitstop/pause and rendering remain unverified. `native_tick_verified`,
 `atomic_native_frame`, `host_step`, `isolated_rgba` and `universal_contact` remain false.
+
+## Bounded native freeze/step proof (2026-10-06)
+
+The same tool's optional `--gate <clean-boundary-folder>` requires a clean, same-session
+return trace: one thread/caller, inner engine object, depth zero, consecutive increments,
+identical function bytes and verified detach/code restoration. An authored x86 scratch
+routine verifies Frida's thiscall argument register, original-call bypass and restoration
+before touching the source routine. Native source exceptions remain native exceptions.
+
+The temporary replacement skips the routine between requests. Each `step` RPC grants
+one credit, consumed on its next ordinary source-thread invocation; it calls the original
+routine in that context and copies the resulting state at return. A second pending credit
+is rejected. Scene/caller/read changes fail open to normal execution. There is no arbitrary
+worker-thread tick call and no source keyboard/menu input. An eight-second lease resumes
+normal execution without renewals; a twelve-second hard lifetime removes the gate even
+while the controller remains connected. This is a development experiment, not a persistent
+guest session or the host's transport endpoint.
+
+Graphics observation derives bounded device-method candidates from the pinned legacy
+reference's OS `d3d9.dll` constructor pattern. It observes all candidates and validates
+each actual device's method-table entry at invocation instead of selecting the first hit.
+Successful `Present` and `EndScene` returns are tagged with the held native counter.
+These are graphics-call observations, not isolated fighter images or one-to-one frame IDs.
+The initial strict constructor-table equality check saw no presentations and failed the
+render gate; validating the actual device's corresponding method entry resolves that
+observation failure. Source and graphics hook bytes restored after both runs.
+
+```powershell
+python tools/xrd-sign-boundary.py <live-probe-folder> --candidate <local-candidate.json> --gate <clean-boundary-folder>
+python tools/xrd-sign-boundary.py <live-probe-folder> --candidate <local-candidate.json> --gate <clean-boundary-folder> --lease-check
+```
+
+The final 4.5-second idle run records 230 update opportunities: three requested original
+calls, each advancing the counter once, and 227 blocked calls with zero counter changes.
+Both fighters' observed state stays identical between requested steps. All 230 Sol
+pose/box lists exactly match source collision. There are 230 successful presentations
+and 460 successful scene-end calls, including repeated successful graphics work at each
+held counter. There are no counter gaps or trace errors. Native and graphics hooks restore.
+
+The timeout test requests no steps: 456 blocked opportunities preserve counter/state.
+Its lease expires, successful presentations subsequently show increasing counters, and
+the full native loaded-code hash is already restored after the hard lifetime **before
+controller teardown**. Graphics hooks also restore at teardown. All 456 held Sol
+pose/box lists match. This verifies recovery as well as a bounded idle stepping proof.
+
+`controlled_update_step_verified` distinguishes this experiment from the unaccepted
+`host_step`/`native_tick_verified`/`atomic_native_frame` capabilities. Input sampling,
+movement/crossover/Punch under host requests, source pause/hitstop, renderer-state
+association and state ownership beyond the observed fields remain pending. Isolated
+RGBA and native contact suppression/result commits are still unimplemented; SIGN is
+not yet a playable guest. Source UI remains under manual user control.
+
+Implementation uses the official [Frida API](https://frida.re/docs/javascript-api/)
+and [Direct3D Present contract](https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-present).
 
 ## Gate after a loaded-module match
 
