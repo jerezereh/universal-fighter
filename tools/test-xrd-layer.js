@@ -21,9 +21,9 @@ function fixture(failure = null, alpha = false, colorProduct = false) {
     const root = {add:()=>({readU32:()=>9})};
     const context = vm.createContext({Memory:{alloc:allocation}, ptr:()=>zero, Date, Map,
         Process:{mainModule:{base:{add:()=>({readPointer:()=>root})}}},
-        config:{state:{engine_global_rva:0},candidate:{counter_field:0},layer:{target:'target',programs:{
+        config:{state:{engine_global_rva:0},candidate:{counter_field:0},layer:{target:'target',capture_steps:[0,1,2,3],programs:{
             'source-shader':{original_hex:'01020304',variant_hex:'0102030405060708'}}}},
-        gate:{resumed:false,executing:false,deadline:Date.now()+8000},renderCapture:{presentations:2},
+        gate:{resumed:false,executing:false,deadline:Date.now()+8000,initialCounter:9},renderCapture:{counter:9,presentations:2},
         bytes:(address)=>address.data,hex:array=>Buffer.from(array).toString('hex'),
         succeeded:(hr,name)=>{if(hr<0) throw Error(name+' failed');}});
     context.com = (object, slot) => (...args) => {
@@ -83,4 +83,7 @@ assert.equal(vm.runInContext('layerSkipped',alpha.context),1);
 assert.equal(alpha.calls.some(([,slot])=>slot===28),false);
 const product=fixture(null,false,true);product.run();product.check();product.release();
 assert.equal(vm.runInContext('layerColorBlends',product.context),1);
+const stale=fixture();stale.context.renderCapture.counter=8;stale.run();assert.equal(stale.calls.length,0);
+const duplicate=fixture();vm.runInContext('layerCapturedSteps.add(0)',duplicate.context);duplicate.run();
+assert.equal(duplicate.calls.length,0);
 console.log('Private replay state restoration, opaque guard, draw failures and independent resource release passed.');

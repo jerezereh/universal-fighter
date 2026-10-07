@@ -526,6 +526,37 @@ verified source/graphics restoration; its teardown is explicitly unaccepted. The
 window then became unavailable, so subsequent live work requires fresh training/profile
 evidence. No disappeared/stale window or failed teardown is accepted as a producer frame.
 
+## Selected native movement and attack renders
+
+`--layer-steps 0,4,8,12,16,20,24,28` selects up to eight requested update indices,
+including initial zero. With `--input-plan tools/xrd-render-motion-oracle.json --oracle
+render-motion`, each selected source state gets a matching full scene and private mesh
+image. `tools/xrd-render-attack-oracle.json --oracle render-attack` instead uses
+`--layer-steps 0,1,3,5,7,9,12,20`. Both require the fresh session's gate, native input
+profile, draw identity, shader inspection and normal capture/draw options.
+
+The controller waits for selected private images before issuing the next step. Private
+replay requires the presentation counter to equal the current native counter and captures
+each requested step once. This avoids reusing a previous counter's presentation count.
+Native packets are bounded at eight pairs/128 MiB; RGB previews, histograms and disk
+encoding run after teardown. The experiment lasts ten seconds, within the unchanged
+twelve-second native hard lifetime. Invalid/missing/duplicate/stale-counter/state pairs,
+skipped materials, unchanged action images and direction mismatches fail the oracle.
+
+Fresh probe `20261007-211042-686316` rederives state and all graphics identities.
+`boundary-20261007-212257-282158` passes 28 exact movement/jump updates, 244 blocked
+opportunities and eight pairs; the layer follows native X/Y directions.
+`boundary-20261007-212507-124638` passes 20 updates, 248 blocked opportunities and eight
+Punch pairs; selected steps 5/7 carry active hitboxes and changing native mesh poses.
+Both preserve input history/frozen state and restore original code after detach.
+The updated bounded cleanup path also passes the new neutral private rendering check.
+
+Target-edge coverage is reported explicitly: the movement oracle's jump step 24 is
+clipped at the top. Motion/action agreement is not complete render/transform acceptance.
+Three presentations remain a settling heuristic. Camera/render ownership, exact delay,
+HDR/postprocess colors, foot pivot/source units and left-facing visual evidence remain
+open; no `host-step`, `isolated-rgba` or atomic-frame capability is promoted.
+
 ## Remaining producer gates
 
 A unique signature is only a candidate. Before building a producer around it:

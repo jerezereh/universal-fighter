@@ -1,5 +1,52 @@
 # Progress record
 
+## 2026-10-07 — Reopened SIGN and non-idle mesh rendering
+
+- Reopened process/window confirmed; a fresh loaded-module/state profile derives the
+  current pointer fields. Prior local owner/input hypotheses are revalidated against
+  actual new function bytes/instruction relationships. A fresh entry/return trace has
+  180 exact increments without gaps/errors. No old process, thread, graphics pointer or
+  shader ID is used. Same-session draw identity/shader inventories are derived again.
+- The complete bounded-call path now passes in SIGN: neutral private rendering captures
+  four scene/mesh pairs, three exact steps and 232 blocked opportunities, followed by
+  successful unload/detach and restored native/graphics bytes. The source window survives.
+- Added selected render request indices, up to eight captures and 128 MiB of native
+  packets. Source scene and mesh snapshots pair by actual native counter, request index
+  and fighter state. Deferred all preview/histogram/file encoding until after teardown.
+  Named movement/attack render plans run within a ten-second controller experiment;
+  the native lease and twelve-second hard lifetime are unchanged.
+- The first motion attempt exposes an association bug: an early new-counter draw could
+  reuse the previous counter's presentation count and duplicate a selected request.
+  Added current presentation-counter agreement and one capture per selected step.
+  Both have authored guards. A second incomplete run is rejected rather than accepted;
+  moving preview work out of the gate lets the entire oracle complete.
+- Motion proof passes 28 exact updates/244 blocked opportunities, no gaps/errors, 272
+  successful Present calls and eight source/mesh pairs at requests 0/4/8/12/16/20/24/28.
+  Native alpha centers move with left/right inputs and rise with source jump Y. All
+  private draws restore state; original code and executable fingerprints agree.
+- Punch proof passes 20 exact updates/248 blocked opportunities, 267 Present calls and
+  eight pairs at 0/1/3/5/7/9/12/20. It shows one `NmlAtk5A` activation, startup/active/
+  recovery mesh changes, active hitboxes at selected steps 5/7 and return to idle. All
+  13 body/head/weapon draws remain present without skipped materials. Native input
+  history and held state agree; teardown restores code. Inspected checker contact sheet
+  shows the actual native poses, including the active arm/weapon extension.
+- A jumping layer reaches the target edge at step 24. Target-edge contact is explicitly
+  reported; direction agreement does not imply complete uncropped coverage. Native
+  camera interpolation/other render ownership, exact frame delay, HDR/postprocess color,
+  pivot/source units and left-facing visual checks remain unaccepted.
+- Evidence under new probe `20261007-211042-686316`: boundary observation
+  `boundary-20261007-211139-217423`, draw proof `boundary-20261007-211207-131993`,
+  shader inspection `boundary-20261007-211239-618302`, neutral private proof
+  `boundary-20261007-211433-484333`, rejected motion experiments
+  `boundary-20261007-211913-864169` / `boundary-20261007-212058-028196`, final motion
+  `boundary-20261007-212257-282158` and Punch `boundary-20261007-212507-124638`.
+  Source assets, bytes, addresses and previews remain ignored.
+- Focused authored layer/frame association, source counter, bounds, normal activation,
+  native cleanup and existing input/render/boundary tests pass. The generic receiver and
+  host patch are unchanged. SIGN remains unconnected; complete guest capabilities stay
+  false. Next resolve render settling/transform/framing, then persistent producer and
+  universal combat ownership.
+
 ## 2026-10-07 — Private native Sol mesh layer
 
 - Added bounded pixel-shader inspection for the verified body/head/weapon buffer pairs.

@@ -19,7 +19,7 @@ from xrd_input import input_candidate, input_mask, input_plan, input_check, orac
 from xrd_combat import combat_fields, contact_check
 from xrd_render import render_pixels, save_render, render_check, draw_check, save_pass
 from xrd_shader import opaque_alpha_variant
-from xrd_layer import save_layer_preview
+from xrd_layer import save_layer_preview, capture_steps, render_oracle
 
 ROOT=Path(__file__).resolve().parent.parent
 EXE=Path('C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-/Binaries/Win32/GuiltyGearXrd.exe')
@@ -130,7 +130,7 @@ def layer_programs(folder,state,identity):
     return dict(target=color[0],programs=programs)
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None):
     receipt=json.loads((probe/'inspection.json').read_text())
     state=json.loads((probe/'state-profile.json').read_text())
     if scalar_path:
@@ -172,7 +172,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if inspect_shaders and not suppress_path: raise ValueError('mesh shader inspection requires local buffer identity')
     if suppress_path:
         identity=json.loads(suppress_path.read_text())
-        if (not trace_draws or not capture or capture_passes or plan_path or expire or identity.get('pid')!=state['pid'] or
+        if (not trace_draws or not capture or capture_passes or (plan_path and (not layer_path or oracle not in ('render-motion','render-attack'))) or expire or identity.get('pid')!=state['pid'] or
                 identity.get('exe_sha256')!=SIGN_HASH or not identity.get('geometry_match_verified') or
                 identity.get('actor_identity_verified') is not False or identity.get('isolated_rgba') is not False or
                 set(identity.get('parts',{}))!={'body','head','weapon'} or
@@ -185,6 +185,9 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if layer_path:
         if not identity or inspect_shaders: raise ValueError('layer capture requires exclusive mesh identity')
         layer=layer_programs(layer_path,state,identity)
+        layer['capture_steps']=capture_steps(layer_steps or '0,1,2,3')
+    elif layer_steps or oracle.startswith('render-'): raise ValueError('selected render oracle requires a private layer')
+    if oracle.startswith('render-') and not plan_path: raise ValueError('render oracle requires a named input plan')
     source_window=None
     if capture or trace_draws:
         # Rendering needs an unminimized window, but never requires desktop keyboard focus.
@@ -198,6 +201,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         if not gate_options or not input_profile or expire or plan_path.stat().st_size>16384:
             raise ValueError('bounded input plan requires a native gate and validated input ingress')
         plan=input_plan(json.loads(plan_path.read_text()))
+        if layer and (oracle not in ('render-motion','render-attack') or layer['capture_steps'][-1]!=len(plan)):
+            raise ValueError('private render plan must use a render oracle and capture its final requested step')
     sys.path.insert(0,str(ROOT/'local-cache/xrd-tools/frida/python'))
     import frida
     if frida.__version__!='17.22.2': raise ValueError('run gather-xrd-instrumentation.py for pinned Frida')
@@ -210,7 +215,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     def receive(message,data):
         try: messages.put_nowait((message,data,time.perf_counter()))
         except queue.Full: overflow.append(True)
-    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];layers=[];pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
+    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];layers=[];scene_packets=[];layer_packets=[];render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
     started=time.perf_counter();started_utc=datetime.datetime.now(datetime.timezone.utc).isoformat();completed=0;next_request=.5 if plan else 1;request_log=[]
     with ReadOnlyProcess(state['pid'],EXE) as process:
         def unchanged():
@@ -229,14 +234,15 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             with (out/'state.jsonl').open('w',encoding='utf-8') as log:
                 while time.perf_counter()-started<seconds:
                     if overflow: raise ValueError('instrumentation queue overflow')
-                    if plan and requests<len(plan) and requests==completed and time.perf_counter()-started>=next_request:
+                    image_ready=not layer or requests not in layer['capture_steps'] or any(c['request_index']==requests for c in layers)
+                    if plan and requests<len(plan) and requests==completed and image_ready and time.perf_counter()-started>=next_request:
                         if requests==0 and (not states or any(s['y_raw'] or s['hit_count'] for s in states[0]) or not any(re.fullmatch(r'sol00[01]_[0-9]{2}',n['value']) for n in states[0][0]['pose_candidates']) or
                             (abs(states[0][0]['x_raw']-states[0][1]['x_raw'])>350000 if oracle=='contact' else abs(states[0][0]['x_raw']-states[0][1]['x_raw'])<350000)):
                             raise ValueError('input oracle requires grounded idle Sol/opponent within its scene distance bounds')
                         packet=plan[requests];mask=input_mask(packet['input'],states[-1][0]['facing_left'],packet['accept_input'])
                         bounded_call(frida,lambda:script.exports_sync.step([mask,0]));request_log.append(dict(step=requests+1,mask=mask,**packet));requests+=1
                         next_request=time.perf_counter()-started+.03+packet['hold_ms']/1000
-                    elif not plan and gate_options and not expire and requests<3 and requests==completed and time.perf_counter()-started>=next_request and (not capture_passes or draws):
+                    elif not plan and gate_options and not expire and requests<3 and requests==completed and image_ready and time.perf_counter()-started>=next_request and (not capture_passes or draws):
                         bounded_call(frida,lambda:script.exports_sync.step([0,0]));requests+=1;next_request=time.perf_counter()-started+1
                     if expire and time.perf_counter()-started>12.5 and not automatic_restore:
                         automatic_restore=unchanged()
@@ -263,14 +269,18 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         passes.append((message['payload'],data));continue
                     if message['type']=='send' and message['payload'].get('kind')=='render-layer':
                         native=message['payload'];render_pixels(native,data)
-                        if len(layers)>=4: raise ValueError('private layer capture limit')
+                        if len(layers)>=len(layer['capture_steps']): raise ValueError('private layer capture limit')
+                        render_bytes+=len(data)
+                        if render_bytes>128<<20: raise ValueError('render packet byte limit')
                         observation=observe(CapturedMemory(native['segments'],data[:native['state_size']]),state)
-                        folder=out/'layers';folder.mkdir(exist_ok=True)
-                        layers.append(save_render(folder,native,data,observation));continue
+                        layer_packets.append((native,data,observation))
+                        layers.append(dict(request_index=native['request_index']));continue
                     if message['type']=='send' and message['payload'].get('kind')=='render':
                         native=message['payload'];render_pixels(native,data)
+                        render_bytes+=len(data)
+                        if len(scene_packets)>=8 or render_bytes>128<<20: raise ValueError('source render packet limit')
                         observation=observe(CapturedMemory(native['segments'],data[:native['state_size']]),state)
-                        captures.append(save_render(out,native,data,observation));continue
+                        scene_packets.append((native,data,observation));continue
                     if expire and message['type']=='send' and message['payload'].get('phase')=='watchdog':
                         diagnostics.append(message['payload']);continue
                     if message['type']!='send' or message['payload'].get('kind')!='frame':
@@ -310,6 +320,12 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             cleanup_receipt['render_verification_after_detach']=detached
     if not restored: errors.append(dict(cleanup_error='loaded source code was not restored'))
     if fingerprint(EXE)!=SIGN_HASH: errors.append(dict(source_error='source executable fingerprint changed'))
+    # Encode RGB previews/histograms only after native hooks and session have been removed.
+    captures=[save_render(out,native,data,observation) for native,data,observation in scene_packets]
+    layers=[]
+    if layer_packets:
+        folder=out/'layers';folder.mkdir(exist_ok=True)
+        layers=[save_render(folder,native,data,observation) for native,data,observation in layer_packets]
     deltas=Counter(r['counter_delta'] for r in records)
     gaps=sum(b['before']!=a['after'] for a,b in zip(records,records[1:]))
     result=dict(schema=1,pid=state['pid'],samples=len(records),seconds=seconds,started_utc=started_utc,
@@ -380,7 +396,12 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if plan:
         result['named_input_steps']=len(request_log)
         result['input_oracle']=oracle
-        result['input_oracle_passed']=oracle_passed(oracle,result['input_check']) if oracle!='contact' else False
+        result['input_oracle_passed']=oracle_passed(oracle,result['input_check']) if oracle in ('movement','crossover') else False
+        if oracle.startswith('render-'):
+            try: result['render_oracle']=render_oracle(oracle,layers,captures,layer['capture_steps'])
+            except ValueError as error:
+                result['render_oracle']=dict(passed=False,error=str(error));errors.append(dict(check_error=str(error)))
+            result['input_oracle_passed']=result['render_oracle']['passed']
         if oracle=='contact' and combat_profile:
             try: result['contact_check']=contact_check(records,states)
             except ValueError as error:
@@ -417,7 +438,7 @@ if __name__=='__main__':
     p.add_argument('--lease-check',action='store_true',help='with --gate: omit steps and verify automatic resume/removal over 13 seconds')
     p.add_argument('--input-candidate',type=Path,help='ignored local sampler/writer/ingress discovery JSON')
     p.add_argument('--input-plan',type=Path,help='bounded named-input oracle plan, with --gate and --input-candidate')
-    p.add_argument('--oracle',choices=('movement','crossover','contact'),default='movement',help='required input-plan evidence; contact without --combat-candidate records discovery only')
+    p.add_argument('--oracle',choices=('movement','crossover','contact','render-motion','render-attack'),default='movement',help='required input-plan evidence; native render oracles require --capture-layer')
     p.add_argument('--scalar-fields',type=Path,help='ignored bounded field hypotheses to observe without semantic promotion')
     p.add_argument('--combat-candidate',type=Path,help='ignored local scalar getter/setter discoveries for the native contact check')
     p.add_argument('--capture-render',action='store_true',help='with --gate: capture up to eight full-scene D3D9 backbuffers and held source states; no isolated-layer claim')
@@ -426,11 +447,12 @@ if __name__=='__main__':
     p.add_argument('--suppress-draws',type=Path,help='with --capture-render and --trace-draws: briefly suppress locally derived mesh-buffer candidates for visual identity proof')
     p.add_argument('--inspect-mesh-shaders',action='store_true',help='with --suppress-draws: read matching mesh pixel shader programs while preserving every original draw')
     p.add_argument('--capture-layer',type=Path,help='with --suppress-draws: clean shader inspection folder for bounded private opaque mesh replay')
+    p.add_argument('--layer-steps',help='with --capture-layer: 2..8 ordered selected request indices starting at 0 (default 0,1,2,3)')
     a=p.parse_args()
     if not 0<a.seconds<=120: p.error('seconds must be 0..120')
     if a.lease_check and not a.gate: p.error('--lease-check requires --gate')
-    trace(a.probe.resolve(),a.candidate.resolve(),13 if a.lease_check else 8 if a.capture_passes or a.capture_layer else 7 if a.input_plan else 4.5 if a.gate else a.seconds,
+    trace(a.probe.resolve(),a.candidate.resolve(),13 if a.lease_check else 10 if a.capture_layer and a.input_plan else 8 if a.capture_passes or a.capture_layer else 7 if a.input_plan else 4.5 if a.gate else a.seconds,
           a.gate.resolve() if a.gate else None,a.lease_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps)

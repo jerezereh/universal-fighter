@@ -1,0 +1,15 @@
+[
+  {"frames":1,"input":{"punch":true},"label":"capture-punch-1","hold_ms":350},
+  {"frames":1,"input":{},"label":"release"},
+  {"frames":1,"input":{},"label":"capture-startup-3","hold_ms":350},
+  {"frames":1,"input":{},"label":"startup"},
+  {"frames":1,"input":{},"label":"capture-normal-5","hold_ms":350},
+  {"frames":1,"input":{},"label":"normal"},
+  {"frames":1,"input":{},"label":"capture-normal-7","hold_ms":350},
+  {"frames":1,"input":{},"label":"normal"},
+  {"frames":1,"input":{},"label":"capture-normal-9","hold_ms":350},
+  {"frames":2,"input":{},"label":"recovery"},
+  {"frames":1,"input":{},"label":"capture-recovery-12","hold_ms":350},
+  {"frames":7,"input":{},"label":"recovery"},
+  {"frames":1,"input":{},"label":"capture-recovery-20","hold_ms":350}
+]

@@ -1,0 +1,17 @@
+[
+  {"frames":3,"input":{"left":true},"label":"walk-left"},
+  {"frames":1,"input":{"left":true},"label":"capture-left-4","hold_ms":350},
+  {"frames":3,"input":{"left":true},"label":"walk-left"},
+  {"frames":1,"input":{"left":true},"label":"capture-left-8","hold_ms":350},
+  {"frames":3,"input":{"right":true},"label":"walk-right"},
+  {"frames":1,"input":{"right":true},"label":"capture-right-12","hold_ms":350},
+  {"frames":3,"input":{"right":true},"label":"walk-right"},
+  {"frames":1,"input":{"right":true},"label":"capture-right-16","hold_ms":350},
+  {"frames":1,"input":{"up":true},"label":"jump"},
+  {"frames":2,"input":{},"label":"jump-startup"},
+  {"frames":1,"input":{},"label":"capture-jump-20","hold_ms":350},
+  {"frames":3,"input":{},"label":"airborne"},
+  {"frames":1,"input":{},"label":"capture-air-24","hold_ms":350},
+  {"frames":3,"input":{},"label":"airborne"},
+  {"frames":1,"input":{},"label":"capture-air-28","hold_ms":350}
+]

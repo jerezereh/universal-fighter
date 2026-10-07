@@ -171,6 +171,13 @@ preserves underlying coverage. Inspected native alpha excludes the opponent/stag
 and preserves black materials. The crop is diagnostic: color/postprocess fidelity,
 moving/attack coverage, pivot/facing and image delay remain gates before publication.
 Persistent producer and universal contact/result ownership still follow those checks.
+Fresh-session non-idle rendering now passes paired native scene/mesh oracles: walking
+both ways and jumping across 28 exact updates, and standing Punch startup/active/recovery
+across 20 updates. Selected captures require current counter/presentation agreement and
+are unique per requested step. Deferred preview work preserves the native watchdog.
+These establish motion/action agreement; one jump frame touches the render target edge.
+Framing/camera ownership, exact render settling, colors, pivot and left-facing pixels
+still require proof before a source frame can be published to IKEMEN.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Original menu pause,
 clash/superfreeze and universal stop/result ownership still need dedicated validation.

@@ -19,6 +19,8 @@ def layer_pixels(metadata,pixels):
     values,counts=np.unique(alpha,return_counts=True)
     return dict(native_alpha_values={str(int(v)):int(n) for v,n in zip(values,counts)},
         native_coverage_bounds=bounds,covered_pixels=int(covered.sum()),
+        native_coverage_center=[float(x.mean()),float(y.mean())],
+        touches_target_edge=bounds[0]==0 or bounds[1]==0 or bounds[2]==width or bounds[3]==height,
         alpha_sha256=hashlib.sha256(alpha.tobytes()).hexdigest(),transparent_rgb_zero=True,
         native_coverage_verified=False,isolated_rgba=False)
 
@@ -37,3 +39,40 @@ def save_layer_preview(folder,metadata):
     check.alpha_composite(image);check.convert('RGB').save(folder/(name+'-checker.png'))
     return analysis|dict(rgba_preview=name+'-rgba.png',checker_preview=name+'-checker.png',
         crop_is_diagnostic=True,pivot_verified=False,color_verified=False)
+
+
+def capture_steps(text):
+    try: steps=[int(n) for n in text.split(',')]
+    except (TypeError,ValueError): raise ValueError('invalid selected layer steps')
+    if not 2<=len(steps)<=8 or steps[0]!=0 or steps!=sorted(set(steps)) or steps[-1]>160:
+        raise ValueError('requires 2..8 ordered distinct layer steps starting at zero, ending by 160')
+    return steps
+
+
+def render_oracle(kind,layers,scenes,steps):
+    if kind not in ('render-motion','render-attack'): raise ValueError('unknown native render oracle')
+    if ([c.get('request_index') for c in layers]!=steps or [c.get('request_index') for c in scenes]!=steps or
+            any(c.get('counter')!=s.get('counter') or c['observation']['fighters']!=s['observation']['fighters']
+                for c,s in zip(layers,scenes))):
+        raise ValueError('missing/out-of-order/unpaired source render steps')
+    if any(((c['counter']-layers[0]['counter'])&0xffffffff)!=c['request_index'] for c in layers):
+        raise ValueError('native counter does not identify requested render step')
+    if any(c.get('skipped_draws_total')!=0 or not c.get('source_graphics_state_verified') for c in layers):
+        raise ValueError('incomplete/restoration-failed native mesh layer')
+    left=right=jump=False
+    for a,b in zip(layers,layers[1:]):
+        fa,fb=(c['observation']['fighters'][0] for c in (a,b))
+        ca,cb=(c['native_coverage_center'] for c in (a,b))
+        dx,dy=fb['x_raw']-fa['x_raw'],fb['y_raw']-fa['y_raw']
+        left |= dx<0 and cb[0]<ca[0]-.5
+        right |= dx>0 and cb[0]>ca[0]+.5
+        jump |= dy>10000 and cb[1]<ca[1]-1
+    normal=[c for c in layers if any(n['value']=='NmlAtk5A' for n in c['observation']['fighters'][0]['state_candidates'])]
+    active=any(c['observation']['fighters'][0]['hit_count']>0 for c in normal)
+    changed=len({c['alpha_sha256'] for c in layers})>1 and len({c['rgb_sha256'] for c in layers})>1
+    passed=(left and right and jump if kind=='render-motion' else bool(normal) and active) and changed
+    return dict(passed=passed,selected_steps=steps,paired_source_states=True,image_moves_left=left,
+        image_moves_right=right,image_rises_with_jump=jump,normal_render_samples=len(normal),
+        active_normal_rendered=active,mesh_images_changed=changed,
+        clipped_render_steps=[c['request_index'] for c in layers if c.get('touches_target_edge')],
+        native_render_latency_verified=False,atomic_native_frame=False,isolated_rgba=False)

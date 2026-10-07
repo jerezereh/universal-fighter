@@ -374,9 +374,11 @@ function observePresent() {
                             renderCapture.counter = this.counter; renderCapture.presentations = 0;
                         }
                         // Observe three presentations on the held counter before readback; latency still needs an oracle.
-                        if (++renderCapture.presentations === 3 && renderCapture.attempts < 8) {
+                        if (++renderCapture.presentations === 3 && renderCapture.attempts < 8 &&
+                            (!config.layer || (gate.initialCounter !== null && config.layer.capture_steps.includes((this.counter - gate.initialCounter) >>> 0)))) {
                             ++renderCapture.attempts;
                             this.capture = captureBackBuffer(args[0], root, this.counter);
+                            if (config.layer) this.capture.metadata.request_index = (this.counter - gate.initialCounter) >>> 0;
                         }
                     }
                 } catch (error) { send({kind: 'error',phase: 'present',message: String(error)}); }
@@ -481,7 +483,7 @@ function installGate(target, p) {
     const root = Process.mainModule.base.add(p.state.engine_global_rva).readPointer();
     const original = new NativeFunction(target, 'void', ['pointer'], {abi: 'thiscall', exceptions: 'propagate'});
     gate = {target, root, credits: 0, pending: false, deadline: Date.now() + 8000, resumed: false, timer: null,
-        executing: false, inputs: [0, 0]};
+        executing: false, inputs: [0, 0], initialCounter: null};
     const replacement = new NativeCallback(function(object) {
         const g = gate;
         if (g === null || g.resumed) { original(object); return; }
@@ -506,6 +508,7 @@ function installGate(target, p) {
             original(object); return;
         }
         const execute = g.credits === 1;
+        if (g.initialCounter === null) g.initialCounter = s.before;
         if (execute) {
             g.credits = 0; g.executing = true;
             try { original(object); } finally { g.executing = false; }
