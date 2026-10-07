@@ -21,7 +21,7 @@ class Memory:
 def fixture():
     module=bytearray(16);struct.pack_into('<I',module,4,0x20000)
     engine=bytearray(32);struct.pack_into('<i2I',engine,0,2,0x30000,0x40000)
-    fields=dict(count=0,slots=4,x=0,y=4,facing=8,boxes=12,hurt_count=16,hit_count=20,scale_x=24,scale_y=28)
+    fields=dict(count=0,slots=4,x=0,y=4,facing=8,boxes=12,hurt_count=16,hit_count=20,scale_x=24,scale_y=28,rotation=36)
     body=bytearray(0x2600);struct.pack_into('<iiiIiiiiI',body,0,-250,0,0,0x50000,1,0,1000,1000,0)
     body[80:90]=b'sol000_00\0';body[96:108]=b'CmnActStand\0'
     other=bytearray(body);struct.pack_into('<iiiI',other,0,250,0,1,0x60000)
@@ -52,6 +52,11 @@ def main():
     assert record['fighters'][0]['x_raw']==-250 and record['fighters'][1]['facing_left']
     assert record['fighters'][0]['pose_candidates'][0]['value']=='sol000_00'
     assert record['fighters'][0]['boxes']==[[0,-15,-80,30,80]] and not record['atomic_native_frame']
+    p['scalar_fields']={'authored':24};record=observe(memory,p)
+    assert record['fighters'][0]['scalar_observations']=={'authored':1000}
+    memory.segments[0x40000][80:90]=b'kyk000_00\0'
+    memory.segments[0x40000][79]=ord('a')
+    assert observe(memory,p)['fighters'][1]['pose_candidates'][0]['value']=='kyk000_00'
     for field,value in (('facing',2),('hurt_count',65),('hit_count',-1)):
         m,p=fixture();struct.pack_into('<i',m.segments[0x30000],p['fields'][field],value)
         reject(lambda:observe(m,p))

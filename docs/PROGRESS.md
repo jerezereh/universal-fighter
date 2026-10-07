@@ -959,3 +959,47 @@ the synthetic architecture gate allows the first real-game adapter.
   Live K/S/HS/D/taunt, crossover/facing, source pause/hitstop and image association
   remain unverified. Next are those native ownership/render gates, a persistent
   producer and universal result/contact integration. SIGN remains unconnected to IKEMEN.
+
+### SIGN crossover/facing and native contact-stop oracle (2026-10-06)
+
+- Added crossover/contact plans and evidence-specific checks. Crossover: 135 updates,
+  158 blocked, both inward grounded facings, side crossing, landing and relative walking
+  after the flip. Inputs agree and all 293 Sol box/pose lists match source collision.
+  EndScene progresses but successful Present is not observed in that run; no new visual
+  acceptance is claimed.
+- Fixed input compilation: explicit absolute directions take precedence over relative
+  input when host/source facing differs. Relative-only packets retain source facing.
+  No generic receiving boundary or host patch changed.
+- Rejected Rev2 layout guesses and an unrelated decrement. Contact discovery records
+  bounded scalar hypotheses; actual getter/setter bodies derive local health/stop/age
+  fields, and actor timer code confirms stop decrement. No getter/setter is called;
+  all retail code/layouts/RVAs remain ignored local evidence.
+- Added `xrd_combat.py` and authored checks for scalar byte/bounds/alias rejection,
+  mirrored world boxes and contact/countdown/age/freeze/recovery evidence. Collision
+  mapping follows pinned legacy scale/facing/Y math; unknown/nonzero rotation rejects.
+- Final contact: 78 updates, 327 blocked, exact input pairs, one increment per request,
+  no gaps/errors, 405 successful presentations and 405 exact source collision matches.
+  At step 38 Ky loses health once (420 to 410), with mirrored left-facing attack/hurtbox
+  overlap. Stop peaks are Sol 12/Ky 11; defender reaction appears on the next update.
+  Animation age stays held and 93 paused samples preserve health/stop/age. Both stops
+  recover and age advances. Native training restores health; hooks restore/EXE agrees.
+- Native pose parsing recognizes aligned `kyk` buffers despite adjacent scalar bytes.
+  Source profiles now include collision rotation. Raw hypotheses stay outside the
+  established verified-state freeze assertion and receive separate stop checks.
+  The alternate idle family initially rejected a scene before steps; the guard now
+  accepts both verified families. Failed post-checks retain cleanup metadata.
+- Host inspection confirms hitpause withholds guest steps. Universal result translation
+  must avoid an extra native countdown for those same ticks. Source contacts are not
+  suppressed, external results not committed and no host mixed-match result is claimed.
+- Evidence in ignored `20261006-231049-679826`: crossover
+  `boundary-20261007-023931-335106`, contact discovery
+  `boundary-20261007-024224-058336`, typed check
+  `boundary-20261007-025136-470365`, rejected idle scene
+  `boundary-20261007-025618-239179`, final mirrored contact
+  `boundary-20261007-025854-667437`, local combat candidate/profile and actor/timer/
+  getter/setter disassembly. UTC artifact names can fall on the following calendar date.
+- The prior usage-limit approval interruption resolved on the user's resume; the
+  pending read-only check executed through normal approval review.
+- Remaining: original menu pause, clash/superfreeze and human facing/render review;
+  isolated source RGBA with state/image association, persistent transport and universal
+  result/contact ownership. SIGN remains unconnected with full capabilities unaccepted.

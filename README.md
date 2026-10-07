@@ -85,6 +85,7 @@ and a source-data oracle.
 
 SIGN's native investigation now includes bounded stepping with named input, walking,
 jump/landing and two standing Punches, graphics progress and automatic recovery.
+Crossover/facing and a native hitstop/contact ownership oracle also pass.
 This is development instrumentation, not a
 playable SIGN guest. Setup, commands and the remaining input/render/combat gates are in
 [XRD_SIGN_NATIVE_PROBE.md](docs/XRD_SIGN_NATIVE_PROBE.md).

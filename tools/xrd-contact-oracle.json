@@ -1,0 +1,7 @@
+[
+  {"frames": 2, "input": {}, "label": "neutral"},
+  {"frames": 32, "input": {"forward": true}, "label": "approach"},
+  {"frames": 1, "input": {"punch": true}, "label": "standing-punch"},
+  {"frames": 13, "input": {}, "label": "contact-stop", "hold_ms": 120},
+  {"frames": 30, "input": {}, "label": "recovery"}
+]

@@ -134,9 +134,16 @@ instructions, with named input mapping kept in the source adapter. Two 129-step 
 prove walking both ways, jumping/landing, two standing Punch activations, matching source
 input histories and exact source collision. Both preserve frozen state between requests,
 renderer progress and cleanup; timeout recovery also removes the input hooks. Source-window
-video confirms movement/jump. Next are crossover/facing and hitstop ownership, isolated
-RGBA with state/image association, then a persistent producer and universal result/contact
-integration. Full guest capabilities remain unaccepted.
+video confirms movement/jump. Crossover now passes both inward grounded facings and
+relative controls after landing. A native contact proof derives local health/stop/age
+access fields and verifies one damage event, mirrored box overlap, held animation age,
+stop countdown only on requested updates, pause stability and recovery. Explicit host
+absolute directions take precedence over relative input, avoiding a conflicting source
+facing. Next is isolated RGBA with state/image association, then a persistent producer
+and universal result/contact integration. Full guest capabilities remain unaccepted.
+The existing host withholds steps during hitpause; the producer must avoid applying a
+second native countdown for those same externally held ticks. Original menu pause,
+clash/superfreeze and universal stop/result ownership still need dedicated validation.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

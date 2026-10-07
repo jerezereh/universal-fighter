@@ -48,3 +48,17 @@ pose/box observations match source collision. Observed state remains frozen betw
 requests, graphics work continues, and timeout recovery removes input/update hooks.
 Source-window video confirms movement/jump. Only private local profiles contain native
 addresses/layouts. Crossover, hitstop, isolated RGBA and universal contacts remain gates.
+
+## SIGN crossover and native stop ownership
+
+The 135-step crossover passes both inward facings and relative walking after landing.
+Actual scalar getter/setter bodies and actor timer code identify session-local health,
+stop and animation-age access. The final contact oracle has one 420-to-410 health loss,
+matching left-facing attack/hurtbox overlap, observed stop peaks 12/11, held animation age,
+93 unchanged paused stop observations and subsequent recovery. Native/contact collision
+comparisons pass. Retail code, RVAs and fields stay ignored local evidence.
+
+The generic host withholds steps during hitpause. Future universal result translation
+must avoid charging those ticks again in a native countdown; native contacts are not yet
+suppressed. Original menu pause and special freezes remain unverified. Next: isolated
+render/state association, persistent transport and universal results. No host code changed.

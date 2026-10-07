@@ -55,18 +55,20 @@ def main():
     records=[dict(executed=False,counter_delta=0),dict(executed=True,counter_delta=1),
              dict(executed=False,counter_delta=0),dict(executed=True,counter_delta=1),
              dict(executed=False,counter_delta=0),dict(executed=True,counter_delta=1)]
-    states=[0,1,1,2,2,3]
-    for r,s in zip(records,states): r['before']=s
+    values=[0,1,1,2,2,3]
+    for r,s in zip(records,values): r['before']=s
+    states=[[dict(value=s)] for s in values]
     checked=boundary.gate_check(records,states)
     assert checked['exact_steps'] and checked['frozen_counter'] and checked['frozen_observed_state']
-    assert not boundary.gate_check(records,[0,1,9,2,2,3])['frozen_observed_state']
+    assert not boundary.gate_check(records,[[dict(value=s)] for s in [0,1,9,2,2,3]])['frozen_observed_state']
     assert not boundary.gate_check(records[:-1],states[:-1])['exact_steps']
     assert not boundary.gate_check([records[0]|dict(counter_delta=1)]+records[1:],states)['frozen_counter']
     assert not checked['rendering_while_frozen']
     held=[dict(executed=False,counter_delta=0,before=10),dict(executed=False,counter_delta=0,before=11)]
     presentations=[dict(counter=c,hresult=0) for c in (10,11) for _ in range(10)]
-    assert boundary.gate_check(held,[0,0],presentations)['rendering_while_frozen']
-    assert not boundary.gate_check(held,[0,0],[p|dict(hresult=-1) for p in presentations])['rendering_while_frozen']
+    assert boundary.gate_check(held,[[dict(value=0)],[dict(value=0)]],presentations)['rendering_while_frozen']
+    assert not boundary.gate_check(held,[[dict(value=0)],[dict(value=0)]],[p|dict(hresult=-1) for p in presentations])['rendering_while_frozen']
+    assert boundary.gate_check(held,[[dict(value=0,scalar_observations={'candidate':1})],[dict(value=0,scalar_observations={'candidate':2})]])['frozen_observed_state']
     diagnostics=[dict(message='gate lease expired'),dict(message='hard gate lifetime expired')]
     r=[dict(executed=False,counter_delta=0,before=10,after=10)]
     checked=boundary.lease_check(r,[dict(counter=11,hresult=0)],diagnostics,True)

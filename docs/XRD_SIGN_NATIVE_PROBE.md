@@ -299,7 +299,68 @@ unaccepted. The next gates are crossover/facing, native pause/hitstop ownership 
 isolated rendering with state/image association, followed by a persistent producer and
 universal result/contact integration. No SIGN fighter is connected to IKEMEN yet.
 
-## Gate after a loaded-module match
+## Crossover, mirrored contact and native hitstop (2026-10-06)
+
+`--oracle crossover` uses `xrd-crossover-oracle.json`: approach from the left, jump right
+across Ky, land, then walk backward/forward with the new facing. The initial scene
+requires grounded idle Sol and a distant grounded opponent. The 135-step run gives
+135 single increments, 158 blocked opportunities, zero gaps/errors, matching source
+input histories, both inward grounded facing values and relative walking after the flip.
+All 293 Sol collision observations match their source pose. That run has successful
+EndScene calls but no observed successful Present calls; it is not a new visible-render
+acceptance result.
+
+Explicit `left`/`right` now takes precedence over `forward`/`back`. The generic receiver
+supplies both; merging them using a different source facing could neutralize the requested
+direction. Relative-only packets still use post-update source facing. The correction is
+source-side and has a mismatch-facing authored check.
+
+Combat discovery rejected Rev2's fields and an unrelated decrement routine. A native
+Punch instead identifies health, hitstop and animation-age candidates. Actual scalar
+getter/setter bodies derive local fields; actor timer code decrements the stop field and
+its training path restores health. No native getter/setter is invoked. `xrd_combat.py`
+validates bounded aligned bytes/fields and captured behavior. Function RVAs and fields
+remain ignored local `combat-candidate.json` / `combat-profile.json`, not retail constants.
+
+```powershell
+python tools/xrd-sign-boundary.py <live-probe-folder> --candidate <local-owner.json> --input-candidate <local-input.json> --gate <clean-boundary-folder> --input-plan tools/xrd-crossover-oracle.json --oracle crossover
+python tools/xrd-sign-boundary.py <live-probe-folder> --candidate <local-owner.json> --input-candidate <local-input.json> --gate <clean-boundary-folder> --input-plan tools/xrd-contact-oracle.json --oracle contact --combat-candidate <local-combat.json>
+python tools/test-xrd-combat.py
+```
+
+The combat candidate contains `health_getter_rva`, `stop_setter_rva`, `age_getter_rva`.
+Regenerate the source observation profile to include rotation using
+`xrd-sign-observe.py <live-probe-folder> --seconds 1`. The contact plan requires grounded
+idle Sol within 350,000 raw X units of the dummy. It approaches, presses Punch once and
+adds bounded 120-ms holds between thirteen recovery steps. `hold_ms` is an oracle delay,
+not a source-frame duration. Both verified idle pose families are accepted; the prior
+guard rejected the alternate family before any step. Failed post-checks retain cleanup
+metadata. Aligned overlapping pose-buffer matching recognizes `kyk` and handles adjacent
+scalar bytes. Optional `--scalar-fields <local-json>` records bounded hypotheses; they
+receive separate contact/stop checks rather than promotion into verified state.
+
+The final run has 78 updates and 327 blocked opportunities: one increment per request,
+zero gaps/errors, matching input histories and 405 successful presentations. All 405 Sol
+pose/box observations match source collision. One health loss occurs at step 38, 420 to
+410. The left-facing attack overlaps Ky's mirrored hurtboxes on that update. The box
+checker follows the pinned legacy scale/facing/Y transform and rejects unverified/nonzero
+rotation; general rotated collision and publication of host attack boxes are not implemented.
+
+Sol's observed stop count starts at 12. Ky's reaction applies on the next source update,
+where its observed count is 11. Both counts decrease through requested updates and
+animation age stays held. Ninety-three blocked observations in hitstop change none of
+the watched health/stop/age values. Both stops reach zero, animation age advances again
+and native hit reaction/recovery is observed. Training restores health afterward; this
+is original behavior, not a universal result commit. Hooks/code restore and EXE hash agrees.
+
+The pinned host was inspected without modification: `runtime/host.go` passes
+`Advance=false` during hitpause, and `runtime/passthrough.go` sends no step/input then.
+Universal results must choose one stop owner rather than set a native countdown and
+also withhold the same host ticks. Original menu pause, clash/superfreeze, damage/guard
+translation and contact suppression remain open. Next: isolated RGBA/state association,
+then persistent transport/universal results. SIGN remains unconnected to IKEMEN.
+
+## Remaining producer gates
 
 A unique signature is only a candidate. Before building a producer around it:
 

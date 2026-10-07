@@ -15,8 +15,9 @@ def input_mask(named,facing_left=False,accept_input=True):
     if type(facing_left)!=bool or type(accept_input)!=bool: raise ValueError('invalid facing/input acceptance')
     if not accept_input: return 0
     values=dict(named)
-    values['left']=named.get('left',False) or named.get('forward' if facing_left else 'back',False)
-    values['right']=named.get('right',False) or named.get('back' if facing_left else 'forward',False)
+    if 'left' not in named and 'right' not in named:
+        values['left']=named.get('forward' if facing_left else 'back',False)
+        values['right']=named.get('back' if facing_left else 'forward',False)
     # ponytail: neutral opposing directions; no game-specific SOCD policy until its oracle exists.
     for a,b in (('left','right'),('up','down')):
         if values.get(a) and values.get(b): values[a]=values[b]=False
@@ -27,19 +28,21 @@ def input_plan(data):
     if type(data)!=list or not 1<=len(data)<=32: raise ValueError('input plan must have 1..32 segments')
     frames=[]
     for segment in data:
-        if type(segment)!=dict or set(segment)-{'frames','input','label','accept_input'}:
+        if type(segment)!=dict or set(segment)-{'frames','input','label','accept_input','hold_ms'}:
             raise ValueError('invalid input segment')
         count=segment.get('frames',1);label=segment.get('label','input')
         if type(count)!=int or not 1<=count<=160 or type(label)!=str or not 1<=len(label)<=32:
             raise ValueError('invalid input frame count/label')
         named=segment.get('input',{});accept=segment.get('accept_input',True)
+        hold=segment.get('hold_ms',0)
+        if type(hold)!=int or not 0<=hold<=500: raise ValueError('invalid bounded input hold')
         input_mask(named,False,accept)
-        frames.extend(dict(input=dict(named),label=label,accept_input=accept) for _ in range(count))
+        frames.extend(dict(input=dict(named),label=label,accept_input=accept,hold_ms=hold) for _ in range(count))
         if len(frames)>160: raise ValueError('input plan exceeds bounded gate capacity')
     return frames
 
 
-def input_check(records,states,inputs):
+def input_check(records,states,inputs,requests=()):
     executed=[(r,s) for r,s in zip(records,states) if r['executed']]
     by_counter={}
     for i in inputs:
@@ -59,12 +62,37 @@ def input_check(records,states,inputs):
             mask=r['requested_inputs'][0]
             walk_left |= bool(mask&4) and delta<0
             walk_right |= bool(mask&8) and delta>0
+    cross=False;grounded_facings=set();relative_left=relative_right=False
+    for index,(r,s) in enumerate(executed):
+        sol,opponent=s
+        if index:
+            before=executed[index-1][1]
+            cross |= (sol['x_raw']>opponent['x_raw'])!=(before[0]['x_raw']>before[1]['x_raw'])
+            if index<len(requests) and sol['y_raw']==0 and before[0]['y_raw']==0:
+                packet=requests[index];named=packet['input'];facing=before[0]['facing_left']
+                expected=input_mask(named,facing,packet['accept_input'])
+                delta=sol['x_raw']-before[0]['x_raw']
+                if ('forward' in named or 'back' in named) and expected==r['requested_inputs'][0] and delta:
+                    relative_left |= bool(expected&4) and delta<0
+                    relative_right |= bool(expected&8) and delta>0
+        if sol['y_raw']==0 and abs(sol['x_raw']-opponent['x_raw'])>50000 and sol['facing_left']==(sol['x_raw']>opponent['x_raw']):
+            grounded_facings.add(sol['facing_left'])
     return dict(source_history_linked=bool(linked),executed_steps=len(executed),
         walk_left=bool(walk_left),walk_right=bool(walk_right),airborne=bool(airborne),
         grounded_at_end=bool(executed) and executed[-1][1][0]['y_raw']==0,
         standing_punch_activations=normal_activations,
         active_normal_steps=sum(s[0]['hit_count']>0 for r,s in executed),
-        opponent_neutral=bool(executed) and all(r['requested_inputs'][1]==0 for r,s in executed))
+        opponent_neutral=bool(executed) and all(r['requested_inputs'][1]==0 for r,s in executed),
+        crossed_opponent=bool(cross),grounded_inward_facings=sorted(grounded_facings),
+        relative_walk_left=bool(relative_left),relative_walk_right=bool(relative_right))
+
+
+def oracle_passed(kind,result):
+    if kind=='movement':
+        return all(result[k] for k in ('walk_left','walk_right','airborne','grounded_at_end','opponent_neutral')) and result['standing_punch_activations']>=2 and result['active_normal_steps']>0
+    if kind=='crossover':
+        return all(result[k] for k in ('crossed_opponent','airborne','grounded_at_end','opponent_neutral','relative_walk_left','relative_walk_right')) and result['grounded_inward_facings']==[False,True]
+    raise ValueError('unknown input oracle')
 
 
 def input_candidate(code,code_rva,local,owner_rows,sampler_rows,writer_rows):

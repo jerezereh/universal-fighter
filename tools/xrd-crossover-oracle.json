@@ -1,0 +1,11 @@
+[
+  {"frames": 2, "input": {}, "label": "neutral"},
+  {"frames": 48, "input": {"forward": true}, "label": "approach"},
+  {"frames": 1, "input": {"up": true, "right": true}, "label": "jump-right"},
+  {"frames": 40, "input": {"right": true}, "label": "cross-right"},
+  {"frames": 20, "input": {}, "label": "landing"},
+  {"frames": 8, "input": {"back": true}, "label": "back-after-cross"},
+  {"frames": 4, "input": {}, "label": "release"},
+  {"frames": 8, "input": {"forward": true}, "label": "forward-after-cross"},
+  {"frames": 4, "input": {}, "label": "release"}
+]

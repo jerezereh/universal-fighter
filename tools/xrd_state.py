@@ -95,7 +95,7 @@ def profile(report, folder, source, objdump):
 
     fields.update(slots=reference_field('ent_slots'),count=reference_field('ent_count'),
                   boxes=reference_field('hitbox_data'),hurt_count=reference_field('hurtbox_count'),
-                  hit_count=reference_field('hitbox_count'),scale_x=reference_field('scale_x'),scale_y=reference_field('scale_y'))
+                  hit_count=reference_field('hitbox_count'),scale_x=reference_field('scale_x'),scale_y=reference_field('scale_y'),rotation=reference_field('angle'))
     facing=unique(list(set(int(v,16) for v in re.findall(r'const auto flip = \*\(int\*\)\([^\n]*?\+\s*(0x[0-9a-fA-F]+)\)',source))),'reference facing')
     fields['facing']=facing
     if any(not 0<=v<0x10000 or v%4 for v in fields.values()) or any(not 0<=v<0x10000 or v%4 for v in parent_fields):
@@ -116,7 +116,7 @@ def observe(process, p):
     if not all(slots) or slots[0]==slots[1]: raise ValueError('invalid native fighter slots')
     result=[]
     for slot,address in enumerate(slots):
-        size=max([f[k]+4 for k in ('x','y','facing','boxes','hurt_count','hit_count','scale_x','scale_y')]+[v+4 for v in p['parents']])
+        size=max([f[k]+4 for k in ('x','y','facing','boxes','hurt_count','hit_count','scale_x','scale_y')]+[v+4 for v in p['parents']]+([f['rotation']+4] if 'rotation' in f else []))
         data=process.read(address,size)
         integer=lambda name:struct.unpack_from('<i',data,f[name])[0]
         if any(struct.unpack_from('<I',data,v)[0] for v in p['parents']):
@@ -135,10 +135,15 @@ def observe(process, p):
                     raise ValueError('invalid native collision record')
                 boxes.append([kind,bx,by,w,h])
         names=process.read(address,0x2600)
-        poses=[dict(offset=m.start(),value=m[0][:-1].decode()) for m in re.finditer(rb'(?:sol|ky)[0-9]{3}_[0-9]{2}\0',names)]
+        # Names occupy aligned native buffers; inspect overlapping prefixes so adjacent
+        # scalar bytes cannot hide a valid name or add a spurious leading character.
+        poses=[dict(offset=m.start(),value=m[1][:-1].decode()) for m in re.finditer(rb'(?=([a-z]{2,4}[0-9]{3}_[0-9]{2}\0))',names) if m.start()%4==0]
         states=[dict(offset=m.start(),value=m[0][:-1].decode()) for m in re.finditer(rb'(?:CmnAct|NmlAtk)[A-Za-z0-9_]{1,28}\0',names)]
         result.append(dict(slot=slot,x_raw=x,y_raw=y,facing_left=bool(facing),hurt_count=hurt,hit_count=hit,
-                           scale_raw=[integer('scale_x'),integer('scale_y')],boxes=boxes,pose_candidates=poses,state_candidates=states))
+                           scale_raw=[integer('scale_x'),integer('scale_y')],rotation_raw=integer('rotation') if 'rotation' in f else None,
+                           boxes=boxes,pose_candidates=poses,state_candidates=states))
+        if p.get('scalar_fields'):
+            result[-1]['scalar_observations']={name:struct.unpack_from('<i',names,offset)[0] for name,offset in p['scalar_fields'].items()}
     if uint(p['module_base']+p['engine_global_rva'])!=root or process.read(root+f['slots'],8)!=struct.pack('<2I',*slots):
         raise ValueError('native scene changed during observation')
     return dict(entities=count,fighters=result,atomic_native_frame=False)

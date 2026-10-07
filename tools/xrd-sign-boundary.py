@@ -6,13 +6,15 @@ import hashlib
 import json
 from pathlib import Path
 import queue
+import re
 import subprocess
 import sys
 import time
 
 from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
 from xrd_state import assembly_rows, boundary_candidate, observe
-from xrd_input import input_candidate, input_mask, input_plan, input_check
+from xrd_input import input_candidate, input_mask, input_plan, input_check, oracle_passed
+from xrd_combat import combat_fields, contact_check
 
 ROOT=Path(__file__).resolve().parent.parent
 EXE=Path('C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-/Binaries/Win32/GuiltyGearXrd.exe')
@@ -48,8 +50,9 @@ def gate_check(records,states,presents=(),expected_steps=3):
     blocked=[r for r in records if not r['executed']]
     changed=0;previous=None
     for r,s in zip(records,states):
-        if not r['executed'] and previous is not None and s!=previous: changed+=1
-        previous=s
+        verified=[{k:v for k,v in f.items() if k!='scalar_observations'} for f in s]
+        if not r['executed'] and previous is not None and verified!=previous: changed+=1
+        previous=verified
     successful=Counter(r['counter'] for r in presents if r['hresult']==0)
     held=set(r['before'] for r in blocked)
     return dict(executed=len(executed),blocked=len(blocked),
@@ -70,14 +73,25 @@ def lease_check(records,presents,diagnostics,automatic_restore):
         hard_lifetime_removed_hook=any('hard gate lifetime' in r.get('message','') for r in diagnostics) and automatic_restore)
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None):
     receipt=json.loads((probe/'inspection.json').read_text())
     state=json.loads((probe/'state-profile.json').read_text())
+    if scalar_path:
+        fields=json.loads(scalar_path.read_text())
+        if type(fields)!=dict or not 1<=len(fields)<=128 or any(type(k)!=str or not re.fullmatch('[a-zA-Z_][a-zA-Z0-9_]{0,31}',k) or type(v)!=int or not 0<=v<=0x2600-4 or v%4 for k,v in fields.items()):
+            raise ValueError('invalid bounded scalar observations')
+        state['scalar_fields']=fields
     if receipt.get('mode')!='loaded-module' or state['exe_sha256']!=SIGN_HASH or fingerprint(EXE)!=SIGN_HASH or state['pid']!=receipt['pid']:
         raise ValueError('requires a verified live SIGN state profile/receipt')
     code=(probe/'text-loaded.bin').read_bytes()
     if hashlib.sha256(code).hexdigest()!=state['code_sha256'] or state['code_sha256']!=receipt['loaded_hashes']['.text']:
         raise ValueError('loaded code receipt drift')
+    combat_profile=None
+    if combat_path:
+        local_combat=json.loads(combat_path.read_text())
+        derived=combat_fields(code,state['code_rva'],local_combat)
+        state.setdefault('scalar_fields',{}).update(derived)
+        combat_profile=dict(candidates=local_combat,fields=derived,validated_semantics=False)
     local=json.loads(candidate_path.read_text())
     objdump=ROOT/'local-cache/msys64/mingw64/bin/objdump.exe'
     text=subprocess.check_output([str(objdump),'-D','-b','binary','-m','i386','-Mintel',
@@ -106,6 +120,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     out=probe/('boundary-'+datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H%M%S-%f'))
     out.mkdir();(out/'candidate.json').write_text(json.dumps(candidate,indent=2))
     if input_profile: (out/'input-profile.json').write_text(json.dumps(input_profile,indent=2))
+    if combat_profile: (out/'combat-profile.json').write_text(json.dumps(combat_profile,indent=2))
     if plan: (out/'input-plan.json').write_text(json.dumps(plan,indent=2))
     messages=queue.Queue(maxsize=8192);overflow=[]
     def receive(message,data):
@@ -128,11 +143,12 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                 while time.perf_counter()-started<seconds:
                     if overflow: raise ValueError('instrumentation queue overflow')
                     if plan and requests<len(plan) and requests==completed and time.perf_counter()-started>=next_request:
-                        if requests==0 and (not states or any(s['y_raw'] or s['hit_count'] for s in states[0]) or not any(n['value'].startswith('sol000_') for n in states[0][0]['pose_candidates']) or abs(states[0][0]['x_raw']-states[0][1]['x_raw'])<350000):
-                            raise ValueError('input oracle requires grounded idle Sol versus a distant grounded idle opponent')
+                        if requests==0 and (not states or any(s['y_raw'] or s['hit_count'] for s in states[0]) or not any(re.fullmatch(r'sol00[01]_[0-9]{2}',n['value']) for n in states[0][0]['pose_candidates']) or
+                            (abs(states[0][0]['x_raw']-states[0][1]['x_raw'])>350000 if oracle=='contact' else abs(states[0][0]['x_raw']-states[0][1]['x_raw'])<350000)):
+                            raise ValueError('input oracle requires grounded idle Sol/opponent within its scene distance bounds')
                         packet=plan[requests];mask=input_mask(packet['input'],states[-1][0]['facing_left'],packet['accept_input'])
                         script.exports_sync.step([mask,0]);request_log.append(dict(step=requests+1,mask=mask,**packet));requests+=1
-                        next_request=time.perf_counter()-started+.03
+                        next_request=time.perf_counter()-started+.03+packet['hold_ms']/1000
                     elif not plan and gate_options and not expire and requests<3 and time.perf_counter()-started>=requests+1:
                         script.exports_sync.step([0,0]);requests+=1
                     if expire and time.perf_counter()-started>12.5 and not automatic_restore:
@@ -194,24 +210,33 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         result['input_slots']=dict(Counter(r['slot'] for r in inputs))
         result['input_values']=sorted(set(r['incoming'] for r in inputs))
         if gate_options and not expire:
-            result['input_check']=input_check(records,states,inputs)
+            result['input_check']=input_check(records,states,inputs,request_log)
             result['source_input_routing_verified']=result['controlled_update_step_verified'] and result['input_check']['source_history_linked'] and not errors
     if plan:
         result['named_input_steps']=len(request_log)
+        result['input_oracle']=oracle
+        result['input_oracle_passed']=oracle_passed(oracle,result['input_check']) if oracle!='contact' else False
+        if oracle=='contact' and combat_profile:
+            try: result['contact_check']=contact_check(records,states)
+            except ValueError as error:
+                result['contact_check']=dict(passed=False,error=str(error))
+                errors.append(dict(check_error=str(error)))
+            result['input_oracle_passed']=result['contact_check']['passed']
         (out/'requests.json').write_text(json.dumps(request_log,indent=2))
     (out/'inspection.json').write_text(json.dumps(result,indent=2))
     print('Boundary trace:',len(records),'samples; counter deltas',dict(deltas),'gaps',gaps,'errors',len(errors),';',out,flush=True)
     if gate_options: print('Gate checks:',{k:v for k,v in result['gate_check'].items() if k!='graphics_completions_per_held_counter'},flush=True)
     if expire: print('Lease checks:',result['lease_check'],flush=True)
     if 'input_check' in result: print('Input checks:',result['input_check'],flush=True)
+    if 'contact_check' in result: print('Contact checks:',result['contact_check'],flush=True)
     if errors or not records or not restored or not detached: raise RuntimeError('boundary trace failed; inspect local receipt')
     if expire and not all(result['lease_check'].values()): raise RuntimeError('gate lease recovery failed')
     if gate_options and not expire and not result['controlled_update_step_verified']:
         raise RuntimeError('native gate experiment failed; no host-step capability accepted')
     if input_profile and gate_options and not expire and not result['input_check']['source_history_linked']:
         raise RuntimeError('source input does not match requested native steps')
-    if plan and not (all(result['input_check'][k] for k in ('walk_left','walk_right','airborne','grounded_at_end','opponent_neutral')) and result['input_check']['standing_punch_activations']>=2 and result['input_check']['active_normal_steps']>0):
-        raise RuntimeError('source movement/standing-normal input oracle failed')
+    if plan and (oracle!='contact' or combat_profile) and not result['input_oracle_passed']:
+        raise RuntimeError('source '+oracle+' input oracle failed')
     return out
 
 
@@ -224,9 +249,13 @@ if __name__=='__main__':
     p.add_argument('--lease-check',action='store_true',help='with --gate: omit steps and verify automatic resume/removal over 13 seconds')
     p.add_argument('--input-candidate',type=Path,help='ignored local sampler/writer/ingress discovery JSON')
     p.add_argument('--input-plan',type=Path,help='bounded named-input oracle plan, with --gate and --input-candidate')
+    p.add_argument('--oracle',choices=('movement','crossover','contact'),default='movement',help='required input-plan evidence; contact without --combat-candidate records discovery only')
+    p.add_argument('--scalar-fields',type=Path,help='ignored bounded field hypotheses to observe without semantic promotion')
+    p.add_argument('--combat-candidate',type=Path,help='ignored local scalar getter/setter discoveries for the native contact check')
     a=p.parse_args()
     if not 0<a.seconds<=120: p.error('seconds must be 0..120')
     if a.lease_check and not a.gate: p.error('--lease-check requires --gate')
     trace(a.probe.resolve(),a.candidate.resolve(),13 if a.lease_check else 7 if a.input_plan else 4.5 if a.gate else a.seconds,
           a.gate.resolve() if a.gate else None,a.lease_check,a.input_candidate.resolve() if a.input_candidate else None,
-          a.input_plan.resolve() if a.input_plan else None)
+          a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
+          a.combat_candidate.resolve() if a.combat_candidate else None)

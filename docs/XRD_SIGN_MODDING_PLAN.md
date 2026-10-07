@@ -205,7 +205,11 @@ are derived and validated locally, not installed from unverified reference offse
 Native input routing now passes two 129-step source oracles: backward/forward walk,
 jump/landing, two standing Punch activations and exactly matching per-player input
 histories/collision. The source-window oracle confirms visible movement/jump. Input
-hooks also pass bounded timeout recovery. There is still no accepted atomic source-frame/
+hooks also pass bounded timeout recovery. Crossover now proves both inward facings and
+relative controls after landing. A native contact checker proves mirrored box overlap,
+one health loss, stop/animation-age stability between requested updates and recovery.
+The host already owns hitpause gating; external-result integration must avoid duplicating
+that stop in the source countdown. There is still no accepted atomic source-frame/
 image contract, isolated render layer or connected SIGN guest. See
 [XRD_SIGN_NATIVE_PROBE.md](XRD_SIGN_NATIVE_PROBE.md) for tool tests, actual source evidence
 and the next native gates.
