@@ -20,6 +20,8 @@ def main():
         atomic_native_frame=False, isolated_rgba=False, native_render_latency_verified=False)
     data = b'abcd' + bytes([1, 2, 3, 0, 4, 5, 6, 128])
     pixels, rgb = render_pixels(metadata, data)
+    assert render_pixels(metadata|dict(diagnostic_settling=True,presentation_index=24),data)==(pixels,rgb)
+    reject(lambda:render_pixels(metadata|dict(diagnostic_settling=True,presentation_index=25),data))
     assert pixels == data[4:] and rgb == bytes([3, 2, 1, 6, 5, 4])
     for changes in (dict(width=True), dict(width=2049), dict(height=0), dict(state_size=0),
                     dict(counter=-1), dict(presentation_index=2), dict(format=23), dict(multisample=2),

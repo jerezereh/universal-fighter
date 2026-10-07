@@ -19,7 +19,7 @@ from xrd_input import input_candidate, input_mask, input_plan, input_check, orac
 from xrd_combat import combat_fields, contact_check
 from xrd_render import render_pixels, save_render, render_check, draw_check, save_pass
 from xrd_shader import opaque_alpha_variant
-from xrd_layer import save_layer_preview, capture_steps, render_oracle
+from xrd_layer import save_layer_preview, capture_steps, capture_presentations, render_oracle, settling_oracle
 
 ROOT=Path(__file__).resolve().parent.parent
 EXE=Path('C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-/Binaries/Win32/GuiltyGearXrd.exe')
@@ -130,7 +130,7 @@ def layer_programs(folder,state,identity):
     return dict(target=color[0],programs=programs)
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None):
     receipt=json.loads((probe/'inspection.json').read_text())
     state=json.loads((probe/'state-profile.json').read_text())
     if scalar_path:
@@ -172,7 +172,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if inspect_shaders and not suppress_path: raise ValueError('mesh shader inspection requires local buffer identity')
     if suppress_path:
         identity=json.loads(suppress_path.read_text())
-        if (not trace_draws or not capture or capture_passes or (plan_path and (not layer_path or oracle not in ('render-motion','render-attack'))) or expire or identity.get('pid')!=state['pid'] or
+        if (not trace_draws or not capture or capture_passes or (plan_path and (not layer_path or oracle not in ('render-motion','render-attack','render-settle'))) or expire or identity.get('pid')!=state['pid'] or
                 identity.get('exe_sha256')!=SIGN_HASH or not identity.get('geometry_match_verified') or
                 identity.get('actor_identity_verified') is not False or identity.get('isolated_rgba') is not False or
                 set(identity.get('parts',{}))!={'body','head','weapon'} or
@@ -186,7 +186,9 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         if not identity or inspect_shaders: raise ValueError('layer capture requires exclusive mesh identity')
         layer=layer_programs(layer_path,state,identity)
         layer['capture_steps']=capture_steps(layer_steps or '0,1,2,3')
-    elif layer_steps or oracle.startswith('render-'): raise ValueError('selected render oracle requires a private layer')
+        layer['presentations']=capture_presentations(layer_presentations or '3',layer['capture_steps'])
+        if len(layer['presentations'])>1 and oracle!='render-settle': raise ValueError('repeated render captures require the settling oracle')
+    elif layer_steps or layer_presentations or oracle.startswith('render-'): raise ValueError('selected render oracle requires a private layer')
     if oracle.startswith('render-') and not plan_path: raise ValueError('render oracle requires a named input plan')
     source_window=None
     if capture or trace_draws:
@@ -201,7 +203,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         if not gate_options or not input_profile or expire or plan_path.stat().st_size>16384:
             raise ValueError('bounded input plan requires a native gate and validated input ingress')
         plan=input_plan(json.loads(plan_path.read_text()))
-        if layer and (oracle not in ('render-motion','render-attack') or layer['capture_steps'][-1]!=len(plan)):
+        if layer and (oracle not in ('render-motion','render-attack','render-settle') or layer['capture_steps'][-1]!=len(plan)):
             raise ValueError('private render plan must use a render oracle and capture its final requested step')
     sys.path.insert(0,str(ROOT/'local-cache/xrd-tools/frida/python'))
     import frida
@@ -234,7 +236,11 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             with (out/'state.jsonl').open('w',encoding='utf-8') as log:
                 while time.perf_counter()-started<seconds:
                     if overflow: raise ValueError('instrumentation queue overflow')
-                    image_ready=not layer or requests not in layer['capture_steps'] or any(c['request_index']==requests for c in layers)
+                    if layer and plan and completed==len(plan) and len(layers)==len(layer['capture_steps'])*len(layer['presentations']) and len(scene_packets)==len(layers):
+                        break
+                    image_ready=not layer or requests not in layer['capture_steps'] or (
+                        sum(c['request_index']==requests for c in layers)==len(layer['presentations']) and
+                        sum(m['request_index']==requests for m,_,_ in scene_packets)==len(layer['presentations']))
                     if plan and requests<len(plan) and requests==completed and image_ready and time.perf_counter()-started>=next_request:
                         if requests==0 and (not states or any(s['y_raw'] or s['hit_count'] for s in states[0]) or not any(re.fullmatch(r'sol00[01]_[0-9]{2}',n['value']) for n in states[0][0]['pose_candidates']) or
                             (abs(states[0][0]['x_raw']-states[0][1]['x_raw'])>350000 if oracle=='contact' else abs(states[0][0]['x_raw']-states[0][1]['x_raw'])<350000)):
@@ -269,7 +275,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         passes.append((message['payload'],data));continue
                     if message['type']=='send' and message['payload'].get('kind')=='render-layer':
                         native=message['payload'];render_pixels(native,data)
-                        if len(layers)>=len(layer['capture_steps']): raise ValueError('private layer capture limit')
+                        if len(layers)>=len(layer['capture_steps'])*len(layer['presentations']): raise ValueError('private layer capture limit')
                         render_bytes+=len(data)
                         if render_bytes>128<<20: raise ValueError('render packet byte limit')
                         observation=observe(CapturedMemory(native['segments'],data[:native['state_size']]),state)
@@ -300,9 +306,9 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                 try:
                     for _ in range(20):
                         cleanup_receipt=bounded_call(frida,script.exports_sync.stop)
-                        if not cleanup_receipt.get('pending_layer_release'): break
+                        if not cleanup_receipt.get('pending_renderer_stop'): break
                         time.sleep(.05)
-                    else: raise ValueError('renderer did not release private resources before teardown')
+                    else: raise ValueError('renderer did not complete scheduled teardown')
                 except Exception as error: errors.append(dict(cleanup_error=repr(error)))
                 try: bounded_call(frida,script.unload)
                 except Exception as error: errors.append(dict(cleanup_error=repr(error)))
@@ -398,7 +404,9 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         result['input_oracle']=oracle
         result['input_oracle_passed']=oracle_passed(oracle,result['input_check']) if oracle in ('movement','crossover') else False
         if oracle.startswith('render-'):
-            try: result['render_oracle']=render_oracle(oracle,layers,captures,layer['capture_steps'])
+            try:
+                result['render_oracle']=(settling_oracle(layers,captures,layer['capture_steps'],layer['presentations'])
+                    if oracle=='render-settle' else render_oracle(oracle,layers,captures,layer['capture_steps']))
             except ValueError as error:
                 result['render_oracle']=dict(passed=False,error=str(error));errors.append(dict(check_error=str(error)))
             result['input_oracle_passed']=result['render_oracle']['passed']
@@ -438,7 +446,7 @@ if __name__=='__main__':
     p.add_argument('--lease-check',action='store_true',help='with --gate: omit steps and verify automatic resume/removal over 13 seconds')
     p.add_argument('--input-candidate',type=Path,help='ignored local sampler/writer/ingress discovery JSON')
     p.add_argument('--input-plan',type=Path,help='bounded named-input oracle plan, with --gate and --input-candidate')
-    p.add_argument('--oracle',choices=('movement','crossover','contact','render-motion','render-attack'),default='movement',help='required input-plan evidence; native render oracles require --capture-layer')
+    p.add_argument('--oracle',choices=('movement','crossover','contact','render-motion','render-attack','render-settle'),default='movement',help='required input-plan evidence; native render oracles require --capture-layer')
     p.add_argument('--scalar-fields',type=Path,help='ignored bounded field hypotheses to observe without semantic promotion')
     p.add_argument('--combat-candidate',type=Path,help='ignored local scalar getter/setter discoveries for the native contact check')
     p.add_argument('--capture-render',action='store_true',help='with --gate: capture up to eight full-scene D3D9 backbuffers and held source states; no isolated-layer claim')
@@ -448,6 +456,7 @@ if __name__=='__main__':
     p.add_argument('--inspect-mesh-shaders',action='store_true',help='with --suppress-draws: read matching mesh pixel shader programs while preserving every original draw')
     p.add_argument('--capture-layer',type=Path,help='with --suppress-draws: clean shader inspection folder for bounded private opaque mesh replay')
     p.add_argument('--layer-steps',help='with --capture-layer: 2..8 ordered selected request indices starting at 0 (default 0,1,2,3)')
+    p.add_argument('--layer-presentations',help='with --oracle render-settle: ordered held-counter presentations, starting at 3 and ending by 24')
     a=p.parse_args()
     if not 0<a.seconds<=120: p.error('seconds must be 0..120')
     if a.lease_check and not a.gate: p.error('--lease-check requires --gate')
@@ -455,4 +464,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations)

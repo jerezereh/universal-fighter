@@ -557,6 +557,30 @@ Three presentations remain a settling heuristic. Camera/render ownership, exact 
 HDR/postprocess colors, foot pivot/source units and left-facing visual evidence remain
 open; no `host-step`, `isolated-rgba` or atomic-frame capability is promoted.
 
+## Held-counter render settling and shutdown
+
+Use `tools/xrd-render-settle-oracle.json --oracle render-settle --layer-steps 0,1
+--layer-presentations 3,6,12,24` with the normal fresh-session private capture options.
+The eight pairs preserve the source counter/state within each group. Exact native
+mesh/alpha hashes test the settling assumption; earliest tested stable suffixes are
+reported as diagnostics rather than a producer delay guarantee.
+
+The recovered-session proof `boundary-20261007-215305-789878` completes one exact
+update and 49 blocked opportunities, with 50 Present calls and clean source/graphics
+restoration. Idle images match at all four presentations. Walking startup changes
+between 3 and 6; the tested 6/12/24 images match. The strict settling oracle fails as
+intended. Camera versus skeletal/render ownership is not inferred solely from pixels.
+
+An earlier one-step run expired its lease while waiting for the full duration and
+timed out during cleanup, leaving temporary code installed. Its receipt is explicitly
+failed; the verified unresponsive offline process was restarted. Render plans now exit
+once all steps and both sides of selected image pairs complete. Stop RPC schedules
+teardown after Present on the renderer thread, releases pending private resources there,
+removes draw/input/graphics hooks, and resumes normal source updates last. External
+prefix/code hashes are still checked after unload/detach; scheduling alone is not proof.
+Neutral, shader and private repeated-capture checks validate the revised shutdown in
+the recovered training session. No native guest capability is promoted by these checks.
+
 ## Remaining producer gates
 
 A unique signature is only a candidate. Before building a producer around it:

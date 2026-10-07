@@ -49,6 +49,40 @@ def capture_steps(text):
     return steps
 
 
+def capture_presentations(text,steps):
+    try: values=[int(n) for n in text.split(',')]
+    except (TypeError,ValueError): raise ValueError('invalid selected presentations')
+    if not values or values[0]!=3 or values!=sorted(set(values)) or values[-1]>24 or len(values)*len(steps)>8:
+        raise ValueError('requires ordered presentations starting at 3, ending by 24, at most eight step/presentation pairs')
+    return values
+
+
+def settling_oracle(layers,scenes,steps,presentations):
+    expected=[(step,p) for step in steps for p in presentations]
+    if ([(c.get('request_index'),c.get('presentation_index')) for c in layers]!=expected or
+            [(c.get('request_index'),c.get('presentation_index')) for c in scenes]!=expected):
+        raise ValueError('missing/out-of-order settling pairs')
+    stable=[]
+    for step in steps:
+        images=[c for c in layers if c['request_index']==step]
+        source=[c for c in scenes if c['request_index']==step]
+        if any(((c['counter']-layers[0]['counter'])&0xffffffff)!=step or
+                c['counter']!=s['counter'] or c['observation']['fighters']!=s['observation']['fighters'] or
+                c['observation']['fighters']!=images[0]['observation']['fighters'] or
+                c.get('skipped_draws_total')!=0 or c.get('source_graphics_state_verified') is not True
+                for c,s in zip(images,source)):
+            raise ValueError('source advanced/state changed/incomplete layer during settling')
+        tail=next((c['presentation_index'] for i,c in enumerate(images[:-1])
+            if len({later['raw_sha256'] for later in images[i:]})==1),None)
+        stable.append(dict(request_index=step,identical_mesh_pixels=len({c['raw_sha256'] for c in images})==1,
+            identical_mesh_alpha=len({c['alpha_sha256'] for c in images})==1,
+            distinct_mesh_images=len({c['raw_sha256'] for c in images}),earliest_tested_stable_tail=tail,
+            first_to_final_center_delta=[b-a for a,b in zip(images[0]['native_coverage_center'],images[-1]['native_coverage_center'])]))
+    return dict(passed=all(s['identical_mesh_pixels'] for s in stable),held_state_verified=True,
+        selected_steps=steps,presentations=presentations,stability=stable,
+        native_render_latency_verified=False,atomic_native_frame=False,isolated_rgba=False)
+
+
 def render_oracle(kind,layers,scenes,steps):
     if kind not in ('render-motion','render-attack'): raise ValueError('unknown native render oracle')
     if ([c.get('request_index') for c in layers]!=steps or [c.get('request_index') for c in scenes]!=steps or

@@ -8,8 +8,9 @@ import zlib
 
 
 def render_pixels(metadata, data):
+    settling=metadata.get('diagnostic_settling') is True
     for key, low, high in (('width', 1, 2048), ('height', 1, 2048), ('state_size', 1, 0x80000),
-                          ('counter', 0, 0xffffffff), ('presentation_index', 3, 3)):
+                          ('counter', 0, 0xffffffff), ('presentation_index', 3, 24 if settling else 3)):
         if type(metadata.get(key)) != int or not low <= metadata[key] <= high:
             raise ValueError('invalid render ' + key)
     width, height, size = metadata['width'], metadata['height'], metadata['state_size']

@@ -1,5 +1,47 @@
 # Progress record
 
+## 2026-10-07 — Measured settling and renderer-thread teardown
+
+- Added repeated held-counter captures at selected presentations, with at most eight
+  scene/mesh pairs and 128 MiB. The settling oracle requires identical source state,
+  matching counters/request indices and complete native mesh draws, then compares the
+  actual raw pixels and alpha. Normal captures still require the third presentation;
+  repeated presentation metadata is explicitly diagnostic and bounded through 24.
+- The first settling run keeps a one-step plan alive for its full controller bound,
+  allowing the eight-second lease to expire. Stop/unload/detach then time out, leaving
+  source/graphics code unrestored and SIGN unresponsive. This is a failed cleanup,
+  not accepted evidence. Independent reads confirm the failure. The exact fingerprinted
+  offline PID is stopped and the unmodified game relaunched through Steam; the user
+  reopens Sol/Ky training. No source executable or permanent OS setting is changed.
+- Completed private render plans now stop once their requested updates and all selected
+  scene/mesh packets arrive. Step pacing waits for both sides of each render pair.
+  Graphics teardown is requested by RPC and performed after Present on the renderer
+  thread. Pending private resources release on that thread; draw/input/graphics hooks
+  are removed before ordinary source updates resume. Stop receipts are idempotent.
+- A fresh recovered profile revalidates all owner/input code and derives new graphics
+  pointers/programs. Renderer-thread stop passes neutral and shader traces, respectively
+  three exact updates/143 blocked opportunities and three updates/136 blocked. Both
+  restore native/graphics bytes after successful unload/detach and keep the game usable.
+- The repeat settling run has one exact update, 49 blocked opportunities, 50 Present
+  calls and eight paired images at held presentations 3/6/12/24. It exits early with
+  zero controller/cleanup errors, restored code and a surviving source window. The
+  strict third-presentation settling assertion fails: idle images are identical, but
+  walking startup has two distinct mesh/alpha images. Presentations 6/12/24 agree;
+  the third differs. This confirms the prior settling heuristic is insufficient.
+- Diagnostics report the earliest tested stable suffix and image-center displacement.
+  They do not select a globally accepted fixed delay or claim camera versus skeletal
+  ownership. Next inspect actual draw transforms/viewport and normalize framing/pivot,
+  then recheck stability across movement, attacks and facing. Colors and universal
+  combat/persistent producer gates remain open; guest capabilities stay false.
+- Authored repeated-frame bounds/state/hash tests, source counter association, renderer
+  stop scheduling/removal order/idempotency and existing native layer/render/boundary
+  checks pass. Failed source settling is reported separately from successful cleanup.
+- Evidence: failed experiment `boundary-20261007-213439-704043` under
+  `20261007-211042-686316`; recovered probe `20261007-214626-962055` has fresh observation
+  `boundary-20261007-214654-332063`, neutral stop proof `boundary-20261007-214746-183480`,
+  shader/stop proof `boundary-20261007-214943-282824` and clean settling diagnosis
+  `boundary-20261007-215305-789878`. Retail bytes/pointers/images remain ignored.
+
 ## 2026-10-07 — Reopened SIGN and non-idle mesh rendering
 
 - Reopened process/window confirmed; a fresh loaded-module/state profile derives the

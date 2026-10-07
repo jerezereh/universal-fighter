@@ -10,6 +10,8 @@ let renderCapture = {attempts: 0, counter: null, presentations: 0};
 let drawTrace = null;
 let drawFilter = null;
 const comMethods = new Map();
+let stopRequested = false;
+let stopReceipt = null;
 
 function removeDrawFilter() {
     if (drawFilter !== null) {
@@ -361,6 +363,9 @@ function observePresent() {
                     const table = args[0].readPointer();
                     const method = methods.find(c => table.add(c.slot * 4).readPointer().equals(target));
                     if (!method) return;
+                    this.device = args[0].toString(); this.method = method.method;
+                    this.stopping = stopRequested;
+                    if (this.stopping) { this.valid = true; return; }
                     const root = Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
                     this.counter = root.add(4 + config.candidate.counter_field).readU32();
                     this.device = args[0].toString(); this.method = method.method; this.valid = true;
@@ -373,17 +378,26 @@ function observePresent() {
                         if (renderCapture.counter !== this.counter) {
                             renderCapture.counter = this.counter; renderCapture.presentations = 0;
                         }
-                        // Observe three presentations on the held counter before readback; latency still needs an oracle.
-                        if (++renderCapture.presentations === 3 && renderCapture.attempts < 8 &&
+                        // Default third presentation, or explicitly requested settling samples; no delay acceptance.
+                        ++renderCapture.presentations;
+                        if ((config.layer ? config.layer.presentations.includes(renderCapture.presentations) : renderCapture.presentations === 3) && renderCapture.attempts < 8 &&
                             (!config.layer || (gate.initialCounter !== null && config.layer.capture_steps.includes((this.counter - gate.initialCounter) >>> 0)))) {
                             ++renderCapture.attempts;
                             this.capture = captureBackBuffer(args[0], root, this.counter);
+                            if (config.layer) this.capture.metadata.diagnostic_settling = config.layer.presentations.length > 1;
                             if (config.layer) this.capture.metadata.request_index = (this.counter - gate.initialCounter) >>> 0;
                         }
                     }
                 } catch (error) { send({kind: 'error',phase: 'present',message: String(error)}); }
             },
             onLeave(result) {
+                if (this.valid && this.stopping) {
+                    try {
+                        if (this.method === 'EndScene' && config.layer && meshLayer !== null) releaseLayer();
+                        if (this.method === 'Present' && (!config.layer || meshLayer === null)) stopReceipt = finishStop();
+                    } catch (error) { send({kind: 'error',phase: 'renderer-stop',message: String(error)}); }
+                    return;
+                }
                 if (this.valid && this.method === 'EndScene' && result.toInt32() === 0 && config.layer && meshLayer !== null) {
                     try {
                         if (layerStopping) releaseLayer();
@@ -532,6 +546,26 @@ function installGate(target, p) {
     return {installed: true, thiscall_oracle: true, mutation: 'bounded native update gate', lifetime_seconds: 12, render};
 }
 
+function finishStop() {
+    const skipped = drawFilter === null ? 0 : drawFilter.skipped;
+    removeDrawFilter();
+    removeInputHooks();
+    for (const h of renderHooks) h.listener.detach();
+    Interceptor.flush();
+    const renderRestored = renderHooks.every(h => hex(bytes(h.target, 32)) === h.before);
+    const renderTargets = renderHooks.map(h => ({address: h.target.toUInt32(), before: h.before}));
+    renderHooks = []; drawTrace = null;
+    if (listener) { listener.detach(); listener = null; Interceptor.flush(); }
+    // Resume ordinary native updates after graphics/input hooks have been removed.
+    if (gate) {
+        clearTimeout(gate.timer);
+        Interceptor.revert(gate.target); Interceptor.flush(); gate = null;
+    }
+    stopRequested = false;
+    return {detached: true, samples: sequence, render_code_restored: renderRestored, render_targets: renderTargets,
+        diagnostic_mesh_draws_skipped: skipped};
+}
+
 rpc.exports = {
     start(p) {
         if (listener || gate) throw new Error('already observing');
@@ -590,22 +624,12 @@ rpc.exports = {
         return {accepted: true};
     },
     stop() {
-        if (config.layer && meshLayer !== null) { layerStopping = true; return {pending_layer_release: true}; }
-        const skipped = drawFilter === null ? 0 : drawFilter.skipped;
-        removeDrawFilter();
-        if (listener) { listener.detach(); listener = null; Interceptor.flush(); }
-        if (gate) {
-            clearTimeout(gate.timer);
-            Interceptor.revert(gate.target); Interceptor.flush(); gate = null;
+        if (stopReceipt !== null) return stopReceipt;
+        if (renderHooks.length) {
+            stopRequested = true;
+            if (config.layer) layerStopping = true;
+            return {pending_renderer_stop: true};
         }
-        removeInputHooks();
-        for (const h of renderHooks) h.listener.detach();
-        Interceptor.flush();
-        const renderRestored = renderHooks.every(h => hex(bytes(h.target, 32)) === h.before);
-        const renderTargets = renderHooks.map(h => ({address: h.target.toUInt32(), before: h.before}));
-        renderHooks = [];
-        drawTrace = null;
-        return {detached: true, samples: sequence, render_code_restored: renderRestored, render_targets: renderTargets,
-            diagnostic_mesh_draws_skipped: skipped};
+        stopReceipt = finishStop(); return stopReceipt;
     }
 };

@@ -178,6 +178,12 @@ are unique per requested step. Deferred preview work preserves the native watchd
 These establish motion/action agreement; one jump frame touches the render target edge.
 Framing/camera ownership, exact render settling, colors, pivot and left-facing pixels
 still require proof before a source frame can be published to IKEMEN.
+Repeated held-counter images now reject the third-presentation settling heuristic:
+walking startup changes between presentations 3 and 6; 6/12/24 match in the tested case.
+No universal fixed delay is accepted. Short render plans finish once both render sides
+arrive, and graphics hooks are removed on the renderer thread before source updates
+resume. The recovered native checks pass teardown; the settling assertion stays failed.
+Next inspect actual draw transforms/viewport for camera/framing/pivot ownership.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Original menu pause,
 clash/superfreeze and universal stop/result ownership still need dedicated validation.

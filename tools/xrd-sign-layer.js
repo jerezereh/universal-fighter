@@ -56,13 +56,13 @@ function layerShader(device, sourceShader, program) {
 
 function replayMeshDraw(device, original, values, d) {
     const g = gate, p = config.layer;
-    if (layerDrawing || layerFailed || layerStopping || g === null || g.resumed || g.executing || Date.now() > g.deadline || layerCaptures >= p.capture_steps.length ||
-        d.currentTarget !== p.target || renderCapture.presentations !== 2 || !p.programs[d.pixelShader]) return;
+    if (layerDrawing || layerFailed || layerStopping || g === null || g.resumed || g.executing || Date.now() > g.deadline || layerCaptures >= p.capture_steps.length * p.presentations.length ||
+        d.currentTarget !== p.target || !p.presentations.includes(renderCapture.presentations + 1) || !p.programs[d.pixelShader]) return;
     const root = Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
     const counter = root.add(4 + config.candidate.counter_field).readU32();
     const requestIndex = (counter - g.initialCounter) >>> 0;
     if (g.initialCounter === null || renderCapture.counter !== counter ||
-        !p.capture_steps.includes(requestIndex) || layerCapturedSteps.has(requestIndex)) return;
+        !p.capture_steps.includes(requestIndex) || layerCapturedSteps.has(requestIndex + ':' + (renderCapture.presentations + 1))) return;
     let block = ptr(0), sourceShader = ptr(0);
     const targets = [], viewport = Memory.alloc(24);
     const before = [14,15,19,20,23,27,52,168,171,206,207,208,209].map(id => [id, renderState(device, id)]);
@@ -145,12 +145,13 @@ function finishMeshLayer(device) {
     try {
         const root = Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
         const captured = captureBackBuffer(device, root, current.counter, false, current.target);
-        send({...captured.metadata, kind: 'render-layer', presentation_index: 3, native_coverage_verified: false,
+        send({...captured.metadata, kind: 'render-layer', presentation_index: renderCapture.presentations + 1,
+            diagnostic_settling: config.layer.presentations.length > 1, native_coverage_verified: false,
             request_index: (current.counter - gate.initialCounter) >>> 0,
             replayed_draws: current.draws, skipped_draws_total: layerSkipped,
             color_product_draws_total: layerColorBlends,
             source_graphics_state_verified: current.state_verified, hresult: 0}, captured.data);
         ++layerCaptures;
-        layerCapturedSteps.add((current.counter - gate.initialCounter) >>> 0);
+        layerCapturedSteps.add(((current.counter - gate.initialCounter) >>> 0) + ':' + (renderCapture.presentations + 1));
     } finally { releaseLayer(); }
 }

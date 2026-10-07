@@ -1,6 +1,6 @@
 """Authored native-alpha bounds and rejection checks; no source assets."""
 import copy
-from xrd_layer import layer_pixels, capture_steps, render_oracle
+from xrd_layer import layer_pixels, capture_steps, capture_presentations, render_oracle, settling_oracle
 
 metadata=dict(width=3,height=2,kind='render-layer',format=21,native_coverage_verified=False,
     source_graphics_state_verified=True,replayed_draws=2)
@@ -48,3 +48,24 @@ attack[1]['observation']['fighters'][0].update(state_candidates=[dict(value='Nml
 assert render_oracle('render-attack',attack,copy.deepcopy(attack),steps)['passed']
 assert not render_oracle('render-attack',layers,scenes,steps)['passed']
 print('Selected capture bounds, paired source states, motion direction, changed mesh and active normal oracles passed.')
+
+assert capture_presentations('3,6,12,24',[0,1])==[3,6,12,24]
+for bad in ('','2','3,3','3,24,6','3,25','3,4,5,6,7'):
+    try: capture_presentations(bad,[0,1])
+    except ValueError: continue
+    raise AssertionError('invalid repeated presentations accepted')
+held=[]
+for step in (0,1):
+    for presentation in (3,6,12,24):
+        c=copy.deepcopy(layers[step]);c.update(request_index=step,counter=100+step,
+            presentation_index=presentation,raw_sha256=str(step),alpha_sha256=str(step));held.append(c)
+assert settling_oracle(held,copy.deepcopy(held),[0,1],[3,6,12,24])['passed']
+later=copy.deepcopy(held);later[4]['raw_sha256']='early'
+assert settling_oracle(later,copy.deepcopy(held),[0,1],[3,6,12,24])['stability'][1]['earliest_tested_stable_tail']==6
+unstable=copy.deepcopy(held);unstable[-1]['raw_sha256']='different'
+assert not settling_oracle(unstable,copy.deepcopy(held),[0,1],[3,6,12,24])['passed']
+bad=copy.deepcopy(held);bad[-1]['observation']['fighters'][0]['x_raw']+=1
+try: settling_oracle(bad,copy.deepcopy(bad),[0,1],[3,6,12,24])
+except ValueError: pass
+else: raise AssertionError('changed held source state accepted')
+print('Repeated presentation bounds, complete held-state pairs and changing mesh rejection passed.')
