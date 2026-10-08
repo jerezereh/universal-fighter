@@ -1,5 +1,33 @@
 # Progress record
 
+## 2026-10-08 — Reopened SIGN and native pixel comparison
+
+- The user reset/reopened offline training. Exact path/hash selection finds the new SIGN
+  PID alongside Rev2; fresh code/state profiles revalidate local owner/input hypotheses.
+  A new observer has 180 exact increments, and clean neutral/shader traces rederive all
+  current mesh buffers/programs with restored source/graphics bytes.
+- The first final-code motion repeat reaches step 16; a matching pair arrives near the
+  controller deadline and is not fully consumed. The incomplete trace is rejected,
+  with successful unload/detach/code restoration. Replaced the multi-megabyte QuickJS
+  comparison loop with Windows `RtlCompareMemory`, preserving exact byte equality and
+  all existing lifetime/presentation/capture limits. Two CPU scratch buffers are reused.
+  A native equal/unequal self-check runs before the first comparison.
+- A real owned ia32 helper verifies 13 comparisons of 1,966,080 bytes in 85 ms, ignores
+  state-prefix differences and rejects a changed last alpha byte. Authored readiness,
+  counter/drift/exhaustion and graphics-state tests pass. No dependency is installed.
+- One game retry times out before capture/startup. SIGN remains responsive, original
+  code agrees and its unmodified simulation advances. Added controller phase reporting
+  and native-start status; missing graphics witnesses are no longer described as failed
+  restoration when native instrumentation never starts. A later retry succeeds.
+- The motion repeat with the native comparator completes 28 exact updates, 78 blocked
+  opportunities and eight paired images, with walking both ways/jump, zero gaps/errors,
+  no clipping and restored source/graphics state. Full crossover and subsequent source
+  unit/color/combat work follow; guest capabilities remain false.
+- Evidence: fresh probe `20261008-170542-583145`, observation `170701-832502`, neutral
+  `170808-148654`, shader inventory `170906-342218`, rejected slow motion `171224-550917`,
+  transient startup timeout `171844-688839`, final motion `172650-919936` (boundary folder
+  names have the `boundary-20261008-` prefix). Source bytes/images remain local.
+
 ## 2026-10-07 — Private projection, adaptive native pixels and manual reset
 
 - Added opt-in private projection/depth ownership. Bindings come from each actual native

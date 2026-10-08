@@ -649,6 +649,12 @@ neutral credits verify four settled counters through `--layer-steps 0,1,2,3` (de
 All retain eight published pairs/128 MiB, bounded controller/lease lifetime and complete
 after-detach code verification. Local retained candidate buffers are replaced, not
 accumulated across unsuccessful presentations.
+Pixel equality uses the installed Windows native byte comparator, with a startup
+equal/unequal self-check and two reused CPU scratch buffers. It replaces the slow
+QuickJS per-byte loop without changing the experiment's deadlines or equality rule.
+`tools/test-xrd-pixel-compare.py` exercises the actual ia32 ABI and alpha/state-prefix
+behavior on an owned helper. Controller failures report the attach/load/start/observe
+phase; source and graphics restoration still require their own evidence.
 
 Live motion and Punch pass 28/20 exact updates and eight pairs each, without clipped
 target edges. Motion readiness varies through presentations 3/4, 7/8 and 8/9. Initial

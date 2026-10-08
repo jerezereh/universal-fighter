@@ -250,14 +250,18 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             base,size=process.module_base()
             return base==state['module_base'] and size==receipt['image_size'] and hashlib.sha256(process.read(base+state['code_rva'],state['code_size'])).hexdigest()==state['code_sha256']
         if not unchanged(): raise ValueError('source session/code changed; run a fresh probe')
+        phase='attach';native_start_attempted=False
         try:
             session=bounded_call(frida,lambda:frida.attach(state['pid']))
+            phase='load'
             source=(ROOT/'tools/xrd-sign-boundary.js').read_text()
             if layer or inspect_shaders: source+='\n'+(ROOT/'tools/xrd-sign-layer.js').read_text()
             script=session.create_script(source)
             script.on('message',receive);bounded_call(frida,script.load)
             settings=dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,layer=layer)
+            phase='start';native_start_attempted=True
             print(bounded_call(frida,lambda:script.exports_sync.start(settings)),flush=True)
+            phase='observe'
             started=time.perf_counter()
             with (out/'state.jsonl').open('w',encoding='utf-8') as log:
                 while time.perf_counter()-started<seconds:
@@ -341,7 +345,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                     states.append(observation['fighters'])
                     if native['executed']: completed+=1
         except Exception as error:
-            errors.append(dict(controller_error=repr(error)))
+            errors.append(dict(controller_error=repr(error),controller_phase=phase))
         finally:
             # A failed RPC must not prevent script/session teardown from removing the hook.
             if script is not None:
@@ -388,6 +392,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         this_deltas=sorted(set(r['this_delta'] for r in records)),depths=sorted(set(r['depth'] for r in records)),
         return_addresses=sorted(set(r['return_address'] for r in records)),errors=errors,
         observations_only=not bool(gate_options),boundary_experiment=bool(gate_options),boundary_aligned=True,temporary_code_interception=True,
+        native_start_attempted=native_start_attempted,
         detached=detached,loaded_code_restored=restored,source_unchanged=fingerprint(EXE)==SIGN_HASH,
         native_tick_verified=False,atomic_native_frame=False,host_step=False,isolated_rgba=False,universal_contact=False)
     if source_window: result['source_window']=source_window
@@ -432,8 +437,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         result['diagnostics']=diagnostics
         result['render_cleanup']=cleanup_receipt
         (out/'present.jsonl').write_text(''.join(json.dumps(r,separators=(',',':'))+'\n' for r in presents))
-        if not cleanup_receipt or not cleanup_receipt['render_code_restored']:
-            errors.append(dict(cleanup_error='Direct3D presentation code not restored'))
+        if native_start_attempted and (not cleanup_receipt or not cleanup_receipt['render_code_restored']):
+            errors.append(dict(cleanup_error='Direct3D presentation code restoration not verified'))
     if input_profile:
         (out/'input.jsonl').write_text(''.join(json.dumps(r,separators=(',',':'))+'\n' for r in inputs))
         result['input_observations']=len(inputs)

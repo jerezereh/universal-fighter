@@ -11,6 +11,7 @@ const layerSkipSeen = new Set();
 const layerCapturedSteps = new Set();
 let bodyAnchor=null;
 let pendingLayer=null, previousCandidate=null;
+let pixelCompare=null, pixelScratch=null;
 
 function layerPresentationSelected() {
     const p=config.layer, index=renderCapture.presentations+1;
@@ -21,8 +22,22 @@ function equalPixels(a,b) {
     if (a.metadata.width!==b.metadata.width || a.metadata.height!==b.metadata.height) return false;
     const aa=new Uint8Array(a.data,a.metadata.state_size),bb=new Uint8Array(b.data,b.metadata.state_size);
     if (aa.length!==bb.length) return false;
-    for(let i=0;i<aa.length;++i) if(aa[i]!==bb[i]) return false;
-    return true;
+    if (aa.length!==a.metadata.width*a.metadata.height*4 || aa.length>16*1024*1024)
+        throw new Error('invalid pixel comparison bounds');
+    if (pixelCompare===null) {
+        const api=Process.getModuleByName('ntdll.dll').enumerateExports().find(e=>e.name==='RtlCompareMemory');
+        if (!api) throw new Error('missing native byte comparator');
+        pixelCompare=new NativeFunction(api.address,'uint',['pointer','pointer','uint'],{abi:'stdcall',exceptions:'propagate'});
+        const left=Memory.alloc(4),right=Memory.alloc(4);
+        left.writeByteArray([1,2,3,4]);right.writeByteArray([1,2,3,5]);
+        if (pixelCompare(left,left,4)!==4 || pixelCompare(left,right,4)===4)
+            throw new Error('native byte comparator failed self-check');
+    }
+    // Reuse two CPU buffers; QuickJS byte-by-byte loops consume the native lease budget.
+    if (pixelScratch===null || pixelScratch.size!==aa.length)
+        pixelScratch={size:aa.length,a:Memory.alloc(aa.length),b:Memory.alloc(aa.length)};
+    pixelScratch.a.writeByteArray(aa);pixelScratch.b.writeByteArray(bb);
+    return pixelCompare(pixelScratch.a,pixelScratch.b,aa.length)===aa.length;
 }
 
 function finishSettledPair(scene) {

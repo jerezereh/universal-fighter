@@ -124,6 +124,11 @@ assert.ok(project([133,-540,-106,1],reflected.matrix)[0]<0);
 
 function readiness() {
     const f=fixture(),sent=[];f.context.send=(m,data)=>{if(m.kind!=='layer-readiness')sent.push(m);};
+    f.context.Process.getModuleByName=()=>({enumerateExports:()=>[{name:'RtlCompareMemory',address:1}]});
+    f.context.NativeFunction=function(address,result,args,options) {
+        assert.equal(options.abi,'stdcall');
+        return (a,b,n)=>{let i=0;while(i<n && a.data[i]===b.data[i])++i;return i;};
+    };
     return {sent,run(p,pixel=1,origin=0,counter=9){
         const data=Uint8Array.from([77,pixel,2,3,255]).buffer;
         f.context.testLayer={metadata:{kind:'render-layer',counter,request_index:0,presentation_index:p,
