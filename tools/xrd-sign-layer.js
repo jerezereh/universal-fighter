@@ -12,6 +12,7 @@ const layerCapturedSteps = new Set();
 let bodyAnchor=null;
 let pendingLayer=null, previousCandidate=null;
 let pixelCompare=null, pixelScratch=null;
+let privateViewOffset=null;
 
 function layerPresentationSelected() {
     const p=config.layer, index=renderCapture.presentations+1;
@@ -159,6 +160,14 @@ function privateProjection(device,d) {
     const constants=Memory.alloc(4096);
     succeeded(com(device,95,'int',['uint','pointer','uint'])(device,0,constants,256),'projection GetVertexShaderConstantF');
     const before=[binding.projection,binding.ortho].map((r,i)=>[r,i===0?4:1,hex(bytes(constants.add(r*16),i===0?64:16))]);
+    if (binding.pre_view_translation!==undefined && d.indexBuffer===config.suppress_draws.parts.body.index_buffer &&
+            d.vertexBuffer===config.suppress_draws.parts.body.vertex_buffer) {
+        const translated=Array.from({length:3},(_,i)=>constants.add((binding.local_to_world+3)*16+i*4).readFloat());
+        const preView=Array.from({length:3},(_,i)=>constants.add(binding.pre_view_translation*16+i*4).readFloat());
+        if ([...translated,...preView].some(v=>!Number.isFinite(v)||Math.abs(v)>1e6)) throw new Error('invalid native body world observation');
+        meshLayer.absolute_body_origin=translated.map((v,i)=>v-preView[i]);
+        meshLayer.pre_view_translation=preView;
+    }
     if (!meshLayer.origin) {
         if (!bodyAnchor || bodyAnchor.counter!==meshLayer.counter || bodyAnchor.presentation!==renderCapture.presentations+1)
             throw new Error('missing current body render anchor');
@@ -169,6 +178,28 @@ function privateProjection(device,d) {
         const data=Memory.alloc(values.length*4);
         values.forEach((v,i)=>data.add(i*4).writeFloat(v));
         succeeded(com(device,94,'int',['uint','pointer','uint'])(device,register,data,values.length/4),'private vertex projection');
+    }
+    let cameraRegister=null, cameraPosition=null;
+    if (binding.camera_world!==undefined) {
+        if (binding.pre_view_translation===undefined) throw new Error('camera world binding lacks pre-view translation');
+        const pre=Array.from({length:3},(_,i)=>constants.add(binding.pre_view_translation*16+i*4).readFloat());
+        const bodyWorld=meshLayer.origin.slice(0,3).map((v,i)=>v-pre[i]);
+        const camera=Array.from({length:3},(_,i)=>constants.add(binding.camera_world*16+i*4).readFloat());
+        if (privateViewOffset===null) {
+            privateViewOffset=[0,camera[1]-bodyWorld[1],camera[2]-bodyWorld[2]];
+            if (privateViewOffset.some(v=>!Number.isFinite(v)||Math.abs(v)>10000) || privateViewOffset[1]<=1)
+                throw new Error('invalid native private camera baseline');
+        }
+        cameraRegister=binding.camera_world;cameraPosition=bodyWorld.map((v,i)=>v+privateViewOffset[i]);
+    } else if (binding.camera_position_vs!==undefined && privateViewOffset!==null) {
+        cameraRegister=binding.camera_position_vs;
+        cameraPosition=meshLayer.origin.slice(0,3).map((v,i)=>v+privateViewOffset[i]);
+    }
+    if(cameraRegister!==null) {
+        before.push([cameraRegister,1,hex(bytes(constants.add(cameraRegister*16),16))]);
+        const data=Memory.alloc(16);data.writeByteArray(bytes(constants.add(cameraRegister*16),16));
+        cameraPosition.forEach((v,i)=>data.add(i*4).writeFloat(v));
+        succeeded(com(device,94,'int',['uint','pointer','uint'])(device,cameraRegister,data,1),'private camera constant');
     }
     return before;
 }
@@ -380,6 +411,9 @@ function finishMeshLayer(device) {
             ...(config.layer.projection ? {normalized_projection:true,projection_pivot:config.layer.projection.pivot,
                 pixels_per_world_unit:config.layer.projection.pixels_per_world_unit,
                 source_render_origin:current.origin,source_facing_left:current.source_facing_left,
+                native_absolute_body_origin:current.absolute_body_origin,
+                native_pre_view_translation:current.pre_view_translation,
+                private_view_offset:privateViewOffset,
                 canonical_right_facing:true,pivot_verified:false,units_verified:false} : {})};
         if (config.layer.settle) pendingLayer={metadata,data:captured.data};
         else {

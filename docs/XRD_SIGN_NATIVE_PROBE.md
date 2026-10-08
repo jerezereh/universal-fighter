@@ -632,6 +632,21 @@ graphics state restore explicitly and through the existing full state block. Sou
 left-facing pixels are reflected, with winding/culling adjusted, into canonical right-
 facing images. Original programs, geometry, textures and RGB instructions remain native.
 HDR/postprocess and effect completeness are still unaccepted.
+The native outline also extrudes with camera distance, and the fog/reflection vertex
+program uses view-space camera position. Named camera bindings are derived independently
+for each program. A centered private view initializes its Y/Z offset from the first
+native camera/body observation and retains that baseline across requested updates;
+camera-world and view-space values are rebased only during private draws. Original
+constant bytes restore afterward. This avoids importing source camera-zoom interpolation
+into the isolated actor. Neutral left-facing fixed-view proof passes; the full landing
+transition still needs a repeat from reset positions.
+
+When a body program supplies `PreViewTranslation`, diagnostic metadata also records
+that vector and `native_absolute_body_origin` from the original local-to-world origin
+minus pre-view translation. These shader-derived observations can be compared with
+source logical X/Y to derive units without retail field guesses. Current horizontal
+samples agree near 0.429913 world units per source logical unit; vertical mapping and
+the receiver's foot pivot are not accepted from these grounded observations alone.
 
 `--settle-layer` requires normalization, up to four selected requests, no fixed
 `--layer-presentations` and no per-sample transform inspection. It starts candidates at

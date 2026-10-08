@@ -201,6 +201,13 @@ the final readiness criterion requires resetting SIGN to its original distant So
 positions; the current foreground driver cannot navigate one of two same-name editions.
 Logical units/foot pivot, HDR/postprocess/effects, complete pose/tick readiness and
 persistent producer/universal result ownership remain gates. SIGN is still unconnected.
+The new-session crossover also rejects its landing frame through presentation 24:
+native camera depth/height continue changing, and the outline uses camera-distance
+extrusion. Private replay now derives a fixed camera baseline from native values and
+rebases the camera-world/view-space uniforms while restoring source state. Neutral
+left-facing capture passes; full crossover with this fix awaits another starting-position
+reset. Named pre-view subtraction supplies absolute body-origin observations for unit
+calibration; horizontal samples agree, but vertical units/foot placement remain pending.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Original menu pause,
 clash/superfreeze and universal stop/result ownership still need dedicated validation.

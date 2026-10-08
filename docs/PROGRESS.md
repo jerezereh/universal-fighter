@@ -1,5 +1,38 @@
 # Progress record
 
+## 2026-10-08 — Camera-dependent outline and native world origin
+
+- Final-code Punch repeat passes 20 exact updates, 74 blocked opportunities and eight
+  pairs, with one activation/four active steps and restored source/graphics state.
+  The subsequent crossover again reaches 111 updates/both grounded source facings,
+  then correctly rejects an unsettled left-facing landing frame after presentation 24.
+  Its final unaccepted scene/layer are retained; source state stays held and cleanup passes.
+- Read actual outline vertex assembly and observed constants. It subtracts the named
+  pre-view translation before camera-distance extrusion. Landing leaves camera depth/
+  height changing through all bounded presentations, although the 2D source state is
+  held. Centering projection alone does not eliminate this camera-dependent geometry.
+- Private replay now derives camera-world/view-space bindings per actual vertex program,
+  rejecting missing sizes, aliases and inline constants. A fixed centered private view
+  is initialized from native camera/body values; its Y/Z baseline is not hardcoded.
+  Both outline camera-world and fog/reflection view-space constants use that view.
+  Modified constants remain covered by per-draw state restoration and byte comparison;
+  source camera/programs/rendering remain unchanged.
+- Added read-only absolute body-origin/pre-view observations to diagnostic metadata.
+  Punch and the rejected crossover give consistent horizontal world/source ratios near
+  0.429913 at source X -230.992 and +398.129, across both source facings. Grounded native
+  world Z is zero. These are observations, not a validated vertical/unit/foot contract.
+- Authored camera movement/pre-translation tests verify a fixed private view and exact
+  restoration after two different source-camera states. The native neutral left-facing
+  run passes three exact updates, 249 blocked opportunities, eight paired images, zero
+  errors/no clipping and restored original code. Full transition with this camera fix
+  remains pending; the user is asked to reset the starting positions once more.
+- Evidence under `20261008-170542-583145`: Punch `boundary-20261008-174137-887406`,
+  rejected crossover `boundary-20261008-174307-035769`, fixed-view neutral
+  `boundary-20261008-175826-136269`. Authored layer/transform regressions and syntax pass.
+  The host boundary/patch are unchanged; retail data stays ignored. Next repeat crossover
+  and collect vertical movement/world-unit evidence, then color and producer/combat gates.
+  SIGN remains unconnected and full guest capabilities remain false.
+
 ## 2026-10-08 — Reopened SIGN and native pixel comparison
 
 - The user reset/reopened offline training. Exact path/hash selection finds the new SIGN

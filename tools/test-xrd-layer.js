@@ -3,13 +3,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-function fixture(failure = null, alpha = false, colorProduct = false, projection = false) {
+function fixture(failure = null, alpha = false, colorProduct = false, projection = false, camera = false) {
     const calls = [], releases = [];
     const pointer = name => ({name, isNull: () => name === 'null', toString: () => name,equals:p=>p.name===name});
     const zero = pointer('null'), target = pointer('target'), shader = pointer('source-shader');
     const privateTarget = pointer('private-target'), privateShader = pointer('private-shader'), block = pointer('block');
     const depth=pointer('depth'),privateDepth=pointer('private-depth');let boundDepth=depth;
     let vertexConstants=new Float32Array(256*4);vertexConstants[13*4+3]=1;
+    if(camera)vertexConstants.set([50,500,100,1],8*4);
     function allocation(size=256) {
         const values = new Map();
         const out={pointer: zero, values,data:new Uint8Array(size),writePointer(p) {this.pointer=p;}, readPointer() {return this.pointer;},
@@ -70,9 +71,11 @@ function fixture(failure = null, alpha = false, colorProduct = false, projection
     context.device=pointer('device');context.d={currentTarget:'target',pixelShader:'source-shader',vertexShader:'vertex-shader',indexBuffer:'i',vertexBuffer:'v'};
     if(projection) context.config.layer.projection={width:640,height:768,pivot:[320,700],pixels_per_world_unit:2,
         programs:{'vertex-shader':{projection:1,ortho:7,local_to_world:10,original_hex:'01020304'}}};
+    if(camera)Object.assign(context.config.layer.projection.programs['vertex-shader'],{camera_world:8,pre_view_translation:6});
     context.original=()=>{assert.equal(boundTarget,privateTarget);assert.equal(boundShader,privateShader);
         assert.equal(states.get(14),projection&&!colorProduct?1:0);assert.equal(states.get(52),0);
         if(projection){assert.equal(boundDepth,privateDepth);assert.notDeepEqual(vertexConstants,saved.vertex);}
+        if(camera){assert.equal(vertexConstants[8*4],0);assert.equal(vertexConstants[8*4+1],500);assert.equal(vertexConstants[8*4+2],100);}
         if(failure==='draw') return -1;return 0;};
     vm.runInContext(fs.readFileSync(__dirname+'/xrd-sign-layer.js','utf8'),context);
     if(projection) {
@@ -80,6 +83,11 @@ function fixture(failure = null, alpha = false, colorProduct = false, projection
         vm.runInContext('bodyAnchor={counter:9,presentation:3,origin:[0,0,0,1],source_facing_left:false}',context);
     }
     return {context,calls,releases,run:()=>vm.runInContext('replayMeshDraw(device,original,[4,0,0,3,0,1],d)',context),
+        shiftCamera:()=>{
+            vertexConstants.set([5,-100,-20,1],13*4);vertexConstants.set([5,-100,-20,0],6*4);
+            vertexConstants.set([50,800,300,1],8*4);
+            vm.runInContext('bodyAnchor={counter:9,presentation:3,origin:[5,-100,-20,1],source_facing_left:false}',context);
+        },
         release:()=>vm.runInContext('releaseLayer()',context),
         check:()=>{assert.equal(boundTarget,target);assert.equal(boundShader,shader);assert.equal(constants,'original-constants');
             assert.equal(states.get(14),1);assert.equal(states.get(52),1);
@@ -114,6 +122,9 @@ for(const failure of [29,40,94,95,47,43,107,'draw']) {
     const f=fixture(failure,false,false,true);assert.throws(f.run,/failed/);f.check();f.release();
 }
 console.log('Private projection/depth ownership and failure restoration passed.');
+const privateCamera=fixture(null,false,false,true,true);privateCamera.run();privateCamera.check();privateCamera.release();
+assert.deepEqual(Array.from(vm.runInContext('privateViewOffset',privateCamera.context)),[0,500,100]);
+privateCamera.shiftCamera();privateCamera.run();privateCamera.check();privateCamera.release();
 const rowFixture=fixture();rowFixture.context.p={width:640,height:768,pivot:[320,700],pixels_per_world_unit:2};
 const rows=vm.runInContext('projectionRows([123,-540,-106,1],false,p)',rowFixture.context);
 function project(world,m) {return [0,1,2,3].map(j=>world.reduce((n,v,i)=>n+v*m[i*4+j],0));}

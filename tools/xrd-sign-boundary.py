@@ -143,6 +143,17 @@ def layer_programs(folder,state,identity,normalize=False):
             if v['source_target']!=color[0]: continue
             if v['shader'] in bindings: raise ValueError('duplicate vertex program')
             bindings[v['shader']]=projection_bindings(v['assembly'],code)|dict(original_hex=code.hex())
+            if 'PreViewTranslation' in table:
+                if table['PreViewTranslation'][1]!=1: raise ValueError('invalid pre-view translation binding')
+                bindings[v['shader']]['pre_view_translation']=table['PreViewTranslation'][0]
+            for name,key in [('CameraWorldPos','camera_world'),('CameraPositionVS','camera_position_vs')]:
+                if name in table:
+                    if table[name][1]!=1: raise ValueError('invalid native camera binding')
+                    reserved=set(range(bindings[v['shader']]['projection'],bindings[v['shader']]['projection']+4))|{bindings[v['shader']]['ortho']}
+                    reserved.update(range(table['LocalToWorld'][0],table['LocalToWorld'][0]+4))
+                    if table[name][0] in reserved or re.search(r'^\s*def c'+str(table[name][0])+',',v['assembly'],re.M):
+                        raise ValueError('aliased/inline native camera binding')
+                    bindings[v['shader']][key]=table[name][0]
         if not bindings: raise ValueError('missing native projection programs')
         result['projection']=dict(programs=bindings,origins=origins,width=640,height=768,pivot=[320,700],pixels_per_world_unit=2)
     return result
