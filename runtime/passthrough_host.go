@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 // GPU uploads use IKEMEN's main-thread queue; reuse each fighter's texture.
 func (c *Char) syncPassthroughRender() {
 	r, ok := c.foreign.(*PassthroughRuntime)
@@ -27,6 +29,10 @@ func (c *Char) syncPassthroughRender() {
 		return
 	}
 	c.foreignRenderSequence = p.Sequence
+	if p.Layer != nil {
+		// docs/PASSTHROUGH_V2.md item 2: the shared-layer importer is not wired into IKEMEN yet.
+		panic(fmt.Sprintf("passthrough %s: shared GPU layer negotiated but the importer is not available", r.config.Game))
+	}
 	i, sprite := p.Image, c.foreignSprite
 	sprite.Size, sprite.Offset, sprite.coldepth = [2]uint16{uint16(i.Width), uint16(i.Height)}, i.Pivot, 32
 	// IKEMEN's true-color path expects premultiplied RGB, unlike the wire format.

@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"io"
+	"math"
 	"net"
 	"sync/atomic"
 	"testing"
@@ -191,5 +192,100 @@ func TestPassthroughConfigBounds(t *testing.T) {
 	}
 	if _, err := loadPassthroughConfig([]byte(`{"version":1,"game":"x","address":"[::1]:1234","buttons":{"a":"p"}}`)); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func sharedLayerPeer(t *testing.T, caps []string, layer func(GuestRequest) *GuestLayer) PassthroughConfig {
+	t.Helper()
+	c, _ := testPeer(t, "shared-game", func(q GuestRequest, p *GuestResponse) {
+		p.Capabilities = caps
+		if l := layer(q); l != nil {
+			p.Layer, p.Image = l, GuestImage{}
+		}
+	})
+	c.SharedLayer = true
+	return c
+}
+
+func goodLayer(value uint64) *GuestLayer {
+	return &GuestLayer{Kind: "d3d12-shared", Memory: "rev2-layer-1-memory", Fence: "rev2-layer-1-fence", Value: value,
+		Width: 500, Height: 510, Size: 1 << 20, Pivot: [2]float32{250, 480}, Premultiplied: true}
+}
+
+func TestPassthroughSharedLayerNegotiation(t *testing.T) {
+	all := []string{"host-step", "isolated-rgba", "universal-contact", sharedLayerD3D12}
+	var accepted []string
+	r, err := newPassthrough(sharedLayerPeer(t, all, func(q GuestRequest) *GuestLayer {
+		if q.Operation == "hello" {
+			accepted = q.Accept
+		}
+		return goodLayer(q.Sequence)
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	if len(accepted) != 1 || accepted[0] != sharedLayerD3D12 || !r.sharedLayer || r.latest.Layer == nil || r.latest.Image.Width != 0 {
+		t.Fatalf("negotiation/layer not published: accept=%v shared=%v", accepted, r.sharedLayer)
+	}
+	r.Step(InputFrame{}, FrameContext{Advance: true, AcceptInput: true, Facing: 1})
+	if r.latest.Layer.Value != 2 {
+		t.Fatal("layer for the step not published")
+	}
+	// Without the capability the requested extension fails explicitly.
+	if _, err := newPassthrough(sharedLayerPeer(t, all[:3], func(GuestRequest) *GuestLayer { return nil })); err == nil {
+		t.Fatal("missing shared-layer capability accepted")
+	}
+}
+
+func TestPassthroughSharedLayerValidation(t *testing.T) {
+	bad := map[string]func(*GuestLayer){
+		"name":     func(l *GuestLayer) { l.Memory = `..\evil name` },
+		"same":     func(l *GuestLayer) { l.Fence = l.Memory },
+		"size":     func(l *GuestLayer) { l.Size = 16 },
+		"dims":     func(l *GuestLayer) { l.Width = 5000 },
+		"straight": func(l *GuestLayer) { l.Premultiplied = false },
+		"pivot":    func(l *GuestLayer) { l.Pivot[0] = float32(math.Inf(1)) },
+		"kind":     func(l *GuestLayer) { l.Kind = "vulkan" },
+	}
+	for name, mutate := range bad {
+		l := goodLayer(1)
+		mutate(l)
+		if validateGuestLayer(*l) == nil {
+			t.Errorf("%s: invalid layer accepted", name)
+		}
+	}
+	p := GuestResponse{Layer: goodLayer(1)}
+	if validateGuestResponse(p, false) == nil {
+		t.Error("layer accepted without negotiation")
+	}
+	if err := validateGuestResponse(p, true); err != nil {
+		t.Errorf("layer-only reply rejected: %v", err)
+	}
+	if validateGuestResponse(GuestResponse{}, true) == nil {
+		t.Error("reply without layer or image accepted")
+	}
+}
+
+func TestPassthroughSharedLayerFenceOrder(t *testing.T) {
+	all := []string{"host-step", "isolated-rgba", "universal-contact", sharedLayerD3D12}
+	values := map[uint64]*GuestLayer{1: goodLayer(5), 2: goodLayer(6), 3: goodLayer(6)}
+	renamed := goodLayer(1)
+	renamed.Memory, renamed.Fence = "rev2-layer-2-memory", "rev2-layer-2-fence"
+	values[4] = renamed // recreated resources restart their fence values
+	r, err := newPassthrough(sharedLayerPeer(t, all, func(q GuestRequest) *GuestLayer { return values[q.Sequence] }))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	ctx := FrameContext{Advance: true, AcceptInput: true, Facing: 1}
+	if err := r.exchange("step", nil, ctx, nil); err != nil {
+		t.Fatalf("increasing fence rejected: %v", err)
+	}
+	if err := r.exchange("step", nil, ctx, nil); err == nil {
+		t.Fatal("repeated fence value accepted")
+	}
+	if err := r.exchange("step", nil, ctx, nil); err != nil {
+		t.Fatalf("renamed layer with restarted fence rejected: %v", err)
 	}
 }

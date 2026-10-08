@@ -1496,3 +1496,21 @@ the synthetic architecture gate allows the first real-game adapter.
 - Remaining: original menu pause, clash/superfreeze and human facing/render review;
   isolated source RGBA with state/image association, persistent transport and universal
   result/contact ownership. SIGN remains unconnected with full capabilities unaccepted.
+
+## 2026-10-08 — passthrough v2 receiver groundwork (branch `passthrough-v2-receiver`)
+
+- `docs/PASSTHROUGH_V2.md`: work items from the Rev2 producer (`jerezereh/xrd-rev2-producer`).
+  It covers the shared GPU layer, the receiver importer, hit/contact event properties,
+  host-to-guest and guest-to-host state, timing and producer lifecycle lessons, with measured
+  evidence separated from proposals.
+- Protocol (additive, negotiated; v1 guests and configs unchanged): `shared_layer` config flag,
+  hello `accept`, `shared-layer:d3d12` capability, a validated `layer` reply field (names, fence
+  value, size, dimensions, float pivot, premultiplied) and monotonic fence values per resource
+  pair. A layer-only reply may omit the RGBA image.
+- Host glue: an explicit panic if a shared layer is negotiated before the importer exists.
+- Verification: the full runtime suite passes (`go test`, the build-runtime file set), including
+  3 new tests: negotiation and the missing capability, layer validation (names, size, dims,
+  straight alpha, pivot, kind, no-negotiation, empty reply) and fence ordering with resource
+  renames. `go vet` and `gofmt` are clean.
+- Not done: the Windows importer (item 3) and the IKEMEN wiring (item 4). Hit/contact event
+  properties wait for the protocol design.

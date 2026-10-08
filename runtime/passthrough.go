@@ -17,6 +17,10 @@ import (
 const passthroughVersion = 1
 const passthroughLimit = 8 << 20
 
+// Negotiated extension (docs/PASSTHROUGH_V2.md item 1): the guest renders its layer into a named
+// shared D3D12 texture and signals a named shared fence instead of sending RGBA bytes.
+const sharedLayerD3D12 = "shared-layer:d3d12"
+
 // One connection per fighter. Game identifiers are configuration, never host branches.
 type PassthroughConfig struct {
 	Version   int               `json:"version"`
@@ -24,6 +28,8 @@ type PassthroughConfig struct {
 	Game      string            `json:"game"`
 	TimeoutMS int               `json:"timeout_ms"`
 	Buttons   map[string]string `json:"buttons"`
+	// SharedLayer requests the zero-copy layer; the guest must support it or the connection fails.
+	SharedLayer bool `json:"shared_layer,omitempty"`
 }
 type GuestOpponent struct {
 	X, Y, Facing        float32
@@ -44,6 +50,7 @@ type GuestRequest struct {
 	Life      int32
 	Opponent  *GuestOpponent `json:"opponent,omitempty"`
 	Result    *HitResult     `json:"result,omitempty"`
+	Accept    []string       `json:"accept,omitempty"` // hello only: negotiated extensions the receiver offers
 }
 
 // Pixels are tightly packed, top-down, straight-alpha RGBA; geometry faces right.
@@ -52,6 +59,21 @@ type GuestImage struct {
 	Width, Height int
 	Pivot         [2]int16
 	RGBA          []byte
+}
+
+// GuestLayer references the guest's shared GPU layer for this frame. Colours are premultiplied,
+// top-down, facing right; the pivot is the foot/origin in pixels. Value is the shared fence value the
+// frame's copy signals, strictly increasing for a given memory/fence pair.
+type GuestLayer struct {
+	Kind          string     `json:"kind"`
+	Memory        string     `json:"memory"`
+	Fence         string     `json:"fence"`
+	Value         uint64     `json:"value"`
+	Width         int        `json:"width"`
+	Height        int        `json:"height"`
+	Size          uint64     `json:"size"`
+	Pivot         [2]float32 `json:"pivot"`
+	Premultiplied bool       `json:"premultiplied"`
 }
 type GuestResponse struct {
 	Version      int          `json:"version"`
@@ -68,6 +90,7 @@ type GuestResponse struct {
 	Hitboxes     [][4]float32 `json:"hitboxes"`
 	Hurtboxes    [][4]float32 `json:"hurtboxes"`
 	Image        GuestImage   `json:"image"`
+	Layer        *GuestLayer  `json:"layer,omitempty"`
 }
 type PassthroughRuntime struct {
 	config         PassthroughConfig
@@ -79,6 +102,9 @@ type PassthroughRuntime struct {
 	life           int32
 	opponent       *GuestOpponent
 	latency        time.Duration
+	sharedLayer    bool      // negotiated at hello
+	layerNames     [2]string // memory, fence of the last accepted layer
+	layerValue     uint64
 }
 
 func strictJSON(data []byte, target any) error {
@@ -152,6 +178,10 @@ func newPassthrough(c PassthroughConfig) (*PassthroughRuntime, error) {
 			return nil, fmt.Errorf("guest %s lacks %s", c.Game, cap)
 		}
 	}
+	if c.SharedLayer && !r.sharedLayer {
+		r.Close()
+		return nil, fmt.Errorf("guest %s lacks %s", c.Game, sharedLayerD3D12)
+	}
 	return r, nil
 }
 
@@ -164,6 +194,9 @@ func (r *PassthroughRuntime) exchange(op string, input map[string]bool, ctx Fram
 	r.sequence++
 	q := GuestRequest{Version: passthroughVersion, Session: r.session, Game: r.config.Game, Sequence: r.sequence, Tick: r.tick,
 		Operation: op, Input: input, Context: ctx, X: r.x, Y: r.y, Life: r.life, Opponent: r.opponent, Result: result}
+	if op == "hello" && r.config.SharedLayer {
+		q.Accept = []string{sharedLayerD3D12}
+	}
 	data, err := json.Marshal(q)
 	if err != nil {
 		return err
@@ -197,9 +230,21 @@ func (r *PassthroughRuntime) exchange(op string, input map[string]bool, ctx Fram
 	if reply.Error != "" {
 		return fmt.Errorf("guest error: %s", reply.Error)
 	}
-	if err = validateGuestResponse(reply); err != nil {
+	shared := r.sharedLayer
+	if op == "hello" {
+		shared = r.config.SharedLayer && hasCapability(reply.Capabilities, sharedLayerD3D12)
+	}
+	if err = validateGuestResponse(reply, shared); err != nil {
 		return err
 	}
+	if l := reply.Layer; l != nil {
+		names := [2]string{l.Memory, l.Fence}
+		if names == r.layerNames && l.Value <= r.layerValue {
+			return fmt.Errorf("stale shared layer fence value %d", l.Value)
+		}
+		r.layerNames, r.layerValue = names, l.Value
+	}
+	r.sharedLayer = shared
 	r.latest = reply // Publish image, collision and state together, only after validation.
 	r.x, r.y = reply.State.X, reply.State.Y
 	r.latency = time.Since(started)
@@ -218,9 +263,55 @@ func guestTexturePixels(rgba []byte) []byte {
 	}
 	return data
 }
-func validateGuestResponse(p GuestResponse) error {
+func hasCapability(caps []string, want string) bool {
+	for _, c := range caps {
+		if c == want {
+			return true
+		}
+	}
+	return false
+}
+
+// Shared resource names are opaque but bounded, and limited to characters that are safe in a
+// Win32 named-object path.
+func validLayerName(name string) bool {
+	if len(name) < 1 || len(name) > 96 {
+		return false
+	}
+	for _, c := range name {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_' || c == '.') {
+			return false
+		}
+	}
+	return true
+}
+
+func validateGuestLayer(l GuestLayer) error {
+	if l.Kind != "d3d12-shared" || !validLayerName(l.Memory) || !validLayerName(l.Fence) || l.Memory == l.Fence {
+		return fmt.Errorf("invalid shared layer identity")
+	}
+	if l.Width < 1 || l.Height < 1 || l.Width > 4096 || l.Height > 4096 || l.Size < uint64(l.Width*l.Height*4) || l.Size > 256<<20 {
+		return fmt.Errorf("invalid shared layer dimensions/size")
+	}
+	if !l.Premultiplied || l.Value == 0 || !finiteGuest(l.Pivot[0]) || !finiteGuest(l.Pivot[1]) {
+		return fmt.Errorf("invalid shared layer format/fence/pivot")
+	}
+	return nil
+}
+
+func validateGuestResponse(p GuestResponse, shared bool) error {
 	i, s, a := p.Image, p.State, p.Attack
-	if i.Width < 1 || i.Height < 1 || i.Width > 1024 || i.Height > 1024 || len(i.RGBA) != i.Width*i.Height*4 {
+	if p.Layer != nil {
+		if !shared {
+			return fmt.Errorf("shared layer without negotiation")
+		}
+		if err := validateGuestLayer(*p.Layer); err != nil {
+			return err
+		}
+	}
+	// With a shared layer the RGBA image may be omitted (all zero); otherwise it is required.
+	omitted := p.Layer != nil && i.Width == 0 && i.Height == 0 && len(i.RGBA) == 0
+	if !omitted && (i.Width < 1 || i.Height < 1 || i.Width > 1024 || i.Height > 1024 || len(i.RGBA) != i.Width*i.Height*4) {
 		return fmt.Errorf("invalid RGBA dimensions/payload")
 	}
 	for _, v := range []float32{s.X, s.Y, s.VX, s.VY, s.YTarget, s.YRate, s.PushX, s.PushY, s.Gravity, a.PushX, a.PushY, a.Gravity, a.GuardPush} {
