@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"os"
 	"time"
 
 	gl "github.com/go-gl/gl/v3.3-core/gl"
@@ -10,6 +11,43 @@ import (
 
 // Shared-layer imports, keyed by runtime. Touched only on IKEMEN's main (GL) thread.
 var passthroughLayers = map[*PassthroughRuntime]*sharedLayerImport{}
+
+// UF_LAYER_PROFILE=1: per-runtime averages over ~60 frames of the guest round trip and of the
+// main-thread layer task phases, printed to stdout (the passthrough trace). Main thread only.
+var passthroughLayerProfile = os.Getenv("UF_LAYER_PROFILE") == "1"
+
+type layerProfile struct {
+	frames                                   int
+	exchange, task, unlock, wait, copy, lock time.Duration
+	maxTask                                  time.Duration
+	since                                    time.Time // window start: 60 frames / elapsed = frames per second
+}
+
+var passthroughLayerStats = map[*PassthroughRuntime]*layerProfile{}
+
+func profileLayerFrame(r *PassthroughRuntime, s *sharedLayerImport, task time.Duration) {
+	p := passthroughLayerStats[r]
+	if p == nil {
+		p = &layerProfile{since: time.Now()}
+		passthroughLayerStats[r] = p
+	}
+	p.frames++
+	p.exchange += r.latency
+	p.task += task
+	if s != nil { // nil: RGBA upload baseline
+		p.unlock, p.wait, p.copy, p.lock = p.unlock+s.Times.Unlock, p.wait+s.Times.Wait, p.copy+s.Times.Copy, p.lock+s.Times.Lock
+	}
+	if task > p.maxTask {
+		p.maxTask = task
+	}
+	if p.frames == 60 {
+		avg := func(d time.Duration) float64 { return float64(d.Microseconds()) / float64(p.frames) / 1000 }
+		fmt.Printf("[layer-profile] %s fps=%.1f frames=%d exchange=%.2fms task=%.2fms (max %.2fms) unlock=%.2fms wait=%.2fms copy=%.2fms lock=%.2fms\n",
+			r.config.Game, float64(p.frames)/time.Since(p.since).Seconds(), p.frames, avg(p.exchange), avg(p.task), float64(p.maxTask.Microseconds())/1000,
+			avg(p.unlock), avg(p.wait), avg(p.copy), avg(p.lock))
+		*p = layerProfile{since: time.Now()}
+	}
+}
 
 func init() {
 	passthroughLayerRelease = func(r *PassthroughRuntime) {
@@ -31,6 +69,7 @@ func syncPassthroughLayer(r *PassthroughRuntime, sprite *Sprite, l GuestLayer) {
 	sprite.coldepth = 32
 	timeout := time.Duration(r.config.TimeoutMS) * time.Millisecond
 	sys.mainThreadTask <- func() {
+		started := time.Now()
 		renderer, ok := gfx.(*Renderer_GL33)
 		if !ok {
 			panic(fmt.Sprintf("passthrough %s: shared GPU layers need the OpenGL 3.3 renderer", r.config.Game))
@@ -57,6 +96,9 @@ func syncPassthroughLayer(r *PassthroughRuntime, sprite *Sprite, l GuestLayer) {
 		}
 		if err := s.Update(l.Value, timeout); err != nil {
 			panic(fmt.Sprintf("passthrough %s: shared GPU layer frame %d: %v", r.config.Game, l.Value, err))
+		}
+		if passthroughLayerProfile {
+			profileLayerFrame(r, s, time.Since(started))
 		}
 	}
 }
@@ -97,6 +139,7 @@ func (c *Char) syncPassthroughRender() {
 	// IKEMEN's true-color path expects premultiplied RGB, unlike the wire format.
 	data := guestTexturePixels(i.RGBA)
 	sys.mainThreadTask <- func() {
+		started := time.Now()
 		if sprite.Tex == nil || sprite.Tex.GetWidth() != int32(i.Width) || sprite.Tex.GetHeight() != int32(i.Height) {
 			tex, err := gfx.newTexture(int32(i.Width), int32(i.Height), 32, false)
 			if err != nil {
@@ -105,6 +148,9 @@ func (c *Char) syncPassthroughRender() {
 			sprite.Tex = tex
 		}
 		sprite.Tex.SetData(data)
+		if passthroughLayerProfile {
+			profileLayerFrame(r, nil, time.Since(started))
+		}
 	}
 }
 

@@ -97,7 +97,11 @@ func ptWGL(name string) (uintptr, error) {
 	return address, nil
 }
 
+// LayerTimes holds the last Update's phase durations (UF_LAYER_PROFILE diagnostics).
+type LayerTimes struct{ Unlock, Wait, Copy, Lock time.Duration }
+
 type sharedLayerImport struct {
+	Times                       LayerTimes
 	names                       [2]string
 	Width, Height               int
 	device12, fence, event      uintptr
@@ -188,9 +192,11 @@ func (s *sharedLayerImport) Matches(l GuestLayer) bool {
 // Update makes frame `value` available to GL: release GL ownership, wait for the guest's copy to
 // complete, refresh the local copy if one is used, then lock the texture for GL until the next update.
 func (s *sharedLayerImport) Update(value uint64, timeout time.Duration) error {
+	t0 := time.Now()
 	if err := s.Unlock(); err != nil {
 		return err
 	}
+	t1 := time.Now()
 	if completed := ptCall(s.fence, 8); uint64(completed) < value {
 		if err := ptOK(ptCall(s.fence, 9, uintptr(value), s.event), "SetEventOnCompletion"); err != nil {
 			return err
@@ -199,15 +205,18 @@ func (s *sharedLayerImport) Update(value uint64, timeout time.Duration) error {
 			return fmt.Errorf("shared layer fence did not reach %d within %v", value, timeout)
 		}
 	}
+	t2 := time.Now()
 	if s.local != 0 {
 		ptCall(s.context11, 47, s.local, s.texture11) // CopyResource, ordered before the interop lock
 		ptCall(s.context11, 111)                      // Flush
 	}
+	t3 := time.Now()
 	objects := [1]uintptr{s.registered}
 	if r, _, _ := syscall.SyscallN(s.lock, s.interop, 1, uintptr(unsafe.Pointer(&objects[0]))); r == 0 {
 		return fmt.Errorf("wglDXLockObjectsNV failed")
 	}
 	s.locked = true
+	s.Times = LayerTimes{t1.Sub(t0), t2.Sub(t1), t3.Sub(t2), time.Since(t3)}
 	return nil
 }
 

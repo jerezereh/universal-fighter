@@ -1532,3 +1532,8 @@ the synthetic architecture gate allows the first real-game adapter.
   textures, with colours identical to the RGBA path at sampled pixels.
 - Open: throughput, 16.6 FPS shared vs 45.7 RGBA in the debug two-guest scene (PASSTHROUGH_V2 item 6).
   No Rev2 producer `layer` replies yet. Hit/contact properties wait for the protocol design.
+- Shared-layer profiling (`UF_LAYER_PROFILE=1`; host glue + importer phase timings, demo `guest_ms`):
+  shared and RGBA both run at a steady 60 FPS in the debug two-guest scene. The shared main-thread
+  task is ~2.1–2.5 ms per guest frame (interop lock ~1.8 ms) against ~8.4–9.2 ms for the RGBA upload.
+  The earlier 16.6 FPS reading was a transient. The first-frame import costs ~130–160 ms once. A
+  gfxcapture mid-run leaves the rate unchanged.

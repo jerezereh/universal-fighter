@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import socket
 import struct
+import time
 
 LIMIT = 8 << 20
 CAPABILITIES = ['host-step', 'isolated-rgba', 'universal-contact']
@@ -188,7 +189,9 @@ def main():
                         if not 0 < size <= LIMIT:
                             raise ValueError('invalid message size')
                         q = json.loads(read_exact(conn, size))
+                        started = time.perf_counter()
                         reply = f.apply(q)
+                        q['guest_ms'] = round((time.perf_counter() - started) * 1000, 3)   # diagnostics only
                         # Frame identity and input/contact evidence, never image bytes in logs.
                         log.write(json.dumps({k: v for k, v in q.items()}) + '\n')
                         log.flush()

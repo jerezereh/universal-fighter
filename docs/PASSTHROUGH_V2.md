@@ -133,8 +133,12 @@ pipelining (image for tick N-1 delivered with state for tick N) as an explicit, 
    explicitly. `play-passthrough.py --shared-layer` runs the demo guests on shared D3D12 layers
    (`tools/shared_layer_demo.py`). Smoke passes, and the window capture is pixel-identical to the RGBA
    path at sampled points.
-6. [ ] Shared-layer throughput: in the debug two-guest scene, shared runs at 16.6 FPS against RGBA's
-   45.7. Suspects: the per-guest CPU fence wait, D3D11 copy + Flush and DX-interop lock each frame,
-   and the demo guest's per-frame wait for its previous clears. Profile, then try GPU-side waits,
-   double-buffered textures and one lock for all guests.
+6. [x] Shared-layer throughput, profiled with `UF_LAYER_PROFILE=1` (per-runtime 60-frame windows in the
+   trace). Debug two-guest scene, steady state: both paths run at **60 FPS**. Per frame the shared path
+   costs the main thread ~2.1–2.5 ms (DX-interop lock ~1.8 ms, D3D11 copy ~0.2 ms, fence wait ~0–0.7 ms);
+   the RGBA path costs ~8.4–9.2 ms (CPU conversion + upload). Guest round trips are equal (~2.5–3 ms).
+   The earlier 16.6 FPS reading was not reproduced; IKEMEN's on-screen counter likely reflected a
+   single slow frame. The first frame's import creation takes ~130–160 ms. A window capture does not
+   affect the rate. Possible follow-ups, none required: create the import before the first drawn
+   frame, and batch the interop lock for all guests.
 5. [ ] Hit/contact event properties (item 3) once the protocol design settles.

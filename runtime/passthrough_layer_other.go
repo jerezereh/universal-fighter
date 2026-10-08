@@ -8,7 +8,10 @@ import (
 )
 
 // Shared D3D12 layers are Windows-only; a negotiated layer fails explicitly elsewhere.
+type LayerTimes struct{ Unlock, Wait, Copy, Lock time.Duration }
+
 type sharedLayerImport struct {
+	Times         LayerTimes
 	Width, Height int
 	GLTexture     uint32
 }
