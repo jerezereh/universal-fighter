@@ -25,8 +25,8 @@ def read_exact(conn, size):
 
 
 class Fighter:
-    def __init__(self, game, variant):
-        self.game, self.variant = game, variant
+    def __init__(self, game, variant, layer=None):
+        self.game, self.variant, self.layer = game, variant, layer   # layer: optional shared GPU layer
         self.reset()
 
     def reset(self):
@@ -34,7 +34,7 @@ class Fighter:
         self.tick = self.activation = self.age = self.stop = self.stun = 0
         self.held = self.back = self.down = self.guarded = self.defeated = False
         self.push = 0
-        self.session, self.sequence = None, 0
+        self.session, self.sequence, self.accepted = None, 0, []
 
     def apply(self, q):
         op = q['operation']
@@ -44,12 +44,14 @@ class Fighter:
             if self.session is not None or q['sequence'] != 1 or q['tick'] != 0:
                 raise ValueError('duplicate hello')
             self.session = q['session']
+            self.accepted = q.get('accept') or []
         if q['session'] != self.session or q['sequence'] != self.sequence + 1:
             raise ValueError('stale session/sequence')
         sequence, session = q['sequence'], self.session
         if op == 'reset':
+            accepted = self.accepted
             self.reset()
-            self.session = session
+            self.session, self.accepted = session, accepted   # negotiation lasts for the connection
         expected_tick = self.tick + (op == 'step')
         if q['tick'] != expected_tick:
             raise ValueError('unsynchronized guest tick')
@@ -112,8 +114,14 @@ class Fighter:
         pose = dict(Crouch=self.down, Attacking=bool(self.age), Normal=bool(self.age),
                     Down=self.defeated, CanTurn=not self.age and not self.stun)
         image = self.image(top, active)
+        shared = self.layer is not None and 'shared-layer:d3d12' in self.accepted
+        extra = {}
+        if shared:   # the same rectangles, rendered on the GPU into the shared texture; no RGBA bytes
+            extra = dict(layer=self.layer_frame(top, active))
+            image = dict(Width=0, Height=0, Pivot=[0, 0], RGBA='')
+        capabilities = CAPABILITIES + (['shared-layer:d3d12'] if self.layer is not None else [])
         return dict(version=1, session=q['session'], game=self.game, sequence=q['sequence'],
-                    tick=self.tick, capabilities=CAPABILITIES, state=state, pose=pose,
+                    tick=self.tick, capabilities=capabilities, state=state, pose=pose, **extra,
                     defense=dict(CanGuard=not self.age and not self.stun, Back=self.back,
                                  Crouch=self.down, Air=self.y < 0, Down=self.defeated),
                     attack=dict(Damage=60 if self.variant == 'amber' else 45, Chip=2,
@@ -122,26 +130,32 @@ class Fighter:
                     hitboxes=[[15, -60, 55, -20]] if active else [],
                     hurtboxes=[[-15, top, 15, 0]], image=image)
 
-    def image(self, top, active):
-        width, height, px, py = 96, 96, 24, 88
-        rgba = bytearray(width * height * 4)
-        color = (235, 162, 40, 255) if self.variant == 'amber' else (35, 185, 225, 255)
+    WIDTH, HEIGHT, PIVOT = 96, 96, (24, 88)
 
-        def rect(left, upper, right, lower, tint):
+    def rects(self, top, active):
+        color = (235, 162, 40, 255) if self.variant == 'amber' else (35, 185, 225, 255)
+        if self.defeated:
+            return [(-15, -12, 35, 0, color)]
+        shapes = [(-12, top, 12, 0, color), (12, top + 6, 18, top + 12, (255, 255, 255, 255)),  # right-facing nose
+                  (-5, top + 5, 1, top + 10, (20, 20, 20, 255))]
+        return shapes + ([(12, -52, 55, -35, color)] if active else [])
+
+    def image(self, top, active):
+        width, height, (px, py) = self.WIDTH, self.HEIGHT, self.PIVOT
+        rgba = bytearray(width * height * 4)
+        for left, upper, right, lower, tint in self.rects(top, active):
             for y in range(max(0, py + upper), min(height, py + lower)):
                 for x in range(max(0, px + left), min(width, px + right)):
                     offset = 4 * (y * width + x)
                     rgba[offset:offset + 4] = bytes(tint)
-
-        if self.defeated:
-            rect(-15, -12, 35, 0, color)
-        else:
-            rect(-12, top, 12, 0, color)
-            rect(12, top + 6, 18, top + 12, (255, 255, 255, 255))  # right-facing nose
-            rect(-5, top + 5, 1, top + 10, (20, 20, 20, 255))
-            if active:
-                rect(12, -52, 55, -35, color)
         return dict(Width=width, Height=height, Pivot=[px, py], RGBA=base64.b64encode(rgba).decode('ascii'))
+
+    def layer_frame(self, top, active):
+        px, py = self.PIVOT
+        # Opaque authored colours: premultiplied equals straight.
+        self.layer.render([(px + l, py + u, px + r, py + d, tuple(c / 255 for c in tint))
+                           for l, u, r, d, tint in self.rects(top, active)])
+        return self.layer.describe(self.PIVOT)
 
 
 def main():
@@ -150,7 +164,12 @@ def main():
     p.add_argument('--variant', choices=('amber', 'cyan'), required=True)
     p.add_argument('--ready', type=Path, required=True)
     p.add_argument('--log', type=Path, required=True)
+    p.add_argument('--shared-layer', action='store_true', help='offer shared-layer:d3d12 (Windows, D3D12)')
     args = p.parse_args()
+    layer = None
+    if args.shared_layer:
+        from shared_layer_demo import SharedLayer, unique_stem
+        layer = SharedLayer(Fighter.WIDTH, Fighter.HEIGHT, unique_stem(args.variant))
     with socket.socket() as listener, args.log.open('w', encoding='utf-8') as log:
         listener.bind(('127.0.0.1', 0))
         listener.listen(1)
@@ -160,7 +179,7 @@ def main():
         ready_tmp.replace(args.ready)
         while True:
             conn, _ = listener.accept()
-            f = Fighter(args.game, args.variant)
+            f = Fighter(args.game, args.variant, layer)
             with conn:
                 conn.settimeout(30)
                 try:

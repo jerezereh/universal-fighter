@@ -126,6 +126,15 @@ pipelining (image for tick N-1 delivered with state for tick N) as an explicit, 
    GL ownership, waits for the fence (bounded), refreshes the local copy where the driver refuses
    to register the shared texture, and locks the texture for GL until the next update.
    `TestSharedLayerImportRoundTrip` emulates the producer's resources and passes on Intel Iris Xe.
-4. [ ] Host glue: draw the imported texture as `Texture_GL33` in `syncPassthroughRender`;
-   `apply-runtime.py` copies the new file. Needs the pinned IKEMEN tree to build.
+4. [x] Host glue: `syncPassthroughLayer` imports and updates the layer on IKEMEN's main thread and
+   draws it as a `Texture_GL33` that the import owns (no finalizer, premultiplied, NEAREST/CLAMP set
+   through IKEMEN's binding cache). Imports are keyed by runtime and touched only on the GL thread.
+   `Close` releases them there through `passthroughLayerRelease`. Non-OpenGL 3.3 renderers fail
+   explicitly. `play-passthrough.py --shared-layer` runs the demo guests on shared D3D12 layers
+   (`tools/shared_layer_demo.py`). Smoke passes, and the window capture is pixel-identical to the RGBA
+   path at sampled points.
+6. [ ] Shared-layer throughput: in the debug two-guest scene, shared runs at 16.6 FPS against RGBA's
+   45.7. Suspects: the per-guest CPU fence wait, D3D11 copy + Flush and DX-interop lock each frame,
+   and the demo guest's per-frame wait for its previous clears. Profile, then try GPU-side waits,
+   double-buffered textures and one lock for all guests.
 5. [ ] Hit/contact event properties (item 3) once the protocol design settles.

@@ -105,7 +105,12 @@ type PassthroughRuntime struct {
 	sharedLayer    bool      // negotiated at hello
 	layerNames     [2]string // memory, fence of the last accepted layer
 	layerValue     uint64
+	layerUsed      bool // a layer reached the host renderer; Close must release its import there
 }
+
+// passthroughLayerRelease releases a runtime's shared-layer import on the host's render thread.
+// The IKEMEN glue sets it; standalone (tests) there is nothing to release.
+var passthroughLayerRelease func(*PassthroughRuntime)
 
 func strictJSON(data []byte, target any) error {
 	d := json.NewDecoder(bytes.NewReader(data))
@@ -242,7 +247,7 @@ func (r *PassthroughRuntime) exchange(op string, input map[string]bool, ctx Fram
 		if names == r.layerNames && l.Value <= r.layerValue {
 			return fmt.Errorf("stale shared layer fence value %d", l.Value)
 		}
-		r.layerNames, r.layerValue = names, l.Value
+		r.layerNames, r.layerValue, r.layerUsed = names, l.Value, true
 	}
 	r.sharedLayer = shared
 	r.latest = reply // Publish image, collision and state together, only after validation.
@@ -421,6 +426,10 @@ func (r *PassthroughRuntime) Close() {
 		r.conn.Close()
 		r.conn = nil
 	}
+	if r.layerUsed && passthroughLayerRelease != nil {
+		passthroughLayerRelease(r)
+	}
+	r.layerUsed, r.layerNames, r.layerValue = false, [2]string{}, 0
 }
 func (r *PassthroughRuntime) Diagnostics() string {
 	return fmt.Sprintf("seq:%d tick:%d rgba:%dx%d boxes:%d/%d latency_us:%d", r.sequence, r.tick, r.latest.Image.Width, r.latest.Image.Height, len(r.latest.Hitboxes), len(r.latest.Hurtboxes), r.latency.Microseconds())

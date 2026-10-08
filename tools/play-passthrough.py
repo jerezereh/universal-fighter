@@ -29,13 +29,13 @@ def stop_process(p):
             p.wait(timeout=5)
 
 
-def start_guest(stack, folder, game, variant):
+def start_guest(stack, folder, game, variant, shared=False):
     ready = folder / (variant + '-ready.json')
     log = folder / (variant + '-requests.jsonl')
     stderr = stack.enter_context((folder / (variant + '-stderr.txt')).open('w'))
     p = subprocess.Popen([sys.executable, '-X', 'utf8', str(ROOT / 'tools/passthrough-demo.py'),
                           '--game', game, '--variant', variant, '--ready', str(ready),
-                          '--log', str(log)], stderr=stderr, creationflags=HIDDEN)
+                          '--log', str(log)] + (['--shared-layer'] if shared else []), stderr=stderr, creationflags=HIDDEN)
     stack.callback(stop_process, p)
     deadline = time.monotonic() + 10
     while not ready.exists():
@@ -63,11 +63,13 @@ anim = shell.air
     receipt.update(timeout_ms=500, buttons=({'a': 'punch', 'b': 'kick', 'c': 'heavy'}
                                           if variant == 'amber' else
                                           {'a': 'light', 'b': 'medium', 'c': 'heavy', 'x': 'special'}))
+    if shared:
+        receipt['shared_layer'] = True   # docs/PASSTHROUGH_V2.md: zero-copy GPU layer instead of RGBA
     Path(str(name) + '.passthrough.json').write_text(json.dumps(receipt))
     return folder.name + '/' + name.name, log
 
 
-def run_scene(scene, smoke=False, reject=False, debug=True):
+def run_scene(scene, smoke=False, reject=False, debug=True, shared=False):
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H%M%S-%f')
     folder = HOST / f'passthrough-{scene}-{stamp}'
     folder.mkdir()
@@ -76,8 +78,8 @@ def run_scene(scene, smoke=False, reject=False, debug=True):
     config = re.sub(r'(?m)^Rollback.DesyncTestFrames\s*=.*$', 'Rollback.DesyncTestFrames = ' + ('8' if reject else '0'), config)
     (folder / 'config.ini').write_text(config)
     with ExitStack() as stack:
-        amber, amber_log = start_guest(stack, folder, 'authored-amber', 'amber')
-        cyan, cyan_log = start_guest(stack, folder, 'authored-cyan', 'cyan')
+        amber, amber_log = start_guest(stack, folder, 'authored-amber', 'amber', shared)
+        cyan, cyan_log = start_guest(stack, folder, 'authored-cyan', 'cyan', shared)
         p1, p2 = amber, cyan
         if scene == 'native-in':
             p1 = 'uf-probe/high.def'
@@ -157,12 +159,13 @@ def main():
     p.add_argument('--smoke', action='store_true', help='automated matches; no keyboard UI automation')
     p.add_argument('--no-debug', action='store_true', help='hide diagnostic collision overlays')
     p.add_argument('--scene', choices=('two-guests', 'native-in', 'native-out', 'reset', 'rollback-rejection'))
+    p.add_argument('--shared-layer', action='store_true', help='guests render shared D3D12 layers (Windows, OpenGL 3.3)')
     args = p.parse_args()
     if not (HOST / 'Ikemen_GO.exe').exists():
         p.error('Build the runtime first.')
     scenes = [args.scene] if args.scene else ['two-guests', 'native-in', 'native-out', 'reset', 'rollback-rejection'] if args.smoke else ['two-guests']
     for scene in scenes:
-        run_scene(scene, args.smoke, scene == 'rollback-rejection', not args.no_debug)
+        run_scene(scene, args.smoke, scene == 'rollback-rejection', not args.no_debug, args.shared_layer)
 
 
 if __name__ == '__main__':

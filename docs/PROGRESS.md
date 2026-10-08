@@ -1521,3 +1521,14 @@ the synthetic architecture gate allows the first real-game adapter.
   back the logical RGBA. It passes in 0.6 s on this machine, and an unsignalled fence value times
   out instead of blocking. The full runtime suite passes. vet is clean for Windows and for the
   Linux stub. build-runtime/apply-runtime include the new files. IKEMEN wiring (item 4) is next.
+- IKEMEN wiring for shared layers: `syncPassthroughLayer` (main-thread import/update, the import-owned
+  `Texture_GL33`, binding-cache-safe sampler setup, release on Close through
+  `passthroughLayerRelease`), `play-passthrough.py --shared-layer` and demo guests rendering
+  through `tools/shared_layer_demo.py`.
+- Verified: the pinned IKEMEN (07558c8) built with the glue. FFmpeg was reused read-only from the
+  original checkout (`BUILD_FFMPEG=no`) and Go modules came from an isolated cache. The runtime suite
+  passes. Smoke `two-guests` passes on RGBA and on `--shared-layer` (40 guest commits each, no
+  import/fence errors). A gfxcapture of the interactive scene shows both guests drawn from shared
+  textures, with colours identical to the RGBA path at sampled pixels.
+- Open: throughput, 16.6 FPS shared vs 45.7 RGBA in the debug two-guest scene (PASSTHROUGH_V2 item 6).
+  No Rev2 producer `layer` replies yet. Hit/contact properties wait for the protocol design.
