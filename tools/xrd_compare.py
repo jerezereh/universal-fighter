@@ -88,6 +88,7 @@ def compare_trace(folder, exclusions=(), exclusion_note=''):
             raise ValueError('source/private viewport alignment is not observed')
         images[1] = images[1][:scene['height'], :scene['width']]
         results.append(dict(counter=layer['counter'], capture=file.name,
+            full_source_color_replayed=layer.get('full_source_color_replayed') is True,
             private_dimensions=[layer['width'], layer['height']],
             source_dimensions=[scene['width'], scene['height']],
             comparison_resampling='none', source_viewport_crop=True, **compare_pixels(*images, exclusions)))

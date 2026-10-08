@@ -275,6 +275,12 @@ and declaration are now captured with clean bounded native/source restoration. S
 bloom/low-resolution coordinate transforms and a partial internal-target rectangle are
 observed. Use those inputs for diagnostic effect reuse before private effect generation;
 unrelated source scene contributions cannot become accepted isolated fighter pixels.
+The opt-in original full-source color-draw diagnostic now passes native input/state and
+graphics restoration checks. It retains original vertex coordinates and source scene/
+effect inputs and masks the result with private Sol coverage; it never becomes an isolated
+fighter render. Final-backbuffer regional error remains similar, so missing bloom is not
+an established cause. Next compare the original color target at the same held presentation
+before later postprocessing; final color, source-mask/foot and producer gates remain.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

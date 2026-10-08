@@ -739,6 +739,13 @@ the native declaration. Stage/constant/stride/index/declaration framing and loca
 are checked before retaining these inputs. Vertex padding has no shader-input meaning;
 interpret declared attributes only. The native bloom and low-resolution coordinate
 transforms differ, so do not invent a shared zero/normalized UV mapping for effect replay.
+`--source-color-layer` requires original-camera mode and inspected native vertex/quad
+evidence. It synchronously repeats the actual indexed CPU color draw on an owned target
+using its original vertex program/constants/texture inputs, then applies private coverage.
+The source scene and effects are reused wholesale; `full_source_color_replayed` distinguishes
+these diagnostics from private HDR grading. Never claim isolated bloom or source color
+from them. Similar error against the final backbuffer calls for a same-presentation original
+color-target comparison before attributing differences to later effects or material replay.
 
 `--settle-layer` requires normalization, up to four selected requests, no fixed
 `--layer-presentations` and no per-sample transform inspection. It starts candidates at

@@ -28,7 +28,7 @@ function gradingQuad(width,height,mask) {
     });return data;
 }
 
-function gradeLayer(device,d) {
+function gradeLayer(device,d,replaySource=null) {
     const current=meshLayer,p=config.layer.grade,g=gate;
     if(!p || current===null || current.graded || d.pixelShader!==p.shader || d.currentTarget!==p.target ||
         g===null || g.resumed || g.executing || renderCapture.counter!==current.counter)return;
@@ -36,6 +36,10 @@ function gradeLayer(device,d) {
     if(root.add(4+config.candidate.counter_field).readU32()!==current.counter)throw new Error('source advanced before private grading');
     const program=shaderProgram(device,'pixel');
     if(program.shader!==p.shader || hex(program.code)!==p.original_hex)throw new Error('native grading program drift');
+    if(config.layer.source_color) {
+        if(replaySource===null || hex(shaderProgram(device,'vertex').code)!==p.vertex_original_hex)
+            throw new Error('unverified original color draw/vertex program');
+    }
     const oldPixel=d.pixelShader,oldTarget=d.currentTarget,targets=[],references=[],samplers=[];
     const vp=Memory.alloc(24),vertex=Memory.alloc(4096),pixel=Memory.alloc(224*16);
     let block=ptr(0),depth=ptr(0),lut=ptr(0),sourceShader=ptr(0),sourceVertex=ptr(0),sourceFvf=0,failure=null;
@@ -74,27 +78,32 @@ function gradeLayer(device,d) {
         block=output.readPointer();references.push(block);
         const colored=textureTarget(device,current.width,current.height,21);
         current.extra.push(colored.texture,colored.surface);
-        const black=textureTarget(device,1,1,21);current.extra.push(black.texture,black.surface);
+        const black=config.layer.source_color?null:textureTarget(device,1,1,21);
+        if(black)current.extra.push(black.texture,black.surface);
         succeeded(com(device,39,'int',['pointer'])(device,ptr(0)),'grading disable depth');
         for(const [slot] of targets)if(slot!==0)succeeded(com(device,37,'int',['uint','pointer'])(device,slot,ptr(0)),'grading disable MRT');
-        succeeded(com(device,37,'int',['uint','pointer'])(device,0,black.surface),'grading black target');
-        succeeded(com(device,43,'int',['uint','pointer','uint','uint','float','uint'])(device,0,ptr(0),1,0xff000000,1,0),'grading black clear');
+        if(black) {
+            succeeded(com(device,37,'int',['uint','pointer'])(device,0,black.surface),'grading black target');
+            succeeded(com(device,43,'int',['uint','pointer','uint','uint','float','uint'])(device,0,ptr(0),1,0xff000000,1,0),'grading black clear');
+        }
         succeeded(com(device,37,'int',['uint','pointer'])(device,0,colored.surface),'grading color target');
         const privateVp=Memory.alloc(24);privateVp.writeByteArray(bytes(vp,24));privateVp.writeU32(0);privateVp.add(4).writeU32(0);
         privateVp.add(8).writeU32(current.width);privateVp.add(12).writeU32(current.height);
         privateVp.add(16).writeFloat(0);privateVp.add(20).writeFloat(1);
-        succeeded(com(device,47,'int',['pointer'])(device,privateVp),'grading viewport');
-        succeeded(com(device,92,'int',['pointer'])(device,ptr(0)),'grading fixed vertex shader');
-        succeeded(com(device,89,'int',['uint'])(device,0xa0204),'grading XYZRHW/TEX2 float4 FVF');
+        succeeded(com(device,47,'int',['pointer'])(device,config.layer.source_color?vp:privateVp),'grading viewport');
         for(const [id,value] of gradingBlendStates(false))succeeded(com(device,57,'int',['uint','uint'])(device,id,value),'grading render state');
-        for(const [name,slot] of Object.entries(p.samplers)) {
+        if(!config.layer.source_color)for(const [name,slot] of Object.entries(p.samplers)) {
             const texture=name==='SceneColorTexture'?current.texture:name==='ColorGradingLUT'?lut:black.texture;
             succeeded(com(device,65,'int',['uint','pointer'])(device,slot,texture),'grading sampler texture');
             for(const [state,value] of [[1,3],[2,3],[11,0]])succeeded(com(device,69,'int',['uint','uint','uint'])(device,slot,state,value),'grading sampler state');
         }
         succeeded(com(device,107,'int',['pointer'])(device,sourceShader),'native grading shader');
+        if(config.layer.source_color)succeeded(replaySource(),'original full-source private color draw');
+        succeeded(com(device,47,'int',['pointer'])(device,privateVp),'coverage viewport');
+        succeeded(com(device,92,'int',['pointer'])(device,ptr(0)),'grading fixed vertex shader');
+        succeeded(com(device,89,'int',['uint'])(device,0xa0204),'grading XYZRHW/TEX2 float4 FVF');
         const quad=gradingQuad(current.width,current.height,false);
-        succeeded(com(device,83,'int',['uint','uint','pointer','uint'])(device,5,2,quad,48),'native private grading draw');
+        if(!config.layer.source_color)succeeded(com(device,83,'int',['uint','uint','pointer','uint'])(device,5,2,quad,48),'native private grading draw');
         const copy=Memory.alloc(p.copy_hex.length/2);copy.writeByteArray(p.copy_hex.match(/../g).map(x=>parseInt(x,16)));
         output.writePointer(ptr(0));succeeded(com(device,106,'int',['pointer','pointer'])(device,copy,output),'coverage copy shader');
         const copyShader=output.readPointer();current.extra.push(copyShader);

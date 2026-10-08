@@ -107,15 +107,16 @@ function installDrawTrace(device) {
         if (range === null || !range.protection.includes('x') || targets.has(target.toString()))
             throw new Error('invalid/aliased draw-trace method');
         targets.add(target.toString());
-        return {target, method, types, before: hex(bytes(target, 32))};
+        return {target, slot, method, types, before: hex(bytes(target, 32))};
     });
-    for (const {target, method, types, before} of resolved) {
+    for (const {target, slot, method, types, before} of resolved) {
         const listener = Interceptor.attach(target, {
             onEnter(args) {
                 this.event = null;
                 this.binding = null;
                 this.targetBinding = null;
                 this.gradeDevice=null;
+                this.gradeReplay=null;
                 if (config.layer && layerDrawing) return;
                 const d = drawTrace;
                 if (d === null || !args[0].equals(d.device)) return;
@@ -127,7 +128,14 @@ function installDrawTrace(device) {
                     this.binding = ['vertexBuffer', args[2].toString()];
                 if (method === 'SetRenderTarget' && args[1].toUInt32() === 0) this.targetBinding = args[2].toString();
                 if(config.layer?.grade && twoTriangleDraw(method,args) && d.pixelShader===config.layer.grade.shader &&
-                        d.currentTarget===config.layer.grade.target)this.gradeDevice=args[0];
+                        d.currentTarget===config.layer.grade.target) {
+                    this.gradeDevice=args[0];
+                    if(config.layer.source_color && method==='DrawIndexedPrimitiveUP') {
+                        const device=args[0],signature=types.map(t=>t==='p'?'pointer':t==='i'?'int':'uint');
+                        const values=types.map((t,i)=>t==='p'?args[i+1]:t==='i'?args[i+1].toInt32():args[i+1].toUInt32());
+                        this.gradeReplay=()=>com(device,slot,'int',signature)(device,...values);
+                    }
+                }
                 if(config.inspect_screen_shaders && config.layer && twoTriangleDraw(method,args)) {
                     try {observeLayerColorBoundary(d);}
                     catch(error) {send({kind:'error',phase:'layer-color-boundary',message:String(error)});}
@@ -182,7 +190,7 @@ function installDrawTrace(device) {
             },
             onLeave(result) {
                 if(this.gradeDevice!==null && result.toInt32()===0) {
-                    try {gradeLayer(this.gradeDevice,drawTrace);}
+                    try {gradeLayer(this.gradeDevice,drawTrace,this.gradeReplay);}
                     catch(error){layerFailed=true;if(meshLayer!==null)meshLayer.state_verified=false;
                         send({kind:'error',phase:'native-private-grading',message:String(error)});}
                 }

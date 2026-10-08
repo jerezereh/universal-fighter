@@ -69,7 +69,7 @@ function fixture(failure=null) {
             if(a[3]!==224 || failure!=='restore-pixel')pixel.set(a[2].data,a[1]*16);return 0;}
         if(slot===83){
             draws++;assert.equal(fvf,0xa0204);assert.equal(boundDepth,zero);assert.equal(a[1],5);assert.equal(a[2],2);assert.equal(a[4],48);
-            if(draws===1){assert.equal(boundShader,shader);assert.equal(sampler.get(0),hdr);assert.equal(sampler.get(2),lut);
+            if(draws===1 && !context.config.layer.source_color){assert.equal(boundShader,shader);assert.equal(sampler.get(0),hdr);assert.equal(sampler.get(2),lut);
                 assert.equal(sampler.get(1),sampler.get(3));if(failure==='grade-draw')return -1;}
             else {assert.equal(boundShader,copy);assert.equal(sampler.get(0),hdr);assert.equal(states.get(19),1);assert.equal(states.get(20),5);
                 assert.equal(states.get(207),2);assert.equal(states.get(208),1);if(failure==='mask-draw')return -1;}
@@ -82,6 +82,13 @@ function fixture(failure=null) {
     vm.runInContext(fs.readFileSync(__dirname+'/xrd-sign-grade.js','utf8'),context);
     context.hdr=hdr;vm.runInContext('meshLayer.texture=hdr',context);
     return {releases,context,run:()=>vm.runInContext('gradeLayer(device,d)',context),
+        runSource:()=>{
+            context.config.layer.source_color=true;context.config.layer.grade.vertex_original_hex='01020304';
+            context.sourceReplay=()=>{assert.equal(boundVertex,vs);assert.equal(fvf,99);assert.equal(boundShader,shader);
+                assert.equal(sampler.get(0).name,'scene');context.replays=(context.replays||0)+1;
+                return failure==='source-draw'?-1:0;};
+            return vm.runInContext('gradeLayer(device,d,sourceReplay)',context);
+        },
         restore:()=>{assert.equal(boundTarget,target);assert.equal(boundDepth,depth);assert.equal(boundShader,shader);assert.equal(boundVertex,vs);
             assert.equal(fvf,99);assert.equal(sampler.get(2),lut);assert.equal(vm.runInContext('layerDrawing',context),false);
             assert.ok(vertex.every(n=>n===0) && pixel.every(n=>n===0));},
@@ -89,6 +96,9 @@ function fixture(failure=null) {
 }
 const good=fixture();good.run();good.restore();good.release();assert.equal(vm.runInContext('Boolean(meshLayer.graded)',good.context),true);
 const sourceView=fixture();sourceView.context.config.layer.projection=null;sourceView.run();sourceView.restore();sourceView.release();
+const sourceColor=fixture();sourceColor.runSource();sourceColor.restore();sourceColor.release();
+assert.equal(sourceColor.context.replays,1);
+const sourceFailure=fixture('source-draw');assert.throws(sourceFailure.runSource,/failed/);sourceFailure.restore();sourceFailure.release();
 assert.ok(good.releases.includes('copy') && good.releases.includes('texture-1') && good.releases.includes('surface-2'));
 for(const failure of ['block','texture','surface','copy','grade-draw','mask-draw','vertex-setter','pixel-setter']) {
     const f=fixture(failure);assert.throws(f.run,/failed/);f.restore();f.release();

@@ -1,5 +1,32 @@
 # Progress record
 
+## 2026-10-08 — Original full-source color draw diagnostic passes
+
+- Added `--source-color-layer`, exclusive to neutral original-camera diagnostics with
+  inspected vertex/quad evidence. It verifies the live original vertex program and repeats
+  the actual indexed CPU draw into an owned target, retaining native vertex coordinates,
+  constants, scene/LUT/effect textures and original viewport. It then applies private Sol
+  coverage with the existing copy pass. Original stack input pointers are reused only
+  synchronously within that original draw's return callback.
+- This deliberately samples the full source scene, including its stage/opponent/effects.
+  Metadata marks `full_source_color_replayed`; it is not an isolated fighter color path,
+  private bloom generation or a publishable producer image. Normal private HDR grading
+  retains its separate inputs. Existing state/resource restoration and failure rejection
+  remain mandatory; full-source callback failures are tested independently.
+- The native retry passes three exact updates, 152 blocked opportunities, four linked
+  source/layer captures and source/graphics/hook restoration. The first attempt times out
+  before attachment/native start and is retained as failed. Authored grade/layer/comparison/
+  dependency checks, syntax/compile checks and 87 literal device ABI checks pass; dynamic
+  original-draw dispatch remains outside the literal-call header checker.
+- The excluded-region comparison measures approximately 5.865/255 mean channel error,
+  p95 31 and 51.60% exact RGB. This is similar to the earlier private-input diagnostic,
+  with a different idle pose/coverage; it is not a controlled subtraction of bloom error.
+  Do not attribute remaining differences to absent bloom. Next compare the original
+  pre-later-postprocessing color target at the same held render presentation, rather
+  than only the final backbuffer. Source masks/feet/final fidelity remain unaccepted.
+- Evidence: `20261008-222305-484036/boundary-20261008-230528-581633`;
+  pre-start failure `boundary-20261008-230438-889339`. Retail captures/programs remain ignored.
+
 ## 2026-10-08 — Native grading vertex coordinates and quad input observed
 
 - Extended the LUT-consumer inspection with its actual bound vertex program/constants.

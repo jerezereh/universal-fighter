@@ -518,6 +518,7 @@ function finishMeshLayer(device) {
             color_product_draws_total: layerColorBlends,
             native_color_grading_replayed:Boolean(current.graded),native_bloom_replayed:false,
             source_view_projection:Boolean(config.layer.source_view),
+            full_source_color_replayed:Boolean(config.layer.source_color),
             ...(current.sourceViewport?{source_viewport:current.sourceViewport}:{}),
             source_graphics_state_verified: current.state_verified, hresult: 0,
             ...(config.layer.projection ? {normalized_projection:true,projection_pivot:config.layer.projection.pivot,
