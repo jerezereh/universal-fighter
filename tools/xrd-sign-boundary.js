@@ -233,7 +233,8 @@ function captureBackBuffer(device, root, counter, intermediate = false, privateS
         const format = desc.readU32(), multisample = desc.add(16).readU32();
         const width = desc.add(24).readU32(), height = desc.add(28).readU32();
         const pixelBytes = [36, 113].includes(format) ? 8 : 4;
-        if (!(intermediate ? [21, 22, 36, 113, 114] : [21, 22]).includes(format) || multisample !== 0 || width < 1 || height < 1 ||
+        const formats=intermediate?[21,22,36,113,114]:privateSurface!==null && config.layer?.hdr?[113]:[21,22];
+        if (!formats.includes(format) || multisample !== 0 || width < 1 || height < 1 ||
             width > 2048 || height > 2048) throw new Error('unsupported/bounded backbuffer description');
         succeeded(com(device, 36, 'int', ['uint', 'uint', 'uint', 'uint', 'pointer', 'pointer'])(
             device, width, height, format, 2, staging, ptr(0)), 'CreateOffscreenPlainSurface');

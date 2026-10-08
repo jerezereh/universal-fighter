@@ -1,6 +1,6 @@
 """Authored native-alpha bounds and rejection checks; no source assets."""
 import copy
-from xrd_layer import layer_pixels, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle, unit_calibration
+from xrd_layer import layer_pixels, hdr_layer_pixels, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle, unit_calibration
 
 metadata=dict(width=3,height=2,kind='render-layer',format=21,native_coverage_verified=False,
     source_graphics_state_verified=True,replayed_draws=2)
@@ -126,3 +126,20 @@ try: unit_calibration([units[0]]*3)
 except ValueError: pass
 else: raise AssertionError('grounded-only unit samples accepted')
 print('Observed unit fit, zero origin, axis agreement and unsupported foot/color publication checks passed.')
+
+import numpy as np
+hdr=np.array([[[2,.0005,0,1],[0,0,0,0]]],dtype='<f2')
+hm=dict(kind='render-hdr-layer',width=2,height=1,format=113,source_graphics_state_verified=True,
+    hresult=0,multisample=0,pixel_bytes=8,replayed_draws=2,
+    native_coverage_verified=False,atomic_native_frame=False,isolated_rgba=False,native_render_latency_verified=False)
+result=hdr_layer_pixels(hm,hdr.tobytes())
+assert result['rgb_channels_above_one']==1 and result['positive_channels_below_a8_step']==1
+assert result['max_a8_linear_loss']==1 and result['covered_pixels']==1
+for data,change in [(hdr.tobytes()[:-1],{}),(hdr.tobytes(),dict(isolated_rgba=True)),
+        (np.array([[[float('nan'),0,0,1],[0,0,0,0]]],dtype='<f2').tobytes(),{}),
+        (np.array([[[0,0,0,.5],[0,0,0,0]]],dtype='<f2').tobytes(),{}),
+        (np.array([[[0,0,0,1],[1,0,0,0]]],dtype='<f2').tobytes(),{})]:
+    try: hdr_layer_pixels(hm|change,data)
+    except ValueError: continue
+    raise AssertionError('invalid HDR/alpha/publication accepted')
+print('Native float16 precision/coverage and nonfinite/partial-alpha/leaking/publication guards passed.')

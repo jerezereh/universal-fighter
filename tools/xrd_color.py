@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 import struct
 
-from xrd_layer import layer_pixels, settled_oracle
+from xrd_layer import layer_pixels, hdr_layer_pixels, render_oracle, settled_oracle
 from xrd_shader import screen_packet
 
 
@@ -46,13 +46,18 @@ def observed_power(assembly,code):
 
 def apply_lut(bgra,lut,power):
     import numpy as np
-    if (bgra.dtype!=np.uint8 or bgra.ndim!=3 or bgra.shape[2]!=4 or
+    floating=bgra.dtype==np.float32
+    if (bgra.dtype not in (np.uint8,np.float32) or bgra.ndim!=3 or bgra.shape[2]!=4 or
             any(not 1<=n<=1024 for n in bgra.shape[:2]) or lut.dtype!=np.uint8 or lut.ndim!=3 or lut.shape[2]!=4 or
             not 2<=lut.shape[0]<=32 or lut.shape[1]!=lut.shape[0]**2 or
             type(power) not in (int,float) or not math.isfinite(power) or not .1<=power<=4):
         raise ValueError('invalid packed LUT/image/power')
-    edge=lut.shape[0];covered=bgra[:,:,3]!=0;output=np.zeros_like(bgra);output[:,:,3]=bgra[:,:,3]
-    points=np.power(bgra[covered,:3][:,::-1].astype('float64')/255,power)*(edge-1)
+    if floating and (not np.isfinite(bgra).all() or (abs(bgra)>65504).any() or not np.isin(bgra[:,:,3],[0,1]).all()):
+        raise ValueError('invalid native floating color/coverage')
+    edge=lut.shape[0];covered=bgra[:,:,3]!=0;output=np.zeros(bgra.shape,dtype='u1')
+    output[:,:,3]=bgra[:,:,3]*255 if floating else bgra[:,:,3]
+    rgb_input=bgra[covered,:3][:,::-1].astype('float64')/(1 if floating else 255)
+    points=np.power(np.clip(rgb_input,0,1),power)*(edge-1)
     low=np.floor(points).astype('int32');high=np.minimum(low+1,edge-1);fraction=points-low
     rgb=np.zeros_like(points)
     # ponytail: standard trilinear diagnostic; native half precision/bloom/AA are not reproduced.
@@ -100,14 +105,19 @@ def preview(folder):
     scenes=[json.loads(p.read_text()) for p in sorted(folder.glob('render-[0-9][0-9].json'))]
     if not 2<=len(layers)==len(scenes)<=8: raise ValueError('missing/unbounded private pairs')
     for scene in scenes: raw_file(folder,scene,'bgra')
+    hdr=all(image['format']==113 for image in layers)
     for image in layers:
-        pixels=raw_file(folder/'layers',image,'bgra');image.update(layer_pixels(image,pixels))
-    if not settled_oracle('render-neutral',layers,scenes,[c['request_index'] for c in layers[1::2]])['passed']:
-        raise ValueError('private pixels/state are not settled')
-    image=layers[1]
+        pixels=raw_file(folder/'layers',image,'hdr' if hdr else 'bgra')
+        image.update((hdr_layer_pixels if hdr else layer_pixels)(image,pixels))
+    check=render_oracle('render-neutral',layers,scenes,[c['request_index'] for c in layers]) if hdr else \
+        settled_oracle('render-neutral',layers,scenes,[c['request_index'] for c in layers[1::2]])
+    if not check['passed']:
+        raise ValueError('private pixels/state association failed')
+    image=layers[0 if hdr else 1]
     if image['counter']!=shader['counter'] or image['observation']['fighters']!=metadata['observation']['fighters']:
         raise ValueError('LUT and private body source states differ')
-    body=np.frombuffer(raw_file(folder/'layers',image,'bgra'),dtype='u1').reshape(image['height'],image['width'],4)
+    body=np.frombuffer(raw_file(folder/'layers',image,'hdr' if hdr else 'bgra'),dtype='<f2' if hdr else 'u1').reshape(image['height'],image['width'],4)
+    if hdr: body=body.astype('float32')[:,:,[2,1,0,3]] # Native float16 stores R/G/B/A.
     colored=apply_lut(body,lut,power);bounds=image['native_coverage_bounds'];x,y,right,bottom=bounds
     result_image=Image.fromarray(colored[:,:,[2,1,0,3]]).crop(bounds)
     result_image.save(folder/'color-lut-preview.png')
@@ -115,11 +125,21 @@ def preview(folder):
     checker=Image.fromarray(np.repeat(gray[:,:,None],3,axis=2)).convert('RGBA');checker.alpha_composite(result_image)
     checker.convert('RGB').save(folder/'color-lut-checker.png')
     result=dict(native_lut_surface_linked=True,held_source_state_linked=True,power_from_native_program=power,
-        source_program_sha256=shader['sha256'],lut_sha256=metadata['raw_sha256'],native_alpha_unchanged=True,
+        source_program_sha256=shader['sha256'],lut_sha256=metadata['raw_sha256'],native_alpha_unchanged=not hdr,
+        native_coverage_unchanged=True,native_hdr_input=hdr,frame_readiness_verified=not hdr,
         transparent_rgb_zero=True,crop_origin=[image['projection_pivot'][0]-x,image['projection_pivot'][1]-y],
         source_body_origin=image['native_absolute_body_origin'],origin_to_coverage_bottom=bottom-image['projection_pivot'][1],
         foot_pivot_verified=False,color_verified=False,host_publishable=False,
-        limitations=['A8 input can lose HDR precision','bloom/blur/SMAA omitted','standard interpolation differs from native half precision'])
+        limitations=([] if hdr else ['A8 input can lose HDR precision'])+
+            ['bloom/blur/SMAA omitted','standard interpolation differs from native half precision']+
+            (['HDR capture has no pixel-readiness proof'] if hdr else []))
+    if hdr:
+        rounded=np.rint(np.clip(body,0,1)*255).astype('uint8')
+        difference=abs(colored.astype('int16')-apply_lut(rounded,lut,power).astype('int16'))[:,:,:3]
+        covered=body[:,:,3]!=0
+        result['a8_before_grading_loss']=dict(max_rgb_byte_difference=int(difference.max()),
+            changed_covered_pixels=int(np.any(difference[covered]!=0,axis=1).sum()),
+            mean_covered_rgb_byte_difference=float(difference[covered].mean()))
     (folder/'color-lut-preview.json').write_text(json.dumps(result,indent=2));return result
 
 

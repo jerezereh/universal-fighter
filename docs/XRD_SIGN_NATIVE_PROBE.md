@@ -678,6 +678,16 @@ inspected reference, but standard interpolation, A8 precision loss and omitted b
 blur/SMAA prevent full fidelity acceptance. The diagnostic crop retains a derived image
 origin; neither anatomical foot placement nor a publishable host frame is implied.
 
+`--hdr-layer` is an opt-in normalized neutral diagnostic, excluding input plans and
+settled-frame claims. It verifies the native color target is A16B16G16R16F, duplicates
+the mesh into that format and preserves original float16 R/G/B/A under native opaque
+coverage. `.hdr` files retain those bytes; `.png` previews explicitly clamp them.
+Coverage rejects partial/nonfinite alpha and RGB outside the mask. The native proof
+shows sub-A8 dark components and some values above one with clean graphics restoration.
+The offline LUT tool accepts these inputs and measures the difference caused by A8
+quantization before grading, while preserving coverage. Native HDR pixel readiness,
+exact postprocess arithmetic/bloom/blur/SMAA and a publishable host frame stay unverified.
+
 `--settle-layer` requires normalization, up to four selected requests, no fixed
 `--layer-presentations` and no per-sample transform inspection. It starts candidates at
 presentation 3 and compares complete native pixel buffers from consecutive renders at

@@ -99,8 +99,9 @@ function createLayer(device, counter, sourceTarget, sourceDepth = null) {
     const height = projection ? projection.height : desc.add(28).readU32();
     if (width < 1 || height < 1 || width > 2048 || height > 2048 || desc.add(16).readU32() !== 0)
         throw new Error('unsupported private target dimensions/multisampling');
+    if(config.layer.hdr && desc.readU32()!==113) throw new Error('HDR layer requires native A16B16G16R16F color target');
     succeeded(com(device, 28, 'int', ['uint','uint','uint','uint','uint','uint','pointer','pointer'])(
-        device, width, height, 21, 0, 0, 0, output, ptr(0)), 'CreateRenderTarget');
+        device, width, height, config.layer.hdr?113:21, 0, 0, 0, output, ptr(0)), 'CreateRenderTarget');
     meshLayer = {target: output.readPointer(), counter, shaders: new Map(), draws: 0, cleared: false, state_verified: true};
     if (projection) {
         if (sourceDepth===null || sourceDepth.isNull()) throw new Error('missing native depth description');
@@ -449,7 +450,7 @@ function finishMeshLayer(device) {
     try {
         const root = Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
         const captured = captureBackBuffer(device, root, current.counter, false, current.target);
-        const metadata={...captured.metadata, kind: 'render-layer', presentation_index: renderCapture.presentations + 1,
+        const metadata={...captured.metadata, kind: config.layer.hdr?'render-hdr-layer':'render-layer', presentation_index: renderCapture.presentations + 1,
             diagnostic_settling: config.layer.settle || config.layer.presentations.length > 1, native_coverage_verified: false,
             request_index: (current.counter - gate.initialCounter) >>> 0,
             replayed_draws: current.draws, skipped_draws_total: layerSkipped,

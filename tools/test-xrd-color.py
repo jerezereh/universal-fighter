@@ -34,3 +34,10 @@ for image,cube,power in [(body.astype('float32'),lut,1),(body,lut[:,:3],1),
     except ValueError: continue
     raise AssertionError('invalid color cube/image/power accepted')
 print('Native scalar framing, packed LUT axes/interpolation, black coverage, unchanged alpha and invalid input checks passed.')
+floating=np.array([[[2,.0005,0,1],[0,0,0,0]]],dtype='float32')
+colored=apply_lut(floating,lut,.5)
+assert colored[0,0,0]==255 and colored[0,0,1]>0 and colored[0,0,3]==255
+assert np.array_equal(colored[0,1],[0,0,0,0])
+rounded=np.rint(np.clip(floating,0,1)*255).astype('uint8')
+assert apply_lut(rounded,lut,.5)[0,0,1]==0
+print('Floating HDR input retains sub-A8 dark colors and maps native opaque coverage to RGBA without leaking RGB.')

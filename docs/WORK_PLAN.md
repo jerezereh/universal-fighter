@@ -221,6 +221,11 @@ The subsequent distant reference links the native LUT sampler to its captured su
 at a held source state. Offline LUT/exponent application now preserves private alpha
 and visibly improves diagnostic colors. A8 precision loss, bloom/blur/SMAA and exact
 native postprocess replay remain unaccepted; this preview does not enable publication.
+Native private HDR capture now passes with opaque alpha and restored source/graphics.
+Measured sub-A8 values and a same-input color comparison establish visible quantization
+loss before grading. Preserve float precision until native grading; HDR readback itself
+has no pixel-readiness acceptance. Original source menu pause/resume is the next manual
+ownership check; persistent producer, exact postprocessing and universal results follow.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Original menu pause,
 clash/superfreeze and universal stop/result ownership still need dedicated validation.

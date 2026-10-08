@@ -19,7 +19,7 @@ from xrd_input import input_candidate, input_mask, input_plan, input_check, orac
 from xrd_combat import combat_fields, contact_check
 from xrd_render import render_pixels, save_render, render_check, draw_check, save_pass
 from xrd_shader import opaque_alpha_variant, screen_packet
-from xrd_layer import save_layer_preview, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle
+from xrd_layer import save_layer_preview, save_hdr_layer, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle
 from xrd_transform import transform_packet, transform_changes, projection_bindings, vertex_bindings
 
 ROOT=Path(__file__).resolve().parent.parent
@@ -159,7 +159,7 @@ def layer_programs(folder,state,identity,normalize=False):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False):
     receipt=json.loads((probe/'inspection.json').read_text())
     state=json.loads((probe/'state-profile.json').read_text())
     if scalar_path:
@@ -197,6 +197,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     gate_options=gate_evidence(gate_receipt,candidate,state) if gate_receipt else None
     if (capture or trace_draws) and (not gate_options or expire): raise ValueError('render diagnostics require the bounded stepping experiment')
     if capture_passes and not trace_draws: raise ValueError('render-pass capture requires a draw trace')
+    if hdr and (not layer_path or not normalize or settle or plan_path or layer_presentations):
+        raise ValueError('HDR diagnostic requires normalized neutral layer without readiness/input-plan claims')
     if inspect_screen and (not trace_draws or not capture or suppress_path and not layer_path or plan_path):
         raise ValueError('screen shader observation requires exclusive neutral capture/draw trace')
     identity=None
@@ -216,6 +218,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if layer_path:
         if not identity or inspect_shaders: raise ValueError('layer capture requires exclusive mesh identity')
         layer=layer_programs(layer_path,state,identity,normalize)
+        layer['hdr']=hdr
         layer['capture_steps']=capture_steps(layer_steps or '0,1,2,3')
         layer['presentations']=capture_presentations(layer_presentations or '3',layer['capture_steps'])
         layer['inspect_transforms']=inspect_transforms
@@ -336,8 +339,11 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         pass_bytes+=len(data)
                         if len(passes)>=24 or pass_bytes>128<<20: raise ValueError('unbounded intermediate capture')
                         passes.append((message['payload'],data));continue
-                    if message['type']=='send' and message['payload'].get('kind')=='render-layer':
-                        native=message['payload'];render_pixels(native,data)
+                    if message['type']=='send' and message['payload'].get('kind') in ('render-layer','render-hdr-layer'):
+                        native=message['payload']
+                        if native['kind']=='render-hdr-layer':
+                            if not hdr or not 1<=native['state_size']<=0x80000: raise ValueError('unexpected/unbounded HDR layer')
+                        else: render_pixels(native,data)
                         if len(layers)>=len(layer['capture_steps'])*per_step: raise ValueError('private layer capture limit')
                         render_bytes+=len(data)
                         if render_bytes>128<<20: raise ValueError('render packet byte limit')
@@ -402,7 +408,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     layers=[]
     if layer_packets:
         folder=out/'layers';folder.mkdir(exist_ok=True)
-        layers=[save_render(folder,native,data,observation) for native,data,observation in layer_packets]
+        layers=[(save_hdr_layer if hdr else save_render)(folder,native,data,observation) for native,data,observation in layer_packets]
     deltas=Counter(r['counter_delta'] for r in records)
     gaps=sum(b['before']!=a['after'] for a,b in zip(records,records[1:]))
     result=dict(schema=1,pid=state['pid'],samples=len(records),seconds=seconds,started_utc=started_utc,
@@ -443,7 +449,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if layer:
         for image in layers:
             try:
-                image.update(save_layer_preview(out/'layers',image))
+                if not hdr: image.update(save_layer_preview(out/'layers',image))
                 (out/'layers'/Path(image['image']).with_suffix('.json')).write_text(json.dumps(image,indent=2))
             except ValueError as error: errors.append(dict(layer_pixels_error=str(error)))
         result['private_layer_captures']=len(layers)
@@ -555,6 +561,7 @@ if __name__=='__main__':
     p.add_argument('--inspect-layer-transforms',action='store_true',help='with --capture-layer: read original body vertex program/constants/viewport on each selected render')
     p.add_argument('--normalize-layer',action='store_true',help='diagnostic private projection/depth centered on the native render origin, with canonical right-facing pixels')
     p.add_argument('--settle-layer',action='store_true',help='with --normalize-layer: wait for two consecutive identical native layers at one held source counter, bounded through presentation 24')
+    p.add_argument('--hdr-layer',action='store_true',help='normalized neutral diagnostic: preserve native float16 RGB/opaque alpha; no settling/publication claim')
     a=p.parse_args()
     if not 0<a.seconds<=120: p.error('seconds must be 0..120')
     if a.lease_check and not a.gate: p.error('--lease-check requires --gate')
@@ -562,4 +569,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer)

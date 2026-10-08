@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-function fixture(failure = null, alpha = false, colorProduct = false, projection = false, camera = false) {
+function fixture(failure = null, alpha = false, colorProduct = false, projection = false, camera = false,hdr=false) {
     const calls = [], releases = [];
     const pointer = name => ({name, isNull: () => name === 'null', toString: () => name,equals:p=>p.name===name});
     const zero = pointer('null'), target = pointer('target'), shader = pointer('source-shader');
@@ -28,7 +28,7 @@ function fixture(failure = null, alpha = false, colorProduct = false, projection
     const context = vm.createContext({Memory:{alloc:allocation}, ptr:()=>zero, Date, Map,
         Process:{mainModule:{base:{add:()=>({readPointer:()=>root})}}},
         config:{state:{engine_global_rva:0,fields:{slots:0,facing:0}},candidate:{counter_field:0},
-            suppress_draws:{parts:{body:{index_buffer:'i',vertex_buffer:'v'}}},layer:{target:'target',capture_steps:[0,1,2,3],presentations:[3],programs:{
+            suppress_draws:{parts:{body:{index_buffer:'i',vertex_buffer:'v'}}},layer:{hdr,target:'target',capture_steps:[0,1,2,3],presentations:[3],programs:{
             'source-shader':{original_hex:'01020304',variant_hex:'0102030405060708'}}}},
         gate:{resumed:false,executing:false,deadline:Date.now()+8000,initialCounter:9},renderCapture:{counter:9,presentations:2},
         bytes:(address,n)=>address.data.slice(0,n),hex:array=>Buffer.from(array).toString('hex'),
@@ -40,6 +40,7 @@ function fixture(failure = null, alpha = false, colorProduct = false, projection
             states=new Map(saved.states);boundShader=saved.shader;constants=saved.constants;vertexConstants=saved.vertex;return 0;
         }
         if (object===target && slot===12) {
+            args[1].writeU32(hdr&&failure!=='hdr-format'?113:21);
             for (const [offset,n] of [[16,0],[24,2],[28,2]]) args[1].values.set(offset,n);return 0;
         }
         if(object===depth && slot===12) {args[1].writeU32(75);return 0;}
@@ -54,7 +55,7 @@ function fixture(failure = null, alpha = false, colorProduct = false, projection
             case 108: args[1].writePointer(boundShader);break;
             case 48: args[1].data=Buffer.from(viewport);break;
             case 59: saved={states:new Map(states),shader:boundShader,constants,vertex:vertexConstants.slice()};args[2].writePointer(block);break;
-            case 28: args[7].writePointer(privateTarget);break;
+            case 28: assert.equal(args[3],hdr?113:21);args[7].writePointer(privateTarget);break;
             case 106: args[2].writePointer(privateShader);break;
             case 37: if(args[1]===0) boundTarget=args[2];break;
             case 57: states.set(args[1],args[2]);break;
@@ -97,6 +98,10 @@ function fixture(failure = null, alpha = false, colorProduct = false, projection
             assert.equal(vm.runInContext('layerDrawing',context),false);}};
 }
 const normal=fixture();normal.run();normal.check();
+const hdr=fixture(null,false,false,true,false,true);hdr.run();hdr.check();hdr.release();
+assert.ok(hdr.releases.includes('private-target') && hdr.releases.includes('private-depth'));
+const invalidHdr=fixture('hdr-format',false,false,true,false,true);assert.throws(invalidHdr.run,/HDR layer requires/);
+invalidHdr.check();invalidHdr.release();
 assert.equal(vm.runInContext('meshLayer.draws',normal.context),1);
 normal.release();assert.deepEqual(normal.releases,['target','source-shader','block','private-shader','private-target']);
 for(const failure of [59,28,106,37,47,43,57,109,107,'draw']) {

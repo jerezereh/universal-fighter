@@ -26,6 +26,47 @@ def layer_pixels(metadata,pixels):
         native_coverage_verified=False,isolated_rgba=False)
 
 
+def hdr_layer_pixels(metadata,pixels):
+    import numpy as np
+    width,height=metadata['width'],metadata['height']
+    if (any(type(n)!=int or not 1<=n<=1024 for n in (width,height)) or
+            metadata.get('kind')!='render-hdr-layer' or metadata.get('format')!=113 or
+            metadata.get('source_graphics_state_verified') is not True or
+            metadata.get('native_coverage_verified') is not False or len(pixels)!=width*height*8 or
+            any(metadata.get(k) is not False for k in ('atomic_native_frame','isolated_rgba','native_render_latency_verified')) or
+            metadata.get('hresult')!=0 or metadata.get('multisample')!=0 or metadata.get('pixel_bytes')!=8 or
+            type(metadata.get('replayed_draws'))!=int or not 1<=metadata['replayed_draws']<=8192):
+        raise ValueError('requires bounded restored diagnostic HDR layer')
+    rgba=np.frombuffer(pixels,dtype='<f2').reshape(height,width,4).astype('float32')
+    if not np.isfinite(rgba).all() or not np.isin(rgba[:,:,3],[0,1]).all(): raise ValueError('invalid native HDR/opaque alpha')
+    covered=rgba[:,:,3]!=0
+    if not covered.any() or covered.all() or np.any(rgba[~covered,:3]): raise ValueError('invalid HDR coverage/leaking RGB')
+    y,x=np.nonzero(covered);bounds=[int(x.min()),int(y.min()),int(x.max())+1,int(y.max())+1]
+    rgb=rgba[covered,:3];a8=np.rint(np.clip(rgb,0,1)*255)/255
+    return dict(native_coverage_bounds=bounds,covered_pixels=int(covered.sum()),
+        native_coverage_center=[float(x.mean()),float(y.mean())],touches_target_edge=bounds[0]==0 or bounds[1]==0 or bounds[2]==width or bounds[3]==height,
+        alpha_sha256=hashlib.sha256(rgba[:,:,3].tobytes()).hexdigest(),
+        rgb_sha256=hashlib.sha256(rgba[:,:,:3].tobytes()).hexdigest(),transparent_rgb_zero=True,
+        hdr_rgb_range=[float(rgb.min()),float(rgb.max())],rgb_channels_above_one=int((rgb>1).sum()),
+        positive_channels_below_a8_step=int(((rgb>0)&(rgb<1/255)).sum()),max_a8_linear_loss=float(abs(rgb-a8).max()),
+        native_coverage_verified=False,isolated_rgba=False,pivot_verified=False,color_verified=False)
+
+
+def save_hdr_layer(folder,metadata,data,observation):
+    import json
+    import numpy as np
+    from PIL import Image
+    size=metadata['state_size'];pixels=data[size:];analysis=hdr_layer_pixels(metadata,pixels)
+    name=f'render-{len(list(folder.glob("render-[0-9][0-9].json")))+1:02}'
+    rgba=np.frombuffer(pixels,dtype='<f2').reshape(metadata['height'],metadata['width'],4).astype('float32')
+    result={k:v for k,v in metadata.items() if k!='segments'}|analysis|dict(raw=name+'.hdr',image=name+'.png',
+        raw_sha256=hashlib.sha256(pixels).hexdigest(),observation=observation,full_scene=False,
+        preview_clamps_float=True,frame_readiness_verified=False)
+    (folder/(name+'.hdr')).write_bytes(pixels)
+    Image.fromarray(np.rint(np.clip(rgba,0,1)*255).astype('uint8')).save(folder/(name+'.png'))
+    (folder/(name+'.json')).write_text(json.dumps(result,indent=2));return result
+
+
 def save_layer_preview(folder,metadata):
     """RGBA crop and checker preview use the actual GPU alpha, including black material pixels."""
     import numpy as np

@@ -1,5 +1,39 @@
 # Progress record
 
+## 2026-10-08 — Native private HDR precision proof
+
+- Added opt-in `--hdr-layer`: normalized, neutral private mesh replay uses the native
+  A16B16G16R16F color format after verifying the source target's actual description.
+  The original RGB program prefix, native opaque alpha, private depth and per-draw
+  state restoration remain in use. Native float16 R/G/B/A bytes are retained separately
+  from clamped diagnostic previews. Source readback/snapshot bounds and capture limits
+  remain unchanged. Input plans/settling claims are excluded for this diagnostic.
+- Added bounded HDR coverage/precision analysis: reject nonfinite values, partial alpha,
+  RGB outside coverage, incorrect formats/payloads and promoted guest claims. The same
+  native alpha mask retains black materials; no silhouette is inferred from brightness.
+  Authored HDR target selection/failure cleanup, pixel guards and original A8 regression
+  checks pass, alongside Python/JavaScript syntax and whitespace checks.
+- Live proof passes three exact updates/212 blocked opportunities, 214 successful
+  Present calls, four held-state HDR/source images, 28 screen program observations and
+  21 intermediate readbacks. Original source/graphics bytes restore after detach.
+  The four HDR samples contain 134 RGB components above one and 28,437 positive
+  components below one A8 quantization step. Recorded linear range reaches 1.03125.
+- The offline native-LUT diagnostic now accepts float32-decoded HDR inputs, clamps only
+  for the observed color-power/lookup operation and maps native opaque alpha to RGBA
+  coverage. Quantizing this same input before grading changes 35,620 covered pixels:
+  maximum RGB byte difference 15, mean covered channel difference 2.0254. This confirms
+  that an A8 mesh capture loses visible dark-color detail before postprocessing.
+- Inspected HDR/LUT preview remains canonical and preserves clear RGB outside coverage.
+  It is still diagnostic: original bloom/blur/SMAA, exact native postprocess arithmetic,
+  pixel readiness for HDR and anatomical/host foot presentation remain unaccepted.
+  No host boundary or capability changes; SIGN is still unconnected. Next verify the
+  original source menu pause/resume behavior while progressing toward native grading
+  and a persistent producer. Manual menu interaction is required with simultaneous
+  SIGN/Rev2 because the existing foreground UI helper cannot select those by name.
+- Evidence: `20261008-170542-583145/boundary-20261008-191313-457533`, including local
+  float16 layers, LUT linkage, source references and `color-lut-preview.json`. A read-only
+  post-cleanup clock sample confirms ordinary native advancement before the pause check.
+
 ## 2026-10-08 — Paired native LUT reference and diagnostic colors
 
 - The user supplied a distant scene. Read-only observation finds grounded Sol far left
