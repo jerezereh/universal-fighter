@@ -212,6 +212,11 @@ assertion is preserved beside an offline pixel/state reassessment. Named pre-vie
 subtraction supplies absolute body-origin observations. Walking/jump/crossover samples
 verify matching horizontal/vertical world-to-logical scales without a retail constant.
 Foot placement, receiver scale choice and color/postprocess fidelity remain pending.
+Read-only screen-draw inspection now passes 28 native program/target observations with
+constants, sampler/sRGB state, held source updates and restored hooks. The observed
+pipeline includes generated color grading, bloom and SMAA; generic gamma correction
+is not accepted as source color fidelity. Next obtain an unobscured distant fighter
+reference and investigate private HDR/LUT replay. The original programs stay local.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Original menu pause,
 clash/superfreeze and universal stop/result ownership still need dedicated validation.

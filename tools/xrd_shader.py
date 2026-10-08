@@ -4,6 +4,25 @@ Consumes the user's local GPU program; native shader bytecode is never versioned
 """
 import hashlib
 import struct
+import re
+
+
+def screen_packet(metadata,data):
+    """Read-only screen-draw program/constant observation, never a replayable color pass."""
+    if (not 8<=len(data)<=65536 or len(data)%4 or metadata.get('code_size')!=len(data) or
+            struct.unpack_from('<I',data)[0] not in (0xffff0200,0xffff0300) or data[-4:]!=b'\xff\xff\0\0' or
+            metadata.get('read_only') is not True or metadata.get('kind')!='screen-shader' or
+            not re.fullmatch('[0-9a-f]{7168}',metadata.get('constants_hex','')) or
+            not isinstance(metadata.get('assembly'),str) or not 1<=len(metadata['assembly'])<=131072 or
+            type(metadata.get('srgb_write'))!=int or metadata['srgb_write'] not in (0,1) or
+            any(not re.fullmatch('0x[0-9a-f]{1,8}',metadata.get(k,'')) or metadata[k]=='0x0'
+                for k in ('shader','source_target'))):
+        raise ValueError('invalid screen shader observation')
+    samplers=metadata.get('samplers',[])
+    if (len(samplers)!=16 or any(s.get('slot')!=i or type(s.get('srgb'))!=int or s['srgb'] not in (0,1) or
+            s.get('texture') is not None and not re.fullmatch('0x[0-9a-f]{1,8}',s['texture'])
+            for i,s in enumerate(samplers))): raise ValueError('invalid screen sampler observation')
+    return metadata|dict(sha256=hashlib.sha256(data).hexdigest(),color_verified=False,replay_verified=False)
 
 
 def opaque_alpha_variant(data):

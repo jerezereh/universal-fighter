@@ -20,15 +20,18 @@ function fixture(failure=null) {
         if(object===shader && slot===4){args[2].writeU32(8);return failure==='program'?-1:0;}
         if(object===assembly && slot===4)return failure==='text-size'?200000:20;
         if(object===assembly && slot===3)return text;
-        if(slot===93){if(failure==='shader')return -1;args[1].writePointer(shader);return 0;}
-        if(slot===95)return failure==='constants'?-1:0;
+        if(slot===93 || slot===108){if(failure==='shader')return -1;args[1].writePointer(shader);return 0;}
+        if(slot===95 || slot===110)return failure==='constants'?-1:0;
+        if(slot===58){if(failure==='state')return -1;args[2].writeU32(0);return 0;}
+        if(slot===69){if(failure==='sampler')return -1;args[3].writeU32(0);return 0;}
         throw Error('unexpected method');
     };
-    context.device={};context.d={indexBuffer:'i',vertexBuffer:'v'};context.viewport=allocation();
+    context.device={};context.d={indexBuffer:'i',vertexBuffer:'v',pixelShader:'shader',currentTarget:'target',screenShaders:new Set()};context.viewport=allocation();
     vm.runInContext(fs.readFileSync(__dirname+'/xrd-sign-layer.js','utf8'),context);
     vm.runInContext('meshLayer={};filter={vertices:new Set()};',context);
     return {calls,messages,run:()=>vm.runInContext('inspectLayerTransform(device,d,10,viewport)',context),
-        inspect:()=>vm.runInContext('inspectMeshVertexShader(device,d,filter)',context)};
+        inspect:()=>vm.runInContext('inspectMeshVertexShader(device,d,filter)',context),
+        screen:()=>vm.runInContext('inspectScreenShader(device,d)',context)};
 }
 const normal=fixture();normal.run();assert.deepEqual(normal.calls,['assembly','shader']);
 assert.equal(normal.messages[0].read_only,true);normal.run();assert.equal(normal.messages.length,1);
@@ -41,3 +44,22 @@ for(const failure of ['shader','program','constants','disassemble','text-size','
     if(['text-size','release-assembly'].includes(failure))assert.ok(f.calls.includes('assembly'));
 }
 console.log('Read-only transform observation, one body sample and independent shader/disassembly cleanup passed.');
+const screen=fixture();screen.screen();screen.screen();
+assert.equal(screen.messages.length,1);assert.equal(screen.messages[0].kind,'screen-shader');
+assert.equal(screen.messages[0].constants_hex.length,224*16*2);
+assert.equal(screen.messages[0].samplers.length,16);assert.equal(screen.messages[0].samplers[0].texture,null);
+assert.deepEqual(screen.calls,['assembly','shader']);
+for(const failure of ['shader','program','constants','disassemble','text-size','release-assembly','state','sampler']) {
+    const f=fixture(failure);assert.throws(f.screen,/failed|unbounded/);
+    if(failure!=='shader')assert.ok(f.calls.includes('shader'));
+}
+const selection=vm.createContext({rpc:{exports:{}},Map});
+vm.runInContext(fs.readFileSync(__dirname+'/xrd-sign-boundary.js','utf8'),selection);
+for(const [method,values,expected] of [
+    ['DrawPrimitive',[0,4,0,2],true],['DrawPrimitiveUP',[0,4,2,100],true],
+    ['DrawIndexedPrimitiveUP',[0,4,0,4,2],true],['DrawPrimitiveUP',[0,4,3,2],false],
+    ['DrawIndexedPrimitive',[0,4,0,4,2],false]]) {
+    selection.method=method;selection.args=values.map(n=>({toUInt32:()=>n}));
+    assert.equal(vm.runInContext('twoTriangleDraw(method,args)',selection),expected);
+}
+console.log('Screen program getters, constants/sRGB observations, COM failures and two-triangle selection passed.');

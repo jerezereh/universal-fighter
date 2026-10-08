@@ -1,5 +1,36 @@
 # Progress record
 
+## 2026-10-08 — Native screen-draw color-pipeline inventory
+
+- Added optional `--inspect-screen-shaders` to the existing bounded boundary observer.
+  It requires neutral capture/draw tracing without mesh suppression or an input plan.
+  Two-triangle list/strip draws record the first program/target occurrence, up to 32:
+  actual pixel bytecode and native disassembly, 224 float constant registers, sRGB write
+  state and sixteen sampler sRGB states/successfully observed texture bindings. Initial
+  unknown texture bindings remain explicit. This is an inventory, not a complete pass
+  dependency graph or proof that later constants match the first occurrence.
+- Reused the native shader getter/disassembler with an explicit vertex/pixel selector.
+  Shader and assembly references release independently, including failure paths. The
+  observer invokes only getters and preserves every original draw. Retail programs,
+  register contents, addresses and disassembly stay in ignored artifacts.
+- Authored checks pass program/constant/sampler bounds, unsupported capability claims,
+  all getter/disassembly/release failures and the distinct D3D9 draw argument layouts.
+  Existing layer/state restoration checks and Python/JavaScript syntax checks pass.
+- Native SIGN inventory passes three exact neutral updates, 116 blocked opportunities,
+  118 successful Present calls, four held-state full-scene readbacks, two draw intervals
+  and 28 program/target observations. No gaps/errors; source and graphics bytes restore
+  independently after unload/detach. Rev2 and the foreground app remain untouched.
+- Native compiler tables/instructions identify fog, distortion, blur/bloom, generated
+  color-grading LUT composition and SMAA. All recorded sRGB states are disabled. This
+  rules out accepting a generic sRGB toggle or guessed gamma curve as complete fidelity.
+  It does not establish private HDR/LUT replay or effect coverage. Color remains false.
+- Evidence: `20261008-170542-583145/boundary-20261008-184531-771881`, including
+  `screen-shaders.json` and bounded local `screen-*.bin` programs. No host code changed.
+  Next capture an unobscured distant source fighter for color/foot comparison, then
+  investigate private HDR/color grading before persistent producer/contact integration.
+  The completed crossover left Sol close to Ky; manual reset is needed for that setup
+  because the foreground UI helper refuses concurrent same-name SIGN/Rev2 editions.
+
 ## 2026-10-08 — Complete private-camera crossover and observed unit calibration
 
 - The user's reset is confirmed by read-only exact-PID state observation. One attempt

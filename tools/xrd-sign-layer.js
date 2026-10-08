@@ -220,20 +220,21 @@ function layerShader(device, sourceShader, program) {
     const shader = output.readPointer(); meshLayer.shaders.set(id, shader); return shader;
 }
 
-function vertexProgram(device) {
+function shaderProgram(device,kind='vertex') {
+    if (!['vertex','pixel'].includes(kind)) throw new Error('invalid shader kind');
     const output = Memory.alloc(4); output.writePointer(ptr(0));
     let shader = ptr(0), assembly = ptr(0);
     try {
-        succeeded(com(device,93,'int',['pointer'])(device,output),'GetVertexShader');
+        succeeded(com(device,kind==='vertex'?93:108,'int',['pointer'])(device,output),'Get '+kind+' shader');
         shader=output.readPointer();
-        if (shader.isNull()) throw new Error('missing body vertex shader');
+        if (shader.isNull()) throw new Error('missing '+kind+' shader');
         const size=Memory.alloc(4);size.writeU32(0);
         succeeded(com(shader,4,'int',['pointer','pointer'])(shader,ptr(0),size),'vertex GetFunction size');
         const length=size.readU32();
-        if (length<8 || length>65536 || length%4) throw new Error('invalid vertex program bounds');
+        if (length<8 || length>65536 || length%4) throw new Error('invalid '+kind+' program bounds');
         const code=Memory.alloc(length);
         succeeded(com(shader,4,'int',['pointer','pointer'])(shader,code,size),'vertex GetFunction');
-        if (size.readU32()!==length) throw new Error('vertex program size drift');
+        if (size.readU32()!==length) throw new Error(kind+' program size drift');
         const sdk=Process.getModuleByName('d3dx9_43.dll');
         const entry=sdk.enumerateExports().find(e=>e.name==='D3DXDisassembleShader');
         if (!entry) throw new Error('missing native shader disassembler');
@@ -249,6 +250,28 @@ function vertexProgram(device) {
         try {if(!assembly.isNull()) com(assembly,2,'uint',[])(assembly);}
         finally {if(!shader.isNull()) com(shader,2,'uint',[])(shader);}
     }
+}
+
+function vertexProgram(device) { return shaderProgram(device); }
+
+function inspectScreenShader(device,d) {
+    const key=d.currentTarget+':'+d.pixelShader;
+    if (d.screenShaders.has(key)) return;
+    if (d.screenShaders.size>=32) throw new Error('screen shader observation limit');
+    const program=shaderProgram(device,'pixel'), constants=Memory.alloc(224*16);
+    if (program.shader!==d.pixelShader) throw new Error('screen shader binding drift');
+    succeeded(com(device,110,'int',['uint','pointer','uint'])(device,0,constants,224),'GetPixelShaderConstantF');
+    const srgb=Memory.alloc(4),samplers=[];
+    succeeded(com(device,58,'int',['uint','pointer'])(device,194,srgb),'GetRenderState sRGB');
+    for(let slot=0;slot<16;++slot) {
+        const state=Memory.alloc(4);
+        succeeded(com(device,69,'int',['uint','uint','pointer'])(device,slot,11,state),'GetSamplerState sRGB');
+        samplers.push({slot,texture:d['texture'+slot]??null,srgb:state.readU32()});
+    }
+    d.screenShaders.add(key);
+    send({kind:'screen-shader',shader:program.shader,code_size:program.code.length,assembly:program.assembly,
+        source_target:d.currentTarget,constants_hex:hex(bytes(constants,224*16)),srgb_write:srgb.readU32(),
+        samplers,read_only:true},program.code.buffer);
 }
 
 function inspectMeshVertexShader(device,d,filter) {

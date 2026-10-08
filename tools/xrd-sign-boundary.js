@@ -82,9 +82,14 @@ function inspectMeshShader(device, d, filter) {
     } finally { if (!shader.isNull()) com(shader, 2, 'uint', [])(shader); }
 }
 
+function twoTriangleDraw(method,args) {
+    const count={DrawPrimitive:3,DrawPrimitiveUP:2,DrawIndexedPrimitiveUP:4}[method];
+    return count!==undefined && [4,5].includes(args[1].toUInt32()) && args[count].toUInt32()===2;
+}
+
 function installDrawTrace(device) {
     drawTrace = {device, active: false, frames: 0, events: [], counter: null, surfaces: new Map(),
-        currentTarget: null, passSeen: new Set(), passBytes: 0, passIndex: 0};
+        currentTarget: null, passSeen: new Set(), passBytes: 0, passIndex: 0,screenShaders:new Set()};
     // D3D9 interface slots, not source-game offsets. Capture two complete Present intervals.
     const methods = [[37, 'SetRenderTarget', ['u', 'p']], [43, 'Clear', ['u', 'p', 'u', 'u', 'u', 'u']],
         [65, 'SetTexture', ['u', 'p']], [81, 'DrawPrimitive', ['u', 'u', 'u']],
@@ -115,10 +120,16 @@ function installDrawTrace(device) {
                 if (method === 'SetIndices') this.binding = ['indexBuffer', args[1].toString()];
                 if (method === 'SetVertexShader') this.binding = ['vertexShader', args[1].toString()];
                 if (method === 'SetPixelShader') this.binding = ['pixelShader', args[1].toString()];
+                if (method === 'SetTexture' && args[1].toUInt32()<16) this.binding=['texture'+args[1].toUInt32(),args[2].toString()];
                 if (method === 'SetStreamSource' && args[1].toUInt32() === 0)
                     this.binding = ['vertexBuffer', args[2].toString()];
                 if (method === 'SetRenderTarget' && args[1].toUInt32() === 0) this.targetBinding = args[2].toString();
                 if (!d.active) return;
+                if(config.inspect_screen_shaders && gate!==null && !gate.resumed && !gate.executing &&
+                    twoTriangleDraw(method,args)) {
+                    try { inspectScreenShader(device,d); }
+                    catch(error) {send({kind:'error',phase:'screen-shader',message:String(error)});}
+                }
                 if (d.events.length >= 8192) {
                     d.active = false;
                     send({kind: 'error',phase: 'draw-trace',message: 'draw interval overflow'}); return;

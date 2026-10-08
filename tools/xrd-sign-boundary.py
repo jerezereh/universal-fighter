@@ -18,7 +18,7 @@ from xrd_state import assembly_rows, boundary_candidate, observe
 from xrd_input import input_candidate, input_mask, input_plan, input_check, oracle_passed
 from xrd_combat import combat_fields, contact_check
 from xrd_render import render_pixels, save_render, render_check, draw_check, save_pass
-from xrd_shader import opaque_alpha_variant
+from xrd_shader import opaque_alpha_variant, screen_packet
 from xrd_layer import save_layer_preview, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle
 from xrd_transform import transform_packet, transform_changes, projection_bindings, vertex_bindings
 
@@ -159,7 +159,7 @@ def layer_programs(folder,state,identity,normalize=False):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False):
     receipt=json.loads((probe/'inspection.json').read_text())
     state=json.loads((probe/'state-profile.json').read_text())
     if scalar_path:
@@ -197,6 +197,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     gate_options=gate_evidence(gate_receipt,candidate,state) if gate_receipt else None
     if (capture or trace_draws) and (not gate_options or expire): raise ValueError('render diagnostics require the bounded stepping experiment')
     if capture_passes and not trace_draws: raise ValueError('render-pass capture requires a draw trace')
+    if inspect_screen and (not trace_draws or not capture or suppress_path or plan_path):
+        raise ValueError('screen shader observation requires exclusive neutral capture/draw trace')
     identity=None
     if inspect_shaders and not suppress_path: raise ValueError('mesh shader inspection requires local buffer identity')
     if suppress_path:
@@ -253,7 +255,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     def receive(message,data):
         try: messages.put_nowait((message,data,time.perf_counter()))
         except queue.Full: overflow.append(True)
-    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];vertices=[];layers=[];transforms=[];scene_packets=[];layer_packets=[];render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
+    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];vertices=[];screens=[];layers=[];transforms=[];scene_packets=[];layer_packets=[];render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
     started=time.perf_counter();started_utc=datetime.datetime.now(datetime.timezone.utc).isoformat();completed=0;next_request=.5 if plan else 1;request_log=[]
     per_step=2 if settle else len(layer['presentations']) if layer else 0
     with ReadOnlyProcess(state['pid'],EXE) as process:
@@ -266,10 +268,10 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             session=bounded_call(frida,lambda:frida.attach(state['pid']))
             phase='load'
             source=(ROOT/'tools/xrd-sign-boundary.js').read_text()
-            if layer or inspect_shaders: source+='\n'+(ROOT/'tools/xrd-sign-layer.js').read_text()
+            if layer or inspect_shaders or inspect_screen: source+='\n'+(ROOT/'tools/xrd-sign-layer.js').read_text()
             script=session.create_script(source)
             script.on('message',receive);bounded_call(frida,script.load)
-            settings=dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,layer=layer)
+            settings=dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer)
             phase='start';native_start_attempted=True
             print(bounded_call(frida,lambda:script.exports_sync.start(settings)),flush=True)
             phase='observe'
@@ -302,6 +304,11 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                     if message['type']=='send' and message['payload'].get('kind')=='draw-trace':
                         if len(draws)>=2: raise ValueError('unbounded draw intervals')
                         draws.append(message['payload']);continue
+                    if message['type']=='send' and message['payload'].get('kind')=='screen-shader':
+                        if not inspect_screen or len(screens)>=32: raise ValueError('screen shader observation limit')
+                        native=screen_packet(message['payload'],data)
+                        name=f'screen-{len(screens)+1:02}.bin';(out/name).write_bytes(data)
+                        screens.append(native|dict(file=name));continue
                     if message['type']=='send' and message['payload'].get('kind')=='mesh-shader':
                         native=message['payload']
                         if len(shaders)>=32 or not 8<=len(data)<=65536 or len(data)%4 or native['code_size']!=len(data):
@@ -429,6 +436,10 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             (out/'mesh-shaders.json').write_text(json.dumps(shaders,indent=2));result['mesh_shaders']=len(shaders)
             (out/'mesh-vertices.json').write_text(json.dumps(vertices,indent=2));result['mesh_vertex_shaders']=len(vertices)
             if not shaders or not vertices: errors.append(dict(shader_error='missing matching mesh shaders'))
+    if inspect_screen:
+        (out/'screen-shaders.json').write_text(json.dumps(screens,indent=2))
+        result['screen_shader_observations']=len(screens)
+        if not screens: errors.append(dict(shader_error='missing screen shader observations'))
     if layer:
         for image in layers:
             try:
@@ -537,6 +548,7 @@ if __name__=='__main__':
     p.add_argument('--capture-passes',action='store_true',help='with --trace-draws: capture first completed target bindings, up to 24/128 MiB, for native layer investigation')
     p.add_argument('--suppress-draws',type=Path,help='with --capture-render and --trace-draws: briefly suppress locally derived mesh-buffer candidates for visual identity proof')
     p.add_argument('--inspect-mesh-shaders',action='store_true',help='with --suppress-draws: read matching mesh pixel shader programs while preserving every original draw')
+    p.add_argument('--inspect-screen-shaders',action='store_true',help='with neutral capture/draw trace: read up to 32 two-triangle draw programs, constants and sampler bindings; no replay')
     p.add_argument('--capture-layer',type=Path,help='with --suppress-draws: clean shader inspection folder for bounded private opaque mesh replay')
     p.add_argument('--layer-steps',help='with --capture-layer: 2..8 ordered selected request indices starting at 0 (default 0,1,2,3)')
     p.add_argument('--layer-presentations',help='with --oracle render-settle: ordered held-counter presentations, starting at 3 and ending by 24')
@@ -550,4 +562,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders)

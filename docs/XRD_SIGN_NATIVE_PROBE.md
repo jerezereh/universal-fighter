@@ -654,6 +654,18 @@ movement, inconsistent geometry, nonfinite coordinates, nonzero depth and differ
 axis scales reject. Anatomical foot placement, receiver scale choice and publishable
 color remain unaccepted; body-origin calibration does not enable guest capabilities.
 
+`--inspect-screen-shaders` requires neutral `--capture-render --trace-draws` without a
+mesh filter or input plan. It preserves the original draws and records the first
+pixel-program/target occurrence among two-triangle draws, up to 32 observations. Native
+program/disassembly, original 224 float constant registers, sRGB write state and sixteen
+sampler states/successfully observed texture bindings remain local. Unknown initial
+bindings stay explicit; repeated use can have different constants and this inventory
+does not establish a complete dependency graph. Shader/assembly references release on
+all failures. The native proof records 28 occurrences, including fog/distortion,
+blur/bloom, generated color grading and SMAA, with disabled sRGB states and clean
+source/graphics restoration. Private HDR/color-grading replay and final color fidelity
+remain unimplemented; no generic gamma adjustment is accepted from these observations.
+
 `--settle-layer` requires normalization, up to four selected requests, no fixed
 `--layer-presentations` and no per-sample transform inspection. It starts candidates at
 presentation 3 and compares complete native pixel buffers from consecutive renders at
