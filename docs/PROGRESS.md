@@ -1537,3 +1537,11 @@ the synthetic architecture gate allows the first real-game adapter.
   task is ~2.1–2.5 ms per guest frame (interop lock ~1.8 ms) against ~8.4–9.2 ms for the RGBA upload.
   The earlier 16.6 FPS reading was a transient. The first-frame import costs ~130–160 ms once. A
   gfxcapture mid-run leaves the rate unchanged.
+- Rev2 end to end (producer jerezereh/xrd-rev2-producer 6dcf25e, `play_ikemen.py --shared-layer
+  --smoke`): live Rev2 Sol, rendered by Rev2 into its shared D3D12 texture, fought kfm in this
+  build. Exit 0; 1015 steps; contacts and hits through the producer's native hit policy; resets
+  handled. IKEMEN ran at 43–52 FPS, held below 60 by lock-step with Rev2's ~60 Hz tick (exchange
+  15–17 ms) plus up to 4 ms fence wait. The first hello once exceeded the 500 ms guest timeout
+  (cold capture path); the producer now primes a frame before announcing readiness.
+- Open: decoupling the exchange from IKEMEN's frame (pipelining or a looser deadline) for 60 FPS;
+  hit/contact properties (PASSTHROUGH_V2 item 5) wait for the protocol design.
