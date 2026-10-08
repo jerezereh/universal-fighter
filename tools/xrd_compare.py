@@ -7,7 +7,7 @@ import re
 from xrd_layer import layer_pixels
 
 
-def compare_pixels(source, private):
+def compare_pixels(source, private, exclusions=()):
     import numpy as np
     if (source.dtype != np.uint8 or private.dtype != np.uint8 or source.shape != private.shape or
             source.ndim != 3 or source.shape[2] != 4 or any(not 5 <= n <= 2048 for n in source.shape[:2])):
@@ -24,10 +24,22 @@ def compare_pixels(source, private):
     for y in range(5):
         for x in range(5):
             interior &= padded[y:y + height, x:x + width]
+    if len(exclusions) > 16:
+        raise ValueError('too many comparison exclusions')
+    original_count = int(interior.sum())
+    for rectangle in exclusions:
+        if (len(rectangle) != 4 or any(type(n) != int for n in rectangle) or
+                not 0 <= rectangle[0] < rectangle[2] <= width or
+                not 0 <= rectangle[1] < rectangle[3] <= height):
+            raise ValueError('exclusion rectangle outside source viewport')
+        x0, y0, x1, y1 = rectangle
+        interior[y0:y1, x0:x1] = False
     if not interior.any():
         raise ValueError('no opaque interior after excluding two-pixel edges')
     delta = abs(source[interior, :3].astype('int16') - private[interior, :3].astype('int16'))
     return dict(covered_pixels=int(covered.sum()), interior_pixels=int(interior.sum()),
+        excluded_interior_pixels=original_count-int(interior.sum()),
+        exclusion_rectangles=[list(r) for r in exclusions],
         edge_exclusion_pixels=2, mean_absolute_rgb_error=float(delta.mean()),
         p95_absolute_channel_error=float(np.percentile(delta, 95)), max_channel_error=int(delta.max()),
         exact_rgb_fraction=float(np.all(delta == 0, axis=1).mean()),
@@ -35,8 +47,10 @@ def compare_pixels(source, private):
         color_verified=False, isolated_rgba=False, host_publishable=False)
 
 
-def compare_trace(folder):
+def compare_trace(folder, exclusions=(), exclusion_note=''):
     import numpy as np
+    if exclusions and (not isinstance(exclusion_note, str) or not 1 <= len(exclusion_note.strip()) <= 512):
+        raise ValueError('explicit exclusions require a bounded evidence note')
     receipt = json.loads((folder / 'inspection.json').read_text())
     if (receipt['errors'] or not all(receipt.get(k) is True for k in
             ('loaded_code_restored', 'detached', 'source_unchanged', 'controlled_update_step_verified',
@@ -76,9 +90,11 @@ def compare_trace(folder):
         results.append(dict(counter=layer['counter'], capture=file.name,
             private_dimensions=[layer['width'], layer['height']],
             source_dimensions=[scene['width'], scene['height']],
-            comparison_resampling='none', source_viewport_crop=True, **compare_pixels(*images)))
-    result = dict(samples=results, diagnostic_only=True, color_verified=False, host_publishable=False)
-    (folder / 'source-comparison.json').write_text(json.dumps(result, indent=2))
+            comparison_resampling='none', source_viewport_crop=True, **compare_pixels(*images, exclusions)))
+    result = dict(samples=results, exclusion_note=exclusion_note, diagnostic_only=True,
+        color_verified=False, host_publishable=False)
+    name = 'source-comparison-excluded.json' if exclusions else 'source-comparison.json'
+    (folder / name).write_text(json.dumps(result, indent=2))
     return result
 
 
@@ -86,4 +102,8 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('trace', type=Path)
-    print(json.dumps(compare_trace(parser.parse_args().trace.resolve()), indent=2))
+    parser.add_argument('--exclude-rect', action='append', default=[], help='observed overlay rectangle x0,y0,x1,y1 in source pixels; up to 16')
+    parser.add_argument('--exclusion-note', default='', help='required with exclusions: evidence and omitted coverage')
+    args = parser.parse_args()
+    rectangles = [tuple(int(n) for n in r.split(',')) for r in args.exclude_rect]
+    print(json.dumps(compare_trace(args.trace.resolve(), rectangles, args.exclusion_note), indent=2))

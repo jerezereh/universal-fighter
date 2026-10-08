@@ -265,6 +265,11 @@ replaces an invalid whole-allocation resize. Interior RGB comparison reports rem
 differences but the original HUD overlaps Sol's feet, so final material color/effects
 acceptance requires a HUD-free reference or observed overlay exclusion. The diagnostic
 tool rejects stale/unaligned evidence and never enables producer capabilities.
+The user reports no HUD toggle. Optional explicit observed rectangle exclusions now
+retain the unfiltered report and record omitted pixels/evidence separately. The bottom
+HUD-band comparison retains 47,036 interior pixels with about 5.817/255 mean error; feet
+are omitted, so it cannot establish whole-fighter color or foot placement. Continue
+effects/geometry investigation using that limited regional diagnostic.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

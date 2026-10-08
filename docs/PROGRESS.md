@@ -1,5 +1,24 @@
 # Progress record
 
+## 2026-10-08 — Explicit HUD exclusion without changing SIGN
+
+- The user reports no HUD display toggle. Added optional bounded rectangle exclusions
+  to the offline comparison, with a required evidence note, omitted interior pixel count
+  and a separate `source-comparison-excluded.json`. The unfiltered comparison is retained.
+  Exclusions never depend on RGB error thresholds and never alter the game or its pixels.
+- Applied the conservative bottom band observed in the retained 1366x768 source frame
+  and error map: rows 700..767. Each sample omits 2,175 interior pixels (including feet),
+  retains 47,036 and measures approximately 5.817/255 mean channel error, p95 31 and
+  52.21% exact RGB. This is a regional diagnostic, not whole-fighter color acceptance,
+  an independent HUD mask, a foot-pivot check or a native-effects attribution.
+- Authored tests cover overlap counting, unchanged remaining errors, out-of-bounds/
+  empty/fractional exclusions, required explanation and preservation of both reports.
+  Existing paired/hash/viewport/coverage checks pass. No native runtime changed and no
+  producer capability is enabled. Further source-effect/geometry investigation can use
+  the explicit regional comparison without requiring the user to hide the HUD.
+- Evidence: `20261008-222305-484036/boundary-20261008-223440-453922/source-comparison-excluded.json`;
+  images and capture metadata remain ignored.
+
 ## 2026-10-08 — Original-camera graded comparison and observed viewport bounds
 
 - Verified the user-positioned distant offline Sol/Ky scene in SIGN PID 36644, excluding

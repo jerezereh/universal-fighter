@@ -727,6 +727,12 @@ The mask comes from private coverage; it is not an independently recovered sourc
 The current source HUD covers the feet and contributes large errors. These measurements
 do not establish geometry/material fidelity or isolate bloom/AA errors. Keep all source
 images and program inventories local and obtain an unobscured reference before acceptance.
+If the source has no HUD toggle, `--exclude-rect x0,y0,x1,y1 --exclusion-note "evidence"`
+can omit an explicitly observed overlay region from the diagnostic. At most 16 integer
+rectangles inside the source viewport are allowed; removing every interior pixel fails.
+The separate excluded report records rectangles and omitted counts and preserves the
+unfiltered report. Do not use error-selected masks to claim fidelity, and do not accept
+feet/whole-fighter presentation from a comparison which excludes them.
 
 `--settle-layer` requires normalization, up to four selected requests, no fixed
 `--layer-presentations` and no per-sample transform inspection. It starts candidates at

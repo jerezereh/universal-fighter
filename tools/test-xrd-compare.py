@@ -17,6 +17,13 @@ source[5:11, 5:11, 0] = 9
 result = compare_pixels(source, private)
 assert result['mean_absolute_rgb_error'] == 3 and result['max_channel_error'] == 9
 assert not result['color_verified'] and not result['host_publishable']
+excluded = compare_pixels(source, private, [(5, 5, 8, 11), (5, 5, 8, 11)])
+assert excluded['excluded_interior_pixels'] == 18 and excluded['interior_pixels'] == 18
+assert excluded['mean_absolute_rgb_error'] == 3  # Exclusions do not zero remaining errors.
+for rectangles in [[(-1, 0, 1, 1)], [(0, 0, 17, 1)], [(1, 1, 1, 2)], [(0, 0, 16, 16)], [(0., 0, 1, 1)]]:
+    try: compare_pixels(source, private, rectangles)
+    except ValueError: continue
+    raise AssertionError('invalid/empty comparison exclusion accepted')
 for broken in ('leak', 'clip', 'alpha', 'thin'):
     p = private.copy()
     if broken == 'leak': p[0, 0, 0] = 1
@@ -46,6 +53,11 @@ with tempfile.TemporaryDirectory() as temporary:
             (directory / (name + '.bgra')).write_bytes(raw)
             (directory / (name + '.json')).write_text(json.dumps(metadata))
     assert len(compare_trace(folder)['samples']) == 4
+    assert not compare_trace(folder, [(5, 5, 8, 11)], 'Authored overlay fixture; half the interior omitted')['color_verified']
+    assert (folder / 'source-comparison.json').exists() and (folder / 'source-comparison-excluded.json').exists()
+    try: compare_trace(folder, [(5, 5, 8, 11)])
+    except ValueError: pass
+    else: raise AssertionError('unexplained exclusion accepted')
     file = folder / 'layers/render-01.json'; metadata = json.loads(file.read_text())
     for field, value in [('source_viewport', [0, 0, 15, 16]), ('counter', 100),
                          ('raw_sha256', '0' * 64), ('normalized_projection', True)]:
