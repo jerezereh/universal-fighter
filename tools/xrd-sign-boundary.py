@@ -21,6 +21,7 @@ from xrd_render import render_pixels, save_render, render_check, draw_check, sav
 from xrd_shader import opaque_alpha_variant, screen_packet
 from xrd_layer import save_layer_preview, save_hdr_layer, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle
 from xrd_transform import transform_packet, transform_changes, projection_bindings, vertex_bindings
+from xrd_d3d import validate_device_calls
 
 ROOT=Path(__file__).resolve().parent.parent
 EXE=Path('C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-/Binaries/Win32/GuiltyGearXrd.exe')
@@ -159,7 +160,39 @@ def layer_programs(folder,state,identity,normalize=False):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False):
+def grading_programs(folder,state):
+    evidence=json.loads((folder/'inspection.json').read_text())
+    if (evidence['pid']!=state['pid'] or evidence['errors'] or not evidence['loaded_code_restored'] or
+            not evidence['detached'] or not evidence['source_unchanged'] or not evidence['controlled_update_step_verified'] or
+            evidence.get('d3d_abi',{}).get('native_header_checked') is not True):
+        raise ValueError('grading requires a clean same-session native program inspection')
+    inventory=json.loads((folder/'screen-shaders.json').read_text());programs=[]
+    for s in inventory:
+        if not re.fullmatch('screen-[0-9]{2}\\.bin',s['file']):raise ValueError('invalid grading program file')
+        code=(folder/s['file']).read_bytes()
+        if screen_packet(s,code)['sha256']!=s['sha256']:raise ValueError('native grading program drift')
+        table={}
+        for name,kind,register,count in re.findall(r'^//\s+(\w+)\s+([cs])(\d+)\s+(\d+)\s*$',s['assembly'],re.M):
+            register,count=int(register),int(count)
+            if name in table or not 1<=count<=224 or register+count>(16 if kind=='s' else 224):
+                raise ValueError('unsupported grading binding')
+            table[name]=(kind,register,count)
+        programs.append((s,code,table))
+    grade=[p for p in programs if p[0].get('lut_source') is not None]
+    copies={p[0]['sha256']:p for p in programs if set(p[2])=={'InTexture','TextureComponentReplicateAlpha'}}
+    if len(grade)!=1 or len(copies)!=1:raise ValueError('ambiguous native grading/copy programs')
+    s,code,table=grade[0];copy,copy_code,copy_table=next(iter(copies.values()))
+    samplers={name:register for name,(kind,register,count) in table.items() if kind=='s' and count==1}
+    if (set(samplers)!={'SceneColorTexture','ColorGradingLUT','FilterColor1Texture','LowResPostProcessBuffer'} or
+            len(set(samplers.values()))!=4 or copy_table['InTexture'][0]!='s' or copy_table['TextureComponentReplicateAlpha'][0]!='c' or
+            copy_table['InTexture'][2]!=1 or copy_table['TextureComponentReplicateAlpha'][2]!=1 or
+            re.search(r'^\s*def c'+str(copy_table['TextureComponentReplicateAlpha'][1])+',',copy['assembly'],re.M)):
+        raise ValueError('unsupported native grading/copy dependencies')
+    return dict(shader=s['shader'],target=s['source_target'],original_hex=code.hex(),samplers=samplers,
+        copy_hex=copy_code.hex(),copy_sampler=copy_table['InTexture'][1],copy_constant=copy_table['TextureComponentReplicateAlpha'][1])
+
+
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None):
     receipt=json.loads((probe/'inspection.json').read_text())
     state=json.loads((probe/'state-profile.json').read_text())
     if scalar_path:
@@ -199,6 +232,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if capture_passes and not trace_draws: raise ValueError('render-pass capture requires a draw trace')
     if hdr and (not layer_path or not normalize or settle or plan_path or layer_presentations):
         raise ValueError('HDR diagnostic requires normalized neutral layer without readiness/input-plan claims')
+    if grade_path and (not layer_path or not normalize or hdr):raise ValueError('native grading requires a normalized A8 output layer')
     if inspect_screen and (not trace_draws or not capture or suppress_path and not layer_path or plan_path):
         raise ValueError('screen shader observation requires exclusive neutral capture/draw trace')
     identity=None
@@ -218,7 +252,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if layer_path:
         if not identity or inspect_shaders: raise ValueError('layer capture requires exclusive mesh identity')
         layer=layer_programs(layer_path,state,identity,normalize)
-        layer['hdr']=hdr
+        layer['hdr']=hdr or bool(grade_path)
+        if grade_path:layer['grade']=grading_programs(grade_path,state)
         layer['capture_steps']=capture_steps(layer_steps or '0,1,2,3')
         layer['presentations']=capture_presentations(layer_presentations or '3',layer['capture_steps'])
         layer['inspect_transforms']=inspect_transforms
@@ -266,7 +301,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             base,size=process.module_base()
             return base==state['module_base'] and size==receipt['image_size'] and hashlib.sha256(process.read(base+state['code_rva'],state['code_size'])).hexdigest()==state['code_sha256']
         if not unchanged(): raise ValueError('source session/code changed; run a fresh probe')
-        phase='preflight';native_start_attempted=False;clock_preflight=None
+        phase='preflight';native_start_attempted=False;clock_preflight=None;abi=None
         try:
             if gate_options:
                 clock_preflight=read_clock(process,state,candidate)
@@ -276,6 +311,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             phase='load'
             source=(ROOT/'tools/xrd-sign-boundary.js').read_text()
             if layer or inspect_shaders or inspect_screen: source+='\n'+(ROOT/'tools/xrd-sign-layer.js').read_text()
+            if grade_path: source+='\n'+(ROOT/'tools/xrd-sign-grade.js').read_text()
+            abi=validate_device_calls([source],(ROOT/'local-cache/msys64/mingw64/include/d3d9.h').read_text())
             script=session.create_script(source)
             script.on('message',receive);bounded_call(frida,script.load)
             settings=dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer)
@@ -405,7 +442,9 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                 if session is not None: bounded_call(frida,session.detach)
                 detached=True
             except Exception as error: errors.append(dict(cleanup_error=repr(error)))
-        restored=unchanged()
+        try: restored=unchanged()
+        except (OSError,ValueError) as error:
+            restored=False;errors.append(dict(cleanup_error='source memory unavailable after teardown: '+str(error)))
         if cleanup_receipt and gate_options:
             cleanup_receipt['render_code_restored_inside_rpc']=cleanup_receipt.get('render_code_restored',False)
             try: cleanup_receipt['render_code_restored']=render_restored(process,cleanup_receipt,detached)
@@ -430,6 +469,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         observations_only=not bool(gate_options),boundary_experiment=bool(gate_options),boundary_aligned=True,temporary_code_interception=True,
         native_start_attempted=native_start_attempted,
         clock_preflight=clock_preflight,
+        d3d_abi=abi,
         detached=detached,loaded_code_restored=restored,source_unchanged=fingerprint(EXE)==SIGN_HASH,
         native_tick_verified=False,atomic_native_frame=False,host_step=False,isolated_rgba=False,universal_contact=False)
     if source_window: result['source_window']=source_window
@@ -575,6 +615,7 @@ if __name__=='__main__':
     p.add_argument('--normalize-layer',action='store_true',help='diagnostic private projection/depth centered on the native render origin, with canonical right-facing pixels')
     p.add_argument('--settle-layer',action='store_true',help='with --normalize-layer: wait for two consecutive identical native layers at one held source counter, bounded through presentation 24')
     p.add_argument('--hdr-layer',action='store_true',help='normalized neutral diagnostic: preserve native float16 RGB/opaque alpha; no settling/publication claim')
+    p.add_argument('--grade-layer',type=Path,help='clean same-session screen program inspection: native private HDR grading and coverage into A8 output')
     a=p.parse_args()
     if not 0<a.seconds<=120: p.error('seconds must be 0..120')
     if a.lease_check and not a.gate: p.error('--lease-check requires --gate')
@@ -582,4 +623,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None)

@@ -26,7 +26,7 @@ function fixture(failure=null) {
         if(slot===93 || slot===108){if(failure==='shader')return -1;args[1].writePointer(shader);return 0;}
         if(slot===95 || slot===110)return failure==='constants'?-1:0;
         if(slot===58){if(failure==='state')return -1;args[2].writeU32(0);return 0;}
-        if(slot===69){if(failure==='sampler')return -1;args[3].writeU32(0);return 0;}
+        if(slot===68){if(failure==='sampler')return -1;args[3].writeU32(0);return 0;}
         if(slot===64){if(failure==='texture')return -1;args[2].writePointer(texture);return 0;}
         if(object===texture && slot===10)return failure==='type'?5:3;
         if(object===texture && slot===18){if(failure==='surface')return -1;args[2].writePointer(surface);return 0;}

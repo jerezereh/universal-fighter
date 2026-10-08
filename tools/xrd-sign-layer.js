@@ -78,7 +78,7 @@ function releaseLayer() {
     if (meshLayer === null) return;
     const current = meshLayer; meshLayer = null;
     let failure = null;
-    for (const resource of [...current.shaders.values(), current.target, ...(current.depth ? [current.depth] : [])]) {
+    for (const resource of [...current.shaders.values(), current.target, ...(current.depth ? [current.depth] : []),...(current.extra??[])]) {
         try { com(resource, 2, 'uint', [])(resource); }
         catch (error) { failure = error; }
     }
@@ -100,9 +100,12 @@ function createLayer(device, counter, sourceTarget, sourceDepth = null) {
     if (width < 1 || height < 1 || width > 2048 || height > 2048 || desc.add(16).readU32() !== 0)
         throw new Error('unsupported private target dimensions/multisampling');
     if(config.layer.hdr && desc.readU32()!==113) throw new Error('HDR layer requires native A16B16G16R16F color target');
-    succeeded(com(device, 28, 'int', ['uint','uint','uint','uint','uint','uint','pointer','pointer'])(
+    let texture=null;
+    if(config.layer.grade) {
+        const owned=textureTarget(device,width,height,113);texture=owned.texture;output.writePointer(owned.surface);
+    } else succeeded(com(device, 28, 'int', ['uint','uint','uint','uint','uint','uint','pointer','pointer'])(
         device, width, height, config.layer.hdr?113:21, 0, 0, 0, output, ptr(0)), 'CreateRenderTarget');
-    meshLayer = {target: output.readPointer(), counter, shaders: new Map(), draws: 0, cleared: false, state_verified: true};
+    meshLayer = {target: output.readPointer(),texture,extra:texture?[texture]:[], counter, shaders: new Map(), draws: 0, cleared: false, state_verified: true};
     if (projection) {
         if (sourceDepth===null || sourceDepth.isNull()) throw new Error('missing native depth description');
         succeeded(com(sourceDepth,12,'int',['pointer'])(sourceDepth,desc),'depth GetDesc');
@@ -285,7 +288,7 @@ function inspectScreenShader(device,d) {
     succeeded(com(device,58,'int',['uint','pointer'])(device,194,srgb),'GetRenderState sRGB');
     for(let slot=0;slot<16;++slot) {
         const state=Memory.alloc(4);
-        succeeded(com(device,69,'int',['uint','uint','pointer'])(device,slot,11,state),'GetSamplerState sRGB');
+        succeeded(com(device,68,'int',['uint','uint','pointer'])(device,slot,11,state),'GetSamplerState sRGB');
         samplers.push({slot,texture:d['texture'+slot]??null,srgb:state.readU32()});
     }
     const lutBindings=[...program.assembly.matchAll(/^\/\/\s+ColorGradingLUT\s+s(\d+)\s+(\d+)\s*$/gm)];
@@ -466,12 +469,14 @@ function finishMeshLayer(device) {
     const current = meshLayer;
     try {
         const root = Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
-        const captured = captureBackBuffer(device, root, current.counter, false, current.target);
-        const metadata={...captured.metadata, kind: config.layer.hdr?'render-hdr-layer':'render-layer', presentation_index: renderCapture.presentations + 1,
+        if(config.layer.grade && !current.graded)throw new Error('private mesh lacks native grading');
+        const captured = captureBackBuffer(device, root, current.counter, false, current.graded??current.target);
+        const metadata={...captured.metadata, kind: config.layer.hdr&&!config.layer.grade?'render-hdr-layer':'render-layer', presentation_index: renderCapture.presentations + 1,
             diagnostic_settling: config.layer.settle || config.layer.presentations.length > 1, native_coverage_verified: false,
             request_index: (current.counter - gate.initialCounter) >>> 0,
             replayed_draws: current.draws, skipped_draws_total: layerSkipped,
             color_product_draws_total: layerColorBlends,
+            native_color_grading_replayed:Boolean(current.graded),native_bloom_replayed:false,
             source_graphics_state_verified: current.state_verified, hresult: 0,
             ...(config.layer.projection ? {normalized_projection:true,projection_pivot:config.layer.projection.pivot,
                 pixels_per_world_unit:config.layer.projection.pixels_per_world_unit,

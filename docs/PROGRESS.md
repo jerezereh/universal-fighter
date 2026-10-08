@@ -1,5 +1,38 @@
 # Progress record
 
+## 2026-10-08 — Rejected GPU grading, sampler ABI correction and evidence invalidation
+
+- Implemented an opt-in experimental `--grade-layer` path: private HDR render texture,
+  original native color program with private scene/black effect inputs and current LUT,
+  followed by the native texture-copy program and coverage blending into an A8 surface.
+  Source programs and bindings come from clean local inventory; no retail bytes or
+  addresses are versioned. Source state blocks/resources and explicit verification cover
+  constants, viewport, render states, shaders/FVF, depth and modified samplers.
+- The first live trial exits SIGN before any accepted grading image. Windows records
+  a SIGN crash through Steam's crashhandler. Rev2 remains running; the source EXE hash
+  is unchanged. Native code/graphics restoration cannot be verified after process exit.
+  This is a failed native test, not a working GPU grading deliverable or capability.
+- Found a concrete ABI error against the installed native `d3d9.h`: sampler getter and
+  setter slots were reversed. This also affects previous screen inspection: its alleged
+  getter called the setter, so those sampler readings are invalid and source sampler
+  state could change. Withdraw the prior disabled-sRGB/nonmutating-inspection claims and
+  source-color fidelity/precision conclusions from affected captures. Counter/input/
+  collision and executable-hook restoration evidence are separate from sampler state;
+  they do not establish restoration of those GPU values. Fresh color evidence is required.
+- Corrected sampler access in inspection and experimental grading. Added independent
+  native-header ABI validation before loading instrumentation: 81 literal device calls
+  check pointer/value/float argument shapes, with reversed sampler calls explicitly
+  rejected. Dynamic method calls remain outside this check. Corrected authored grading/
+  texture routing/resource/state-failure checks and original layer regressions pass.
+  Native GPU grading and corrected sampler inspection await a fresh SIGN process.
+- Post-teardown source-memory failure now preserves a failed inspection receipt instead
+  of aborting receipt generation. The original crashed trial predates that fix, so a
+  separate recovered failure receipt retains its three blocked samples, zero requested
+  updates, process-exit outcome and unverified restoration. No host runtime changed.
+- Evidence: `20261008-170542-583145/boundary-20261008-201445-922731/recovered-failure.json`;
+  private metadata/programs remain ignored. Manual reopening into offline Sol/Ky training
+  is needed before revalidating the corrected inspector and experimental grading.
+
 ## 2026-10-08 — Native grading phase and private HDR lifetime
 
 - Added bounded observation of the original two-triangle LUT-consumer draw relative

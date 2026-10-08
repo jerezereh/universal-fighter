@@ -86,6 +86,8 @@ def preview(folder):
     if (receipt['errors'] or not receipt['controlled_update_step_verified'] or not receipt['source_input_routing_verified'] or
             not receipt['loaded_code_restored'] or not receipt['source_unchanged'] or not receipt['detached'] or
             not receipt['render_cleanup']['render_code_restored']): raise ValueError('requires restored native source evidence')
+    if receipt.get('d3d_abi',{}).get('native_header_checked') is not True:
+        raise ValueError('requires fresh ABI-verified color evidence; earlier sampler inspection is invalidated')
     shaders=json.loads((folder/'screen-shaders.json').read_text())
     consumers=[s for s in shaders if s.get('lut_source') is not None]
     if len(consumers)!=1: raise ValueError('requires one observed native LUT consumer')

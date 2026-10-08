@@ -1,5 +1,12 @@
 # SIGN native passthrough investigation
 
+**2026-10-08 correction:** previous screen inspection reversed the D3D9 sampler getter/
+setter slots. Its sampler readings and claimed nonmutation are invalid; affected color
+captures must be repeated after reopening SIGN. Counter/input/collision and executable
+hook restoration do not establish GPU sampler-state restoration. The first experimental
+GPU grading trial exits SIGN and is rejected. Corrected native calls now pass independent
+installed-header ABI checks; live corrected inspection/grading remains pending.
+
 The generic IKEMEN receiver is implemented. SIGN investigation includes a VM_READ-only
 probe/state recorder, a temporary native return observer and a bounded freeze/step
 experiment. The last two inject development instrumentation; the probe/recorder do not.
@@ -687,6 +694,15 @@ shows sub-A8 dark components and some values above one with clean graphics resto
 The offline LUT tool accepts these inputs and measures the difference caused by A8
 quantization before grading, while preserving coverage. Native HDR pixel readiness,
 exact postprocess arithmetic/bloom/blur/SMAA and a publishable host frame stay unverified.
+
+`--grade-layer <screen-inspection>` is experimental and has no accepted live result.
+It requires a fresh same-session inventory with independent native-header ABI evidence.
+It renders into a private HDR texture, runs the native color program with that texture/
+current LUT and black substitutes for bloom/low-resolution inputs, then uses a native
+copy program and coverage blending into A8 RGBA. Original shader bytes remain local.
+Authored resource/state tests pass; source code/graphics restoration could not be
+verified after the failed native trial exited. Corrected sampling must be revalidated
+before this path or any resulting image is used as passthrough evidence.
 
 `--settle-layer` requires normalization, up to four selected requests, no fixed
 `--layer-presentations` and no per-sample transform inspection. It starts candidates at

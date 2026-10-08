@@ -115,6 +115,7 @@ function installDrawTrace(device) {
                 this.event = null;
                 this.binding = null;
                 this.targetBinding = null;
+                this.gradeDevice=null;
                 if (config.layer && layerDrawing) return;
                 const d = drawTrace;
                 if (d === null || !args[0].equals(d.device)) return;
@@ -125,6 +126,8 @@ function installDrawTrace(device) {
                 if (method === 'SetStreamSource' && args[1].toUInt32() === 0)
                     this.binding = ['vertexBuffer', args[2].toString()];
                 if (method === 'SetRenderTarget' && args[1].toUInt32() === 0) this.targetBinding = args[2].toString();
+                if(config.layer?.grade && twoTriangleDraw(method,args) && d.pixelShader===config.layer.grade.shader &&
+                        d.currentTarget===config.layer.grade.target)this.gradeDevice=args[0];
                 if(config.inspect_screen_shaders && config.layer && twoTriangleDraw(method,args)) {
                     try {observeLayerColorBoundary(d);}
                     catch(error) {send({kind:'error',phase:'layer-color-boundary',message:String(error)});}
@@ -178,6 +181,11 @@ function installDrawTrace(device) {
                 }
             },
             onLeave(result) {
+                if(this.gradeDevice!==null && result.toInt32()===0) {
+                    try {gradeLayer(this.gradeDevice,drawTrace);}
+                    catch(error){layerFailed=true;if(meshLayer!==null)meshLayer.state_verified=false;
+                        send({kind:'error',phase:'native-private-grading',message:String(error)});}
+                }
                 if (this.binding && drawTrace !== null && result.toInt32() === 0)
                     drawTrace[this.binding[0]] = this.binding[1];
                 if (this.targetBinding && drawTrace !== null && result.toInt32() === 0)
@@ -238,7 +246,7 @@ function captureBackBuffer(device, root, counter, intermediate = false, privateS
         const format = desc.readU32(), multisample = desc.add(16).readU32();
         const width = desc.add(24).readU32(), height = desc.add(28).readU32();
         const pixelBytes = [36, 113].includes(format) ? 8 : 4;
-        const formats=intermediate?[21,22,36,113,114]:privateSurface!==null && config.layer?.hdr?[113]:[21,22];
+        const formats=intermediate?[21,22,36,113,114]:privateSurface!==null && config.layer?.hdr?[21,113]:[21,22];
         if (!formats.includes(format) || multisample !== 0 || width < 1 || height < 1 ||
             width > 2048 || height > 2048) throw new Error('unsupported/bounded backbuffer description');
         succeeded(com(device, 36, 'int', ['uint', 'uint', 'uint', 'uint', 'pointer', 'pointer'])(

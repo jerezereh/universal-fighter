@@ -234,6 +234,12 @@ The native LUT-consumer draw now observes all 13 private HDR mesh draws still li
 four held source counters, before EndScene releases the layer. This provides a verified
 location for private GPU color grading; original draws and source/graphics restoration
 pass. Grading replay and final RGBA readiness remain the next implementation gate.
+The first opt-in GPU grading trial crashes SIGN and is rejected. Corrected reversed
+sampler getter/setter slots and added independent installed-header ABI checks. Earlier
+screen-inspector sampler readings/nonmutation claims and affected source-color evidence
+are withdrawn pending fresh-session revalidation. Experimental GPU grading has authored
+checks but no accepted live result. Counter/input/collision evidence does not prove GPU
+sampler restoration. Reopen offline SIGN training before the next native attempt.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.
