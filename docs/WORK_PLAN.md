@@ -239,7 +239,14 @@ sampler getter/setter slots and added independent installed-header ABI checks. E
 screen-inspector sampler readings/nonmutation claims and affected source-color evidence
 are withdrawn pending fresh-session revalidation. Experimental GPU grading has authored
 checks but no accepted live result. Counter/input/collision evidence does not prove GPU
-sampler restoration. Reopen offline SIGN training before the next native attempt.
+sampler restoration. Fresh-session corrected inspection now passes native-header checks,
+three exact updates and clean hook restoration. Current LUT-consumer sampler reads/write
+report disabled sRGB, without validating the older affected color captures. The corrected
+grading trial survives but rejects a graphics-state restoration mismatch before accepting
+an image. More precise mismatch diagnostics and authored rejection tests are implemented;
+two subsequent pre-start attachment timeouts require a clean SIGN restart before collecting
+that diagnostic. A separate read-only clock check confirms the current source still runs.
+GPU grading, final RGBA readiness and producer capabilities remain unaccepted.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

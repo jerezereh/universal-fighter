@@ -1,5 +1,38 @@
 # Progress record
 
+## 2026-10-08 — Fresh sampler inspection passes; grading restoration remains rejected
+
+- Rebuilt the live profile for reopened SIGN PID 35268 and revalidated owner/input
+  hypotheses against its loaded code. The clean observer records 180 consecutive native
+  updates without gaps. Fresh bounded screen inspection passes three exact updates,
+  165 blocked opportunities and four linked source captures, with 29 observed screen
+  programs and one LUT consumer. Corrected native sampler getters report disabled sRGB
+  reads/write at that observed grading draw. The native-header guard, hook restoration,
+  detach and unchanged source EXE checks pass. These fresh readings replace the withdrawn
+  sampler readings; they do not revalidate old affected color captures or prove fidelity.
+- Matched all three Sol mesh parts in the new session and completed a clean native mesh
+  shader inventory while retaining original draws. The subsequent corrected GPU grading
+  trial stops before any requested update or accepted image because explicit graphics
+  state comparison fails. SIGN survives; loaded/render hooks restore and detach, but
+  private graphics-state restoration is unverified and the trial is rejected.
+- Replaced the combined grading-state error with specific viewport, vertex constant,
+  pixel constant and render-state diagnostics. Authored tests deliberately corrupt each
+  category after state-block application and verify rejection identifies that category.
+  Existing resource/failure tests, JavaScript syntax and all 81 native-header ABI checks
+  pass. No guessed restoration fix or producer capability is promoted.
+- Two follow-up attempts time out during attachment before native start; code checks
+  remain clean. A separate read-only exact-session clock/GPU capture confirms SIGN is
+  responsive and advancing afterward, without UI input or focus changes. A clean SIGN
+  restart into offline Sol/Ky training is needed to collect the new mismatch diagnostic.
+  Rev2 is not targeted. Persistent producer, final color/coverage readiness and universal
+  contact ownership remain pending; no host runtime changes in this step.
+- Evidence: probe `20261008-210211-899464`; clean owner `boundary-20261008-210252-371196`,
+  screen inventory `boundary-20261008-210311-714767`, mesh inventory
+  `boundary-20261008-210600-471531`, rejected grading `boundary-20261008-210650-773805`,
+  pre-start attachment failures `boundary-20261008-210758-435626` and
+  `boundary-20261008-210833-799848`; read-only recovery `xrd-source-ui/20261008-210932-574016`.
+  Native programs, session metadata and images remain ignored.
+
 ## 2026-10-08 — Rejected GPU grading, sampler ABI correction and evidence invalidation
 
 - Implemented an opt-in experimental `--grade-layer` path: private HDR render texture,

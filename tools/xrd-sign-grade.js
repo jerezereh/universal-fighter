@@ -121,9 +121,12 @@ function gradeLayer(device,d) {
     succeeded(com(device,48,'int',['pointer'])(device,nowVp),'grading verify viewport');
     succeeded(com(device,95,'int',['uint','pointer','uint'])(device,0,nowVertex,256),'grading verify vertex');
     succeeded(com(device,110,'int',['uint','pointer','uint'])(device,0,nowPixel,224),'grading verify pixel');
-    if(hex(bytes(vp,24))!==hex(bytes(nowVp,24)) || hex(bytes(vertex,4096))!==hex(bytes(nowVertex,4096)) ||
-        hex(bytes(pixel,224*16))!==hex(bytes(nowPixel,224*16)) || states.some(([id,value])=>renderState(device,id)!==value))
-        throw new Error('native grading state did not restore');
+    const changed=[];
+    for(const [name,before,after,size] of [['viewport',vp,nowVp,24],['vertex constants',vertex,nowVertex,4096],
+            ['pixel constants',pixel,nowPixel,224*16]])
+        if(hex(bytes(before,size))!==hex(bytes(after,size)))changed.push(name);
+    for(const [id,value] of states)if(renderState(device,id)!==value)changed.push('render state '+id);
+    if(changed.length)throw new Error('native grading state did not restore: '+changed.join(', '));
     const output=Memory.alloc(4);
     succeeded(com(device,90,'int',['pointer'])(device,output),'grading verify FVF');
     if(output.readU32()!==sourceFvf)throw new Error('source FVF did not restore');

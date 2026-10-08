@@ -32,7 +32,12 @@ function fixture(failure=null) {
         }
         if(object===block && slot===5) {
             states=new Map(saved.states);sampler=new Map(saved.sampler);viewport=saved.viewport;pixel=saved.pixel;vertex=saved.vertex;
-            boundShader=saved.shader;boundVertex=saved.vertexShader;fvf=saved.fvf;samplerStates=new Map(saved.samplerStates);return 0;
+            boundShader=saved.shader;boundVertex=saved.vertexShader;fvf=saved.fvf;samplerStates=new Map(saved.samplerStates);
+            if(failure==='restore-viewport')viewport[0]^=1;
+            if(failure==='restore-vertex')vertex[0]^=1;
+            if(failure==='restore-pixel')pixel[0]^=1;
+            if(failure==='restore-render')states.set(7,(states.get(7)||0)^1);
+            return 0;
         }
         if(slot===23){if(failure==='texture')return -1;const t=pointer('texture-'+(textures.length+1));textures.push(t);a[7].writePointer(t);return 0;}
         if(slot===38){if(a[1]!==0)return 0x88760866|0;a[2].writePointer(boundTarget);return 0;}
@@ -84,6 +89,11 @@ for(const failure of ['block','texture','surface','copy','grade-draw','mask-draw
     const f=fixture(failure);assert.throws(f.run,/failed/);f.restore();f.release();
     assert.ok(f.releases.includes('source-target') && f.releases.includes('source-shader') && f.releases.includes('lut'));
     if(failure==='surface')assert.ok(f.releases.includes('texture-1'));
+}
+for(const [failure,diagnostic] of [['restore-viewport','viewport'],['restore-vertex','vertex constants'],
+        ['restore-pixel','pixel constants'],['restore-render','render state 7']]) {
+    const f=fixture(failure);assert.throws(f.run,new RegExp('native grading state did not restore: '+diagnostic));
+    f.release();assert.ok(f.releases.includes('block') && f.releases.includes('lut'));
 }
 for(const alpha of [0,1])for(const color of [0,.25,1]) {
     // ZERO/SRCALPHA RGB and ONE/ZERO separate alpha preserve black and clear all uncovered RGB.
