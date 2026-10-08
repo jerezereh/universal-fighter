@@ -1,6 +1,6 @@
 """Authored vertex observation bounds and held-register comparisons, never source code."""
 import struct
-from xrd_transform import transform_packet,transform_changes
+from xrd_transform import transform_packet,transform_changes,projection_bindings
 
 meta=dict(bytecode_size=8,constants=256,read_only=True,assembly='vs_3_0',counter=10,request_index=0,
     presentation_index=3,viewport_hex=struct.pack('<4I2f',0,0,2,2,0,1).hex())
@@ -21,3 +21,11 @@ try: transform_changes([records[0],(records[1][0]|dict(counter=11),code,bytes(ot
 except ValueError: pass
 else: raise AssertionError('advanced counter accepted')
 print('Vertex program/viewport/packet bounds and exact held-register changes passed.')
+
+assembly='// ViewProjectionMatrix c1 4\n// ViewOrthoProjectionX c7 1\n// LocalToWorld c10 4\n'
+assert projection_bindings(assembly,packet[:8])==dict(projection=1,ortho=7,local_to_world=10)
+for changed in (assembly.replace(' c1 4',' c1 3'),assembly.replace('c7 1','c2 1'),
+        assembly+'    def c2, 0, 0, 0, 0\n',assembly.replace('c10 4','c1 4'),assembly+'// LocalToWorld c10 4\n'):
+    try: projection_bindings(changed,packet[:8])
+    except ValueError: pass
+    else: raise AssertionError('invalid native projection binding accepted')

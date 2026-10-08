@@ -32,7 +32,10 @@ function installDrawFilter(device, identity) {
             Date.now() <= g.deadline && pairs.some(p => p.index_buffer === d.indexBuffer && p.vertex_buffer === d.vertexBuffer)) {
             if (config.layer) {
                 const result = original(object, type, base, min, vertices, start, primitives);
-                if (result === 0) try { replayMeshDraw(object, original, [type,base,min,vertices,start,primitives], d); }
+                if (result === 0) try {
+                    observeBodyAnchor(object,d);
+                    replayMeshDraw(object, original, [type,base,min,vertices,start,primitives], d);
+                }
                 catch (error) {
                     layerFailed = true;
                     if (meshLayer !== null) meshLayer.state_verified = false;
@@ -381,7 +384,12 @@ function observePresent() {
                         }
                         // Default third presentation, or explicitly requested settling samples; no delay acceptance.
                         ++renderCapture.presentations;
-                        if ((config.layer ? config.layer.presentations.includes(renderCapture.presentations) : renderCapture.presentations === 3) && renderCapture.attempts < 8 &&
+                        if (config.layer && config.layer.settle) {
+                            if (pendingLayer!==null) {
+                                this.capture=captureBackBuffer(args[0],root,this.counter);
+                                this.capture.metadata.request_index=(this.counter-gate.initialCounter)>>>0;
+                            }
+                        } else if ((config.layer ? config.layer.presentations.includes(renderCapture.presentations) : renderCapture.presentations === 3) && renderCapture.attempts < 8 &&
                             (!config.layer || (gate.initialCounter !== null && config.layer.capture_steps.includes((this.counter - gate.initialCounter) >>> 0)))) {
                             ++renderCapture.attempts;
                             this.capture = captureBackBuffer(args[0], root, this.counter);
@@ -407,8 +415,13 @@ function observePresent() {
                 }
                 if (this.valid) send({kind: 'present',counter: this.counter,device: this.device,
                     method: this.method,target: target.toString(),thread: this.threadId,hresult: result.toInt32(),wall_ms: Date.now()});
-                if (this.capture && result.toInt32() === 0)
-                    send({...this.capture.metadata, thread: this.threadId, hresult: 0}, this.capture.data);
+                if (this.capture && result.toInt32() === 0) {
+                    this.capture.metadata.thread=this.threadId;this.capture.metadata.hresult=0;
+                    if (config.layer && config.layer.settle) {
+                        try {finishSettledPair(this.capture);}
+                        catch (error) {send({kind:'error',phase:'layer-settling',message:String(error)});}
+                    } else send(this.capture.metadata,this.capture.data);
+                }
                 if (this.valid && this.method === 'Present' && config.trace_draws)
                     drawInterval(ptr(this.device), this.counter, false, result.toInt32());
             }

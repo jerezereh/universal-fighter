@@ -1,6 +1,6 @@
 """Authored native-alpha bounds and rejection checks; no source assets."""
 import copy
-from xrd_layer import layer_pixels, capture_steps, capture_presentations, render_oracle, settling_oracle
+from xrd_layer import layer_pixels, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle
 
 metadata=dict(width=3,height=2,kind='render-layer',format=21,native_coverage_verified=False,
     source_graphics_state_verified=True,replayed_draws=2)
@@ -69,3 +69,23 @@ try: settling_oracle(bad,copy.deepcopy(bad),[0,1],[3,6,12,24])
 except ValueError: pass
 else: raise AssertionError('changed held source state accepted')
 print('Repeated presentation bounds, complete held-state pairs and changing mesh rejection passed.')
+
+normalized=copy.deepcopy(layers)
+for c in normalized:
+    c['observation']['fighters'][0]['facing_left']=False
+    c.update(normalized_projection=True,canonical_right_facing=True,source_facing_left=False,
+        projection_pivot=[10,15],source_render_origin=[0,0,0,1],touches_target_edge=False,width=20,height=20)
+assert render_oracle('render-framing',normalized,copy.deepcopy(normalized),steps)['passed']
+pairs=[]
+for c in normalized:
+    for p in (4,5):
+        pairs.append(copy.deepcopy(c)|dict(presentation_index=p,settled_pair=[4,5],raw_sha256=str(c['request_index']),
+            identical_native_pixels=True,frame_readiness_candidate=True))
+assert settled_oracle('render-framing',pairs,copy.deepcopy(pairs),steps)['passed']
+for key,value in [('raw_sha256','different'),('source_render_origin',[float('nan'),0,0,1]),
+        ('presentation_index',7),('canonical_right_facing',False),('touches_target_edge',True)]:
+    bad=copy.deepcopy(pairs);bad[1][key]=value
+    try: settled_oracle('render-framing',bad,copy.deepcopy(bad),steps)
+    except ValueError: pass
+    else: raise AssertionError('unready native frame accepted')
+print('Normalized framing and consecutive native-pixel/state evidence checks passed.')

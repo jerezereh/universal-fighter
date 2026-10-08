@@ -191,6 +191,16 @@ The strict settling assertion remains failed. Next derive frame readiness and in
 framing/pivot from those actual transforms rather than accepting a fixed six-presentation
 delay. Source windows are selected by SIGN path/hash/profile PID; screenshots use its
 verified handle, and name-based foreground driving refuses concurrent Xrd editions.
+Private projection/depth now centers the native body origin independently of the source
+camera and normalizes source-facing pixels. Bounded adaptive sampling waits for two
+consecutive identical GPU layers, with independently checked source-state/counter pairs;
+it does not assume a fixed render delay. Walking/jump and Punch framing pass without
+clipping, and final left-facing idle pixels satisfy the right-facing image convention.
+The first full facing transition stops at step 111 and is rejected. Repeating it with
+the final readiness criterion requires resetting SIGN to its original distant Sol/Ky
+positions; the current foreground driver cannot navigate one of two same-name editions.
+Logical units/foot pivot, HDR/postprocess/effects, complete pose/tick readiness and
+persistent producer/universal result ownership remain gates. SIGN is still unconnected.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Original menu pause,
 clash/superfreeze and universal stop/result ownership still need dedicated validation.

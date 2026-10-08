@@ -4,6 +4,30 @@ import re
 import struct
 
 
+def vertex_bindings(assembly,code):
+    """Named native bindings are local evidence, not a versioned retail register map."""
+    if (not 8<=len(code)<=65536 or len(code)%4 or struct.unpack_from('<I',code)[0]!=0xfffe0300 or
+            struct.unpack_from('<I',code,len(code)-4)[0]!=0xffff): raise ValueError('invalid vertex program')
+    table={}
+    for name,register,count in re.findall(r'^//\s+(\w+)\s+c(\d+)\s+(\d+)\s*$',assembly,re.M):
+        register,count=int(register),int(count)
+        if name in table or not 1<=count<=256 or register+count>256: raise ValueError('invalid constant table')
+        table[name]=(register,count)
+    return table
+
+
+def projection_bindings(assembly,code):
+    table=vertex_bindings(assembly,code);result={}
+    for name,key,count in [('ViewProjectionMatrix','projection',4),('ViewOrthoProjectionX','ortho',1),('LocalToWorld','local_to_world',4)]:
+        if name not in table or table[name][1]!=count: raise ValueError('missing projection binding '+name)
+        result[key]=table[name][0]
+    altered=set(range(result['projection'],result['projection']+4))|{result['ortho']}
+    protected=set(range(result['local_to_world'],result['local_to_world']+4))
+    inline={int(v) for v in re.findall(r'^\s*def c(\d+),',assembly,re.M)}
+    if len(altered)!=5 or altered&protected or altered&inline: raise ValueError('aliased/inline projection binding')
+    return result
+
+
 def transform_packet(metadata,data):
     size=metadata.get('bytecode_size')
     if (type(size)!=int or not 8<=size<=65536 or size%4 or len(data)!=size+4096 or

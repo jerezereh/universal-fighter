@@ -1,5 +1,6 @@
 """Inspect the native alpha channel of a diagnostic private mesh layer."""
 import hashlib
+import math
 
 
 def layer_pixels(metadata,pixels):
@@ -84,7 +85,7 @@ def settling_oracle(layers,scenes,steps,presentations):
 
 
 def render_oracle(kind,layers,scenes,steps):
-    if kind not in ('render-motion','render-attack'): raise ValueError('unknown native render oracle')
+    if kind not in ('render-motion','render-attack','render-framing','render-facing','render-neutral'): raise ValueError('unknown native render oracle')
     if ([c.get('request_index') for c in layers]!=steps or [c.get('request_index') for c in scenes]!=steps or
             any(c.get('counter')!=s.get('counter') or c['observation']['fighters']!=s['observation']['fighters']
                 for c,s in zip(layers,scenes))):
@@ -104,9 +105,45 @@ def render_oracle(kind,layers,scenes,steps):
     normal=[c for c in layers if any(n['value']=='NmlAtk5A' for n in c['observation']['fighters'][0]['state_candidates'])]
     active=any(c['observation']['fighters'][0]['hit_count']>0 for c in normal)
     changed=len({c['alpha_sha256'] for c in layers})>1 and len({c['rgb_sha256'] for c in layers})>1
-    passed=(left and right and jump if kind=='render-motion' else bool(normal) and active) and changed
-    return dict(passed=passed,selected_steps=steps,paired_source_states=True,image_moves_left=left,
+    if kind in ('render-framing','render-facing','render-neutral'):
+        if any(c.get('normalized_projection') is not True or c.get('canonical_right_facing') is not True or
+                c.get('source_facing_left')!=c['observation']['fighters'][0]['facing_left'] or
+                c.get('projection_pivot')!=layers[0].get('projection_pivot') or c.get('touches_target_edge') is not False
+                for c in layers): raise ValueError('missing/cropped/noncanonical private projection')
+        native=[c['observation']['fighters'][0] for c in layers]
+        walked_left=any(b['x_raw']<a['x_raw'] for a,b in zip(native,native[1:]))
+        walked_right=any(b['x_raw']>a['x_raw'] for a,b in zip(native,native[1:]))
+        risen=any(b['y_raw']>a['y_raw']+10000 for a,b in zip(native,native[1:]))
+        passed=True if kind=='render-neutral' else (walked_left and walked_right and risen if kind=='render-framing' else {f['facing_left'] for f in native}=={False,True}) and changed
+    else: passed=(left and right and jump if kind=='render-motion' else bool(normal) and active) and changed
+    result=dict(passed=passed,selected_steps=steps,paired_source_states=True,image_moves_left=left,
         image_moves_right=right,image_rises_with_jump=jump,normal_render_samples=len(normal),
         active_normal_rendered=active,mesh_images_changed=changed,
         clipped_render_steps=[c['request_index'] for c in layers if c.get('touches_target_edge')],
         native_render_latency_verified=False,atomic_native_frame=False,isolated_rgba=False)
+    if kind in ('render-framing','render-facing','render-neutral'):
+        result.update(camera_independent_projection=True,native_walk_left=walked_left,
+            native_walk_right=walked_right,native_rise=risen,source_facings=sorted({f['facing_left'] for f in native}))
+    return result
+
+
+def settled_oracle(kind,layers,scenes,steps):
+    if len(layers)!=2*len(steps) or len(scenes)!=len(layers): raise ValueError('missing settled pairs')
+    for i,step in enumerate(steps):
+        a,b=layers[i*2:i*2+2];sa,sb=scenes[i*2:i*2+2];pair=[a.get('presentation_index'),b.get('presentation_index')]
+        for c in (a,b):
+            origin=c.get('source_render_origin',[]);pivot=c.get('projection_pivot',[])
+            if (c.get('normalized_projection') is not True or c.get('canonical_right_facing') is not True or
+                    c.get('touches_target_edge') is not False or c.get('source_facing_left')!=c['observation']['fighters'][0]['facing_left'] or
+                    len(origin)!=4 or not all(type(v) in (int,float) and math.isfinite(v) and abs(v)<=1e6 for v in origin) or origin[3]!=1 or
+                    len(pivot)!=2 or not all(type(v)==int and 0<=v<bound for v,bound in zip(pivot,[c['width'],c['height']]))):
+                raise ValueError('invalid/unaccepted settled projection geometry')
+        if (not all(type(v)==int for v in pair) or not 3<=pair[0]<pair[1]<=24 or pair[1]!=pair[0]+1 or
+                any(c.get('request_index')!=step or c.get('settled_pair')!=pair or
+                    c.get('identical_native_pixels') is not True or c.get('frame_readiness_candidate') is not True
+                    for c in (a,b,sa,sb)) or a['raw_sha256']!=b['raw_sha256'] or a['alpha_sha256']!=b['alpha_sha256'] or
+                any(c['counter']!=a['counter'] or c['observation']['fighters']!=a['observation']['fighters'] for c in (b,sa,sb))):
+            raise ValueError('changing/unpaired native readiness images')
+    result=render_oracle(kind,layers[1::2],scenes[1::2],steps)
+    return result|dict(identical_consecutive_native_images=True,
+        readiness_presentations=[c['settled_pair'] for c in layers[1::2]],native_render_latency_verified=False)

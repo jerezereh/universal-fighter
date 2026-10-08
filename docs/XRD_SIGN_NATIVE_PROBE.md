@@ -616,6 +616,50 @@ saved graphics prefixes for after-detach checking, but a stop that never complet
 fails. SIGN helpers use the exact installed path/hash and profile PID, independent of
 a concurrent Rev2 executable with the same name. See `XRD_SOURCE_UI.md`.
 
+## Private projection and bounded pixel readiness
+
+Add `--normalize-layer` to the normal private capture options, using a fresh clean
+shader inspection containing `mesh-vertices.json`. Each actual vertex program supplies
+its named projection/orthographic/local-to-world bindings; program bytes must still
+agree at replay. Unknown/aliased/inline bindings reject. The diagnostic private target
+is 640x768, with render-origin pivot (320,700) and two pixels per native world unit.
+This is not a calibrated source-logical-unit or host-foot-pivot contract.
+
+The body anchor is observed before the color pass for the same counter/presentation;
+head/weapon color order is not assumed. Private depth replaces dependence on the source
+stage/opponent depth. Projection, depth, viewport, culling, vertex constants and other
+graphics state restore explicitly and through the existing full state block. Source
+left-facing pixels are reflected, with winding/culling adjusted, into canonical right-
+facing images. Original programs, geometry, textures and RGB instructions remain native.
+HDR/postprocess and effect completeness are still unaccepted.
+
+`--settle-layer` requires normalization, up to four selected requests, no fixed
+`--layer-presentations` and no per-sample transform inspection. It starts candidates at
+presentation 3 and compares complete native pixel buffers from consecutive renders at
+the same source counter/facing/draw count. Only an identical pair is sent as diagnostic
+scene/layer evidence; presentation 24 without equality fails and retains its final
+unaccepted images. Python recomputes raw/alpha equality, source-state association and
+framing bounds. Native errors abort promptly and tear down hooks. Register arrays and
+absolute render-origin values are not used as a universal settling clock.
+
+For the motion plan use `--oracle render-framing --layer-steps 0,4,16,28`; for the Punch
+plan use `--oracle render-attack --layer-steps 0,3,7,20`. The crossover plan can use
+`--oracle render-facing --layer-steps 0,111,135`. Without an input plan, the normal three
+neutral credits verify four settled counters through `--layer-steps 0,1,2,3` (default).
+All retain eight published pairs/128 MiB, bounded controller/lease lifetime and complete
+after-detach code verification. Local retained candidate buffers are replaced, not
+accumulated across unsuccessful presentations.
+
+Live motion and Punch pass 28/20 exact updates and eight pairs each, without clipped
+target edges. Motion readiness varies through presentations 3/4, 7/8 and 8/9. Initial
+strict samples still reject render 3; private projection reduces the walking difference
+to a few edge pixels rather than selecting a globally correct delay. Crossover's first
+attempt reaches 111 updates/both source facings, then rejects its unsettled candidate.
+Final neutral left-facing capture passes three updates/eight pairs at 3/4, with restored
+graphics and inspected right-facing private pixels. The complete transition must be
+repeated after resetting the training positions. Full pose/tick atomicity and receiver
+capabilities are not promoted by consecutive pixel equality.
+
 ## Remaining producer gates
 
 A unique signature is only a candidate. Before building a producer around it:

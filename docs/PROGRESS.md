@@ -1,5 +1,68 @@
 # Progress record
 
+## 2026-10-07 — Private projection, adaptive native pixels and manual reset
+
+- Added opt-in private projection/depth ownership. Bindings come from each actual native
+  vertex program's named constant table, with bounds/alias/inline-constant rejection and
+  runtime byte agreement. Original vertex programs, bones, textures and RGB instructions
+  remain in use. A 640x768 private target centers the observed body origin at (320,700),
+  with a diagnostic scale of two pixels per native world unit. Its own depth surface
+  preserves self-occlusion independently of stage/opponent depth. Reflection/culling
+  normalize left-facing source geometry to the receiver's right-facing convention.
+- The first native attempt rejects a color-pass draw-order assumption: a head/weapon
+  draw can precede the body. The anchor now comes from a verified body draw in an earlier
+  pass of the same counter/presentation. Depth, vertex constants, viewport, targets,
+  culling and other states restore per draw; all acquired/private resources release.
+  Native instrumentation errors now trigger immediate controller teardown.
+- Private projection removes the large camera-position shift, but does not make the
+  third render correct. Repeated walking samples still differ by 13 pixels (one alpha
+  pixel) between presentations 3 and 6; consecutive samples first agree at 4/5 in the
+  tested one-step case. Both strict third-presentation assertions remain failed.
+- Added `--settle-layer`: retain a bounded candidate pair, compare actual complete GPU
+  pixel bytes and require matching counter, consecutive presentation, facing and draw
+  count. Publish diagnostic scene/layer pairs only after equality; reject after 24
+  presentations. Python independently checks raw/alpha hashes, source states, canonical
+  framing and target-edge coverage. Four selected requests/eight pairs and 128 MiB remain
+  the limits. No fixed fourth/sixth-render guarantee is introduced.
+- Walking/jump framing passes 28 exact updates, 77 blocked opportunities, eight pairs
+  and no target-edge contact. Its readiness pairs vary: 3/4, 7/8, 8/9 and 3/4. Punch passes
+  20 updates, 71 blocked opportunities and eight pairs, including startup/active/recovery,
+  four native active steps and return to idle. Both preserve native input history and
+  source/graphics restoration. These first runs additionally required equal absolute
+  render origins; their raw pairs also pass the current independent pixel/state oracle.
+- Crossover reaches step 111, crosses Ky and observes both grounded source facings, but
+  its left-facing candidate does not satisfy that initial readiness rule within 24
+  presentations. The full 135-step facing oracle is rejected; cleanup passes. An added
+  full declared-bone-register comparison also rejects a separate neutral left-facing
+  check despite identical pixels. Declared ranges can include unused words; changing
+  register data does not prove a change to rendered geometry, so that rule is removed;
+  source render origins and register arrays are not universal readiness clocks. The
+  final readiness candidate uses actual pixels with held source-state association.
+- Final neutral left-facing verification passes three exact updates, 136 blocked
+  opportunities and eight pairs, all at 3/4, with no clipping/errors and restored code.
+  The inspected private image faces right while the source state faces left. This proves
+  the current left-facing idle framing; repeating the complete facing transition with
+  the final readiness criterion still needs fresh starting positions.
+- Authored projection binding/alias bounds, pivot/reflection, native depth/constant
+  restoration, COM failure release, consecutive-pixel/state/counter rejection and
+  presentation exhaustion checks pass, along with existing native layer/render/input/
+  boundary/cleanup regressions and syntax checks. The receiver/host patch are unchanged.
+- Evidence under `20261008-005529-384458`: failed anchor `boundary-20261008-014326-476705`,
+  strict projection diagnostics `014607-472501` / `014832-174409`, successful framing
+  `015519-771743`, Punch `015602-698168`, rejected crossover `015717-448053`, rejected
+  register criterion `020523-045404`, final left-facing neutral `020813-504234` (all
+  shortened names have the `boundary-20261008-` prefix). Retail data/images stay ignored.
+- Manual reset requested: crossover leaves Sol on Ky's right, about 149 source units
+  apart. The next movement/crossover plans require the original distant idle setup.
+  Concurrent Rev2 prevents the current name-based UI driver from navigating SIGN; exact
+  background key messages previously failed SIGN menu control. Contact tests use a
+  closer setup and are separate. Source detection stays in the background.
+- Remaining: repeat full facing/movement checks after reset; calibrate logical units and
+  the source foot origin, preserve HDR/postprocess colors and required effects; persistent
+  producer/transport and universal contact/result/KO/reset ownership. Consecutive pixel
+  equality is a bounded readiness candidate, not complete tick/pose/atomicity acceptance.
+  SIGN remains unconnected; advertised guest capabilities stay false.
+
 ## 2026-10-07 — Complete native vertex program inventory
 
 - Expanded clean mesh shader inspection to include native vertex bytecode/disassembly.

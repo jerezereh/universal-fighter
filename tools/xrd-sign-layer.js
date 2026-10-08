@@ -9,12 +9,60 @@ let layerSkipped = 0;
 let layerColorBlends = 0;
 const layerSkipSeen = new Set();
 const layerCapturedSteps = new Set();
+let bodyAnchor=null;
+let pendingLayer=null, previousCandidate=null;
+
+function layerPresentationSelected() {
+    const p=config.layer, index=renderCapture.presentations+1;
+    return p.settle ? index>=3 && index<=24 : p.presentations.includes(index);
+}
+
+function equalPixels(a,b) {
+    if (a.metadata.width!==b.metadata.width || a.metadata.height!==b.metadata.height) return false;
+    const aa=new Uint8Array(a.data,a.metadata.state_size),bb=new Uint8Array(b.data,b.metadata.state_size);
+    if (aa.length!==bb.length) return false;
+    for(let i=0;i<aa.length;++i) if(aa[i]!==bb[i]) return false;
+    return true;
+}
+
+function finishSettledPair(scene) {
+    if (pendingLayer===null) return;
+    const layer=pendingLayer;pendingLayer=null;
+    if (scene.metadata.counter!==layer.metadata.counter || scene.metadata.presentation_index!==layer.metadata.presentation_index)
+        throw new Error('unpaired settling candidate');
+    const prior=previousCandidate;
+    const pixelsMatch=prior!==null && equalPixels(prior.layer,layer);
+    const ready=prior!==null && prior.layer.metadata.counter===layer.metadata.counter &&
+        prior.layer.metadata.presentation_index+1===layer.metadata.presentation_index &&
+        prior.layer.metadata.replayed_draws===layer.metadata.replayed_draws &&
+        prior.layer.metadata.source_facing_left===layer.metadata.source_facing_left &&
+        pixelsMatch;
+    send({kind:'layer-readiness',counter:layer.metadata.counter,request_index:layer.metadata.request_index,
+        presentation_index:layer.metadata.presentation_index,pixels_equal:pixelsMatch,
+        source_render_origin:layer.metadata.source_render_origin,ready});
+    if (ready) {
+        const pair=[prior.layer.metadata.presentation_index,layer.metadata.presentation_index];
+        for(const candidate of [prior,{layer,scene}]) {
+            const proof={settled_pair:pair,identical_native_pixels:true,frame_readiness_candidate:true,diagnostic_settling:true};
+            send({...candidate.layer.metadata,...proof},candidate.layer.data);
+            send({...candidate.scene.metadata,...proof},candidate.scene.data);
+        }
+        layerCaptures+=2;layerCapturedSteps.add(layer.metadata.request_index+':settled');previousCandidate=null;
+    } else {
+        previousCandidate={layer,scene};
+        if(layer.metadata.presentation_index>=24) {
+            send({...layer.metadata,frame_readiness_candidate:false,settle_failed:true},layer.data);
+            send({...scene.metadata,diagnostic_settling:true,frame_readiness_candidate:false,settle_failed:true},scene.data);
+            throw new Error('native layer did not settle within bounded presentations');
+        }
+    }
+}
 
 function releaseLayer() {
     if (meshLayer === null) return;
     const current = meshLayer; meshLayer = null;
     let failure = null;
-    for (const resource of [...current.shaders.values(), current.target]) {
+    for (const resource of [...current.shaders.values(), current.target, ...(current.depth ? [current.depth] : [])]) {
         try { com(resource, 2, 'uint', [])(resource); }
         catch (error) { failure = error; }
     }
@@ -27,15 +75,87 @@ function renderState(device, id) {
     return output.readU32();
 }
 
-function createLayer(device, counter, sourceTarget) {
+function createLayer(device, counter, sourceTarget, sourceDepth = null) {
     const desc = Memory.alloc(32), output = Memory.alloc(4); output.writePointer(ptr(0));
     succeeded(com(sourceTarget, 12, 'int', ['pointer'])(sourceTarget, desc), 'GetDesc');
-    const width = desc.add(24).readU32(), height = desc.add(28).readU32();
+    const projection=config.layer.projection;
+    const width = projection ? projection.width : desc.add(24).readU32();
+    const height = projection ? projection.height : desc.add(28).readU32();
     if (width < 1 || height < 1 || width > 2048 || height > 2048 || desc.add(16).readU32() !== 0)
         throw new Error('unsupported private target dimensions/multisampling');
     succeeded(com(device, 28, 'int', ['uint','uint','uint','uint','uint','uint','pointer','pointer'])(
         device, width, height, 21, 0, 0, 0, output, ptr(0)), 'CreateRenderTarget');
     meshLayer = {target: output.readPointer(), counter, shaders: new Map(), draws: 0, cleared: false, state_verified: true};
+    if (projection) {
+        if (sourceDepth===null || sourceDepth.isNull()) throw new Error('missing native depth description');
+        succeeded(com(sourceDepth,12,'int',['pointer'])(sourceDepth,desc),'depth GetDesc');
+        output.writePointer(ptr(0));
+        succeeded(com(device,29,'int',['uint','uint','uint','uint','uint','int','pointer','pointer'])(
+            device,width,height,desc.readU32(),0,0,1,output,ptr(0)),'CreateDepthStencilSurface');
+        meshLayer.depth=output.readPointer();meshLayer.vertex_seen=new Set();
+    }
+}
+
+function projectionRows(origin,facingLeft,p) {
+    if (origin.length!==4 || origin.some(v=>!Number.isFinite(v)||Math.abs(v)>1e6) || origin[3]!==1)
+        throw new Error('invalid native render origin');
+    const sx=2*p.pixels_per_world_unit/p.width*(facingLeft?-1:1), sy=2*p.pixels_per_world_unit/p.height;
+    const px=2*p.pivot[0]/p.width-1, py=1-2*p.pivot[1]/p.height, w=512, dz=-.001;
+    // Keep clip W large enough for the original outline's literal clip-depth bias.
+    return {matrix:[sx*w,0,0,0, 0,0,dz*w,0, 0,sy*w,0,0,
+        (px-origin[0]*sx)*w,(py-origin[2]*sy)*w,(.5-origin[1]*dz)*w,w],
+        ortho:[sx,0,0,px-origin[0]*sx]};
+}
+
+function observeBodyAnchor(device,d) {
+    const p=config.layer.projection;
+    if (!p || layerFailed || !layerPresentationSelected()) return;
+    const body=config.suppress_draws.parts.body;
+    if (d.indexBuffer!==body.index_buffer || d.vertexBuffer!==body.vertex_buffer) return;
+    const root=Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
+    const counter=root.add(4+config.candidate.counter_field).readU32(), presentation=renderCapture.presentations+1;
+    if (renderCapture.counter!==counter || !config.layer.capture_steps.includes((counter-gate.initialCounter)>>>0) ||
+        config.layer.settle && layerCapturedSteps.has(((counter-gate.initialCounter)>>>0)+':settled') ||
+        bodyAnchor && bodyAnchor.counter===counter && bodyAnchor.presentation===presentation) return;
+    const binding=p.origins[d.vertexShader];
+    if (!binding) throw new Error('unverified native body anchor program');
+    const program=vertexProgram(device);
+    if (program.shader!==d.vertexShader || hex(program.code)!==binding.original_hex) throw new Error('body anchor vertex drift');
+    const data=Memory.alloc(16);
+    succeeded(com(device,95,'int',['uint','pointer','uint'])(device,binding.local_to_world+3,data,1),'body render origin');
+    const origin=Array.from({length:4},(_,i)=>data.add(i*4).readFloat());
+    const actor=root.add(config.state.fields.slots).readPointer(),facing=actor.add(config.state.fields.facing).readS32();
+    if (facing!==0 && facing!==1) throw new Error('invalid native projection facing');
+    projectionRows(origin,facing===1,p);
+    bodyAnchor={counter,presentation,origin,source_facing_left:facing===1};
+}
+
+function privateProjection(device,d) {
+    const p=config.layer.projection;
+    if (!p) return null;
+    const binding=p.programs[d.vertexShader];
+    if (!binding) throw new Error('unverified native vertex projection');
+    if (!meshLayer.vertex_seen.has(d.vertexShader)) {
+        const program=vertexProgram(device);
+        if (program.shader!==d.vertexShader || hex(program.code)!==binding.original_hex)
+            throw new Error('native vertex program drift');
+        meshLayer.vertex_seen.add(d.vertexShader);
+    }
+    const constants=Memory.alloc(4096);
+    succeeded(com(device,95,'int',['uint','pointer','uint'])(device,0,constants,256),'projection GetVertexShaderConstantF');
+    const before=[binding.projection,binding.ortho].map((r,i)=>[r,i===0?4:1,hex(bytes(constants.add(r*16),i===0?64:16))]);
+    if (!meshLayer.origin) {
+        if (!bodyAnchor || bodyAnchor.counter!==meshLayer.counter || bodyAnchor.presentation!==renderCapture.presentations+1)
+            throw new Error('missing current body render anchor');
+        meshLayer.origin=bodyAnchor.origin;meshLayer.source_facing_left=bodyAnchor.source_facing_left;
+    }
+    const rows=projectionRows(meshLayer.origin,meshLayer.source_facing_left,p);
+    for (const [register,values] of [[binding.projection,rows.matrix],[binding.ortho,rows.ortho]]) {
+        const data=Memory.alloc(values.length*4);
+        values.forEach((v,i)=>data.add(i*4).writeFloat(v));
+        succeeded(com(device,94,'int',['uint','pointer','uint'])(device,register,data,values.length/4),'private vertex projection');
+    }
+    return before;
 }
 
 function layerShader(device, sourceShader, program) {
@@ -112,16 +232,16 @@ function inspectLayerTransform(device,d,counter,viewport) {
 
 function replayMeshDraw(device, original, values, d) {
     const g = gate, p = config.layer;
-    if (layerDrawing || layerFailed || layerStopping || g === null || g.resumed || g.executing || Date.now() > g.deadline || layerCaptures >= p.capture_steps.length * p.presentations.length ||
-        d.currentTarget !== p.target || !p.presentations.includes(renderCapture.presentations + 1) || !p.programs[d.pixelShader]) return;
+    if (layerDrawing || layerFailed || layerStopping || g === null || g.resumed || g.executing || Date.now() > g.deadline || layerCaptures >= p.capture_steps.length * (p.settle?2:p.presentations.length) ||
+        d.currentTarget !== p.target || !layerPresentationSelected() || !p.programs[d.pixelShader]) return;
     const root = Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
     const counter = root.add(4 + config.candidate.counter_field).readU32();
     const requestIndex = (counter - g.initialCounter) >>> 0;
     if (g.initialCounter === null || renderCapture.counter !== counter ||
-        !p.capture_steps.includes(requestIndex) || layerCapturedSteps.has(requestIndex + ':' + (renderCapture.presentations + 1))) return;
-    let block = ptr(0), sourceShader = ptr(0);
+        !p.capture_steps.includes(requestIndex) || layerCapturedSteps.has(requestIndex + ':' + (p.settle?'settled':renderCapture.presentations+1))) return;
+    let block = ptr(0), sourceShader = ptr(0), sourceDepth = ptr(0), vertexBefore = null;
     const targets = [], viewport = Memory.alloc(24);
-    const before = [14,15,19,20,23,27,52,168,171,206,207,208,209].map(id => [id, renderState(device, id)]);
+    const before = [...[14,15,19,20,23,27,52,168,171,206,207,208,209],...(p.projection?[7,22]:[])].map(id => [id, renderState(device, id)]);
     const state = new Map(before);
     // A destination/source-color product uses no shader alpha in its RGB equation.
     // Alpha-tested/translucent materials still need their original coverage semantics.
@@ -153,20 +273,38 @@ function replayMeshDraw(device, original, values, d) {
         succeeded(com(device, 108, 'int', ['pointer'])(device, shaderOut), 'GetPixelShader'); sourceShader = shaderOut.readPointer();
         succeeded(com(device, 48, 'int', ['pointer'])(device, viewport), 'GetViewport');
         succeeded(com(device, 59, 'int', ['uint','pointer'])(device, 1, blockOut), 'CreateStateBlock'); block = blockOut.readPointer();
-        if (meshLayer === null) createLayer(device, counter, targets[0][1]);
+        if (p.projection) {
+            const output=Memory.alloc(4);output.writePointer(ptr(0));
+            succeeded(com(device,40,'int',['pointer'])(device,output),'GetDepthStencilSurface');sourceDepth=output.readPointer();
+        }
+        if (meshLayer === null) createLayer(device, counter, targets[0][1],sourceDepth);
         if (meshLayer.counter !== counter) throw new Error('source advanced during private replay');
         inspectLayerTransform(device,d,counter,viewport);
         const shader = layerShader(device, sourceShader, p.programs[oldPixel]);
+        vertexBefore=privateProjection(device,d);
         for (const [index] of targets) if (index !== 0)
             succeeded(com(device, 37, 'int', ['uint','pointer'])(device, index, ptr(0)), 'disable extra target');
         succeeded(com(device, 37, 'int', ['uint','pointer'])(device, 0, meshLayer.target), 'private target');
-        succeeded(com(device, 47, 'int', ['pointer'])(device, viewport), 'private viewport');
+        let privateViewport=viewport;
+        if (p.projection) {
+            succeeded(com(device,39,'int',['pointer'])(device,meshLayer.depth),'private depth');
+            privateViewport=Memory.alloc(24);privateViewport.writeByteArray(bytes(viewport,24));
+            privateViewport.writeU32(0);privateViewport.add(4).writeU32(0);
+            privateViewport.add(8).writeU32(p.projection.width);privateViewport.add(12).writeU32(p.projection.height);
+            privateViewport.add(16).writeFloat(0);privateViewport.add(20).writeFloat(1);
+        }
+        succeeded(com(device, 47, 'int', ['pointer'])(device, privateViewport), 'private viewport');
         if (!meshLayer.cleared) {
-            succeeded(com(device, 43, 'int', ['uint','pointer','uint','uint','float','uint'])(device, 0, ptr(0), 1, 0, 1, 0), 'private clear');
+            succeeded(com(device, 43, 'int', ['uint','pointer','uint','uint','float','uint'])(device, 0, ptr(0), p.projection?3:1, 0, 1, 0), 'private clear');
             meshLayer.cleared = true;
         }
         for (const [id, value] of [[14,0],[23,4],[27,state.get(27)],[52,0],[168,15],[206,1],[207,1],[208,2],[209,1]])
             succeeded(com(device, 57, 'int', ['uint','uint'])(device, id, value), 'private render state');
+        if (p.projection) {
+            const cull=state.get(22), mirrored=meshLayer.source_facing_left && (cull===2 || cull===3);
+            for (const [id,value] of [[7,1],[14,colorProduct?0:1],[22,mirrored?5-cull:cull]])
+                succeeded(com(device,57,'int',['uint','uint'])(device,id,value),'private depth/culling state');
+        }
         // ZERO/ONE separate-alpha blending preserves opaque coverage beneath a color-product overlay.
         const one = Memory.alloc(16); for (let i = 0; i < 4; ++i) one.add(i * 4).writeFloat(1);
         succeeded(com(device, 109, 'int', ['uint','pointer','uint'])(device, 223, one, 1), 'private alpha constant');
@@ -176,13 +314,17 @@ function replayMeshDraw(device, original, values, d) {
         if (colorProduct) ++layerColorBlends;
     } finally {
         let failure = null;
+        if (p.projection && !sourceDepth.isNull()) {
+            try { succeeded(com(device,39,'int',['pointer'])(device,sourceDepth),'restore source depth'); }
+            catch (error) { failure=error; }
+        }
         for (const [index, target] of targets) {
             try { succeeded(com(device, 37, 'int', ['uint','pointer'])(device, index, target), 'restore source target'); }
             catch (error) { failure = error; }
         }
         try { if (!block.isNull()) succeeded(com(block, 5, 'int', [])(block), 'restore source state block'); }
         catch (error) { failure = error; }
-        for (const resource of [...targets.map(t => t[1]), sourceShader, block]) {
+        for (const resource of [...targets.map(t => t[1]), sourceShader, sourceDepth, block]) {
             try { if (!resource.isNull()) com(resource, 2, 'uint', [])(resource); }
             catch (error) { failure = error; }
         }
@@ -190,6 +332,18 @@ function replayMeshDraw(device, original, values, d) {
         if (failure) throw failure;
     }
     const restored = Memory.alloc(16), restoredViewport = Memory.alloc(24);
+    if (vertexBefore) for (const [register,count,original] of vertexBefore) {
+        const current=Memory.alloc(count*16);
+        succeeded(com(device,95,'int',['uint','pointer','uint'])(device,register,current,count),'verify vertex constants');
+        if (hex(bytes(current,count*16))!==original) throw new Error('source vertex constants did not restore');
+    }
+    if (p.projection) {
+        const current=Memory.alloc(4);current.writePointer(ptr(0));
+        succeeded(com(device,40,'int',['pointer'])(device,current),'verify source depth');
+        const depth=current.readPointer();
+        try { if (!depth.equals(sourceDepth)) throw new Error('source depth did not restore'); }
+        finally { if(!depth.isNull()) com(depth,2,'uint',[])(depth); }
+    }
     succeeded(com(device, 110, 'int', ['uint','pointer','uint'])(device, 223, restored, 1), 'verify alpha constant');
     succeeded(com(device, 48, 'int', ['pointer'])(device, restoredViewport), 'verify viewport');
     if (hex(bytes(constants, 16)) !== hex(bytes(restored, 16)) || hex(bytes(viewport, 24)) !== hex(bytes(restoredViewport, 24)) ||
@@ -202,13 +356,20 @@ function finishMeshLayer(device) {
     try {
         const root = Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
         const captured = captureBackBuffer(device, root, current.counter, false, current.target);
-        send({...captured.metadata, kind: 'render-layer', presentation_index: renderCapture.presentations + 1,
-            diagnostic_settling: config.layer.presentations.length > 1, native_coverage_verified: false,
+        const metadata={...captured.metadata, kind: 'render-layer', presentation_index: renderCapture.presentations + 1,
+            diagnostic_settling: config.layer.settle || config.layer.presentations.length > 1, native_coverage_verified: false,
             request_index: (current.counter - gate.initialCounter) >>> 0,
             replayed_draws: current.draws, skipped_draws_total: layerSkipped,
             color_product_draws_total: layerColorBlends,
-            source_graphics_state_verified: current.state_verified, hresult: 0}, captured.data);
-        ++layerCaptures;
-        layerCapturedSteps.add(((current.counter - gate.initialCounter) >>> 0) + ':' + (renderCapture.presentations + 1));
+            source_graphics_state_verified: current.state_verified, hresult: 0,
+            ...(config.layer.projection ? {normalized_projection:true,projection_pivot:config.layer.projection.pivot,
+                pixels_per_world_unit:config.layer.projection.pixels_per_world_unit,
+                source_render_origin:current.origin,source_facing_left:current.source_facing_left,
+                canonical_right_facing:true,pivot_verified:false,units_verified:false} : {})};
+        if (config.layer.settle) pendingLayer={metadata,data:captured.data};
+        else {
+            send(metadata,captured.data);++layerCaptures;
+            layerCapturedSteps.add(((current.counter-gate.initialCounter)>>>0)+':'+(renderCapture.presentations+1));
+        }
     } finally { releaseLayer(); }
 }
