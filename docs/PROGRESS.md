@@ -1,5 +1,33 @@
 # Progress record
 
+## 2026-10-08 — Native grading vertex coordinates and quad input observed
+
+- Extended the LUT-consumer inspection with its actual bound vertex program/constants.
+  Other screen programs retain the existing observation path. Independent acquired shader
+  references release even on disassembly/constant failures; no shader is rebound.
+- The successful native inspection confirms separate native coordinate transforms for
+  bloom and low-resolution compositing. The observed grading call uses CPU-supplied
+  indexed quad vertices. Added bounded capture of four vertices, six indices and the
+  native vertex declaration at that original call, before its input pointers expire.
+- A clean repeat retains the expected float4 position/float2 texture declaration, legal
+  six-index quad and native program/constants. The per-vertex stride includes padding;
+  only declared attributes have semantic meaning. Raw padding is not a coordinate input.
+  The captured rectangle occupies a viewport-sized subset of the larger internal target,
+  explaining why whole-allocation normalized UV guesses are unsuitable for effect replay.
+- Both native inspections pass three exact updates, four source captures, neutral input
+  linkage and after-detach native/render code restoration. One quad-inspection attempt
+  times out before attachment/native start; its bounded retry passes.
+- Packet checks validate vertex stage/version/constant bounds, quad stride/index/decl
+  bounds/end, with local hashes. Authored getter/reference/failure and malformed packet
+  tests pass; installed-header validation covers 86 literal device calls. Retail bytecode,
+  constants and vertex data stay ignored. No effect replay or fidelity is claimed.
+- Next derive private effect-coordinate inputs from these observed bindings and test
+  native source-effect reuse as a diagnostic before isolated effect generation. Source
+  stage/opponent contributions must not be mistaken for an isolated fighter layer.
+- Evidence: probe `20261008-222305-484036`; vertex inspection
+  `boundary-20261008-225142-545373`; complete input inspection
+  `boundary-20261008-225727-340059`; pre-start timeout `boundary-20261008-225703-624380`.
+
 ## 2026-10-08 — Explicit HUD exclusion without changing SIGN
 
 - The user reports no HUD display toggle. Added optional bounded rectangle exclusions

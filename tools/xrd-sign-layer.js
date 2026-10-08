@@ -277,7 +277,7 @@ function textureSurface(device,slot) {
     }
 }
 
-function inspectScreenShader(device,d) {
+function inspectScreenShader(device,d,method,args) {
     const key=d.currentTarget+':'+d.pixelShader;
     if (d.screenShaders.has(key)) return;
     if (d.screenShaders.size>=32) throw new Error('screen shader observation limit');
@@ -295,12 +295,50 @@ function inspectScreenShader(device,d) {
     if(lutBindings.length>1 || lutBindings.some(m=>Number(m[1])>=16 || Number(m[2])!==1))
         throw new Error('ambiguous LUT sampler binding');
     const lut=lutBindings.length?textureSurface(device,Number(lutBindings[0][1])):null;
+    const vertex=lut!==null?inspectScreenVertex(device):null;
+    const input=lut!==null && method==='DrawIndexedPrimitiveUP'?inspectScreenInput(device,args):null;
     if(lut!==null && samplers[lut.slot].texture!==lut.texture) throw new Error('LUT texture binding drift');
     if(lut!==null)d.lutShaders.add(program.shader);
     d.screenShaders.add(key);
     send({kind:'screen-shader',shader:program.shader,code_size:program.code.length,assembly:program.assembly,
         source_target:d.currentTarget,constants_hex:hex(bytes(constants,224*16)),srgb_write:srgb.readU32(),
-        samplers,lut_source:lut,counter:d.counter,trace_frame:d.frames+1,trace_event:d.events.length,read_only:true},program.code.buffer);
+        samplers,lut_source:lut,vertex_program:vertex,vertex_input:input,counter:d.counter,trace_frame:d.frames+1,trace_event:d.events.length,read_only:true},program.code.buffer);
+}
+
+function inspectScreenInput(device,args) {
+    const stride=args[8].toUInt32(),format=args[6].toUInt32();
+    if(args[1].toUInt32()!==4 || args[2].toUInt32()!==0 || args[3].toUInt32()!==4 || args[4].toUInt32()!==2 ||
+            stride<16 || stride>256 || stride%4 || ![101,102].includes(format))
+        throw new Error('unsupported grading quad input bounds');
+    const output=Memory.alloc(4);output.writePointer(ptr(0));
+    succeeded(com(device,88,'int',['pointer'])(device,output),'screen GetVertexDeclaration');
+    const declaration=output.readPointer();
+    if(declaration.isNull())throw new Error('missing grading vertex declaration');
+    try {
+        const count=Memory.alloc(4);count.writeU32(0);
+        succeeded(com(declaration,4,'int',['pointer','pointer'])(declaration,ptr(0),count),'screen declaration size');
+        const size=count.readU32();
+        if(size<2 || size>32)throw new Error('unbounded grading declaration');
+        const elements=Memory.alloc(size*8);
+        succeeded(com(declaration,4,'int',['pointer','pointer'])(declaration,elements,count),'screen declaration');
+        if(count.readU32()!==size)throw new Error('grading declaration size changed');
+        return {stride,index_format:format,vertices_hex:hex(bytes(args[7],stride*4)),
+            indices_hex:hex(bytes(args[5],format===101?12:24)),declaration_hex:hex(bytes(elements,size*8))};
+    } finally {com(declaration,2,'uint',[])(declaration);}
+}
+
+function inspectScreenVertex(device) {
+    const output=Memory.alloc(4);output.writePointer(ptr(0));
+    succeeded(com(device,93,'int',['pointer'])(device,output),'screen GetVertexShader');
+    const shader=output.readPointer();
+    if(shader.isNull())return null;
+    try {
+        const program=shaderProgram(device,'vertex'),constants=Memory.alloc(4096);
+        if(program.shader!==shader.toString())throw new Error('screen vertex binding drift');
+        succeeded(com(device,95,'int',['uint','pointer','uint'])(device,0,constants,256),'screen vertex constants');
+        return {shader:program.shader,code_hex:hex(program.code),assembly:program.assembly,
+            constants_hex:hex(bytes(constants,4096))};
+    } finally {com(shader,2,'uint',[])(shader);}
 }
 
 function observeLayerColorBoundary(d) {

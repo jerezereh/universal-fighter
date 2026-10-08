@@ -6,6 +6,7 @@ function fixture(failure=null) {
     const assembly={name:'assembly',isNull:()=>false};
     const texture={name:'texture',isNull:()=>false,toString:()=> '0x3000'};
     const surface={name:'surface',isNull:()=>false,toString:()=> '0x4000'};
+    const declaration={name:'declaration',isNull:()=>false};
     const text={readUtf8String:()=> 'vs_3_0\nmov o0,v0\n'};
     const allocation=()=>({pointer:zero,data:new Uint8Array(4096),n:0,
         writePointer(p){this.pointer=p;},readPointer(){return this.pointer;},writeU32(n){this.n=n;},readU32(){return this.n;},
@@ -24,6 +25,8 @@ function fixture(failure=null) {
         if(object===assembly && slot===4)return failure==='text-size'?200000:20;
         if(object===assembly && slot===3)return text;
         if(slot===93 || slot===108){if(failure==='shader')return -1;args[1].writePointer(shader);return 0;}
+        if(slot===88){if(failure==='declaration')return -1;args[1].writePointer(declaration);return 0;}
+        if(object===declaration && slot===4){args[2].writeU32(failure==='declaration-size'?100:3);return failure==='elements'?-1:0;}
         if(slot===95 || slot===110)return failure==='constants'?-1:0;
         if(slot===58){if(failure==='state')return -1;args[2].writeU32(0);return 0;}
         if(slot===68){if(failure==='sampler')return -1;args[3].writeU32(0);return 0;}
@@ -53,6 +56,23 @@ for(const failure of ['shader','program','constants','disassemble','text-size','
     if(['text-size','release-assembly'].includes(failure))assert.ok(f.calls.includes('assembly'));
 }
 console.log('Read-only transform observation, one body sample and independent shader/disassembly cleanup passed.');
+const screenVertex=fixture();vm.runInContext('inspectScreenVertex(device)',screenVertex.context);
+assert.deepEqual(screenVertex.calls,['assembly','shader','shader']);
+for(const failure of ['shader','program','constants','disassemble','release-assembly']) {
+    const f=fixture(failure);assert.throws(()=>vm.runInContext('inspectScreenVertex(device)',f.context),/failed/);
+    if(failure!=='shader')assert.ok(f.calls.includes('shader'));
+}
+function quadInput(f) {
+    const numbers=[0,4,0,4,2,0,101,0,32];
+    f.context.quadArgs=numbers.map(n=>({toUInt32:()=>n,data:new Uint8Array(256)}));
+    return vm.runInContext('inspectScreenInput(device,quadArgs)',f.context);
+}
+const quad=fixture();assert.equal(quadInput(quad).vertices_hex.length,256);
+assert.deepEqual(quad.calls,['declaration']);
+for(const failure of ['declaration','declaration-size','elements']) {
+    const f=fixture(failure);assert.throws(()=>quadInput(f),/failed|unbounded/);
+    if(failure!=='declaration')assert.ok(f.calls.includes('declaration'));
+}
 const screen=fixture();screen.screen();screen.screen();
 assert.equal(screen.messages.length,1);assert.equal(screen.messages[0].kind,'screen-shader');
 assert.equal(screen.messages[0].constants_hex.length,224*16*2);

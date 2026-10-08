@@ -135,7 +135,7 @@ function installDrawTrace(device) {
                 if (!d.active) return;
                 if(config.inspect_screen_shaders && gate!==null && !gate.resumed && !gate.executing &&
                     twoTriangleDraw(method,args)) {
-                    try { inspectScreenShader(device,d); }
+                    try { inspectScreenShader(device,d,method,args); }
                     catch(error) {send({kind:'error',phase:'screen-shader',message:String(error)});}
                 }
                 if (d.events.length >= 8192) {

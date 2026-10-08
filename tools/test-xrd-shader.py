@@ -30,6 +30,22 @@ def main():
         samplers=[dict(slot=i,texture=None,srgb=0) for i in range(16)])
     result=screen_packet(metadata,pack(words))
     assert not result['color_verified'] and not result['replay_verified']
+    vertex=dict(shader='0x3000',code_hex=pack([0xfffe0300]+words[1:]).hex(),
+        constants_hex='00'*4096,assembly='vs_3_0\n')
+    assert screen_packet(metadata|dict(vertex_program=vertex),pack(words))['vertex_code_sha256']
+    for change in [dict(shader='0x0'),dict(constants_hex=''),dict(code_hex=pack(words).hex()),dict(assembly='')]:
+        try: screen_packet(metadata|dict(vertex_program=vertex|change),pack(words))
+        except ValueError: continue
+        raise AssertionError('invalid screen vertex evidence accepted')
+    quad=dict(stride=32,index_format=101,vertices_hex='00'*128,
+        indices_hex=struct.pack('<6H',0,1,2,2,1,3).hex(),
+        declaration_hex=(struct.pack('<HH4B',0,0,3,0,0,0)+struct.pack('<HH4B',255,0,17,0,0,0)).hex())
+    assert screen_packet(metadata|dict(vertex_input=quad),pack(words))['vertex_input_sha256']
+    for change in [dict(stride=2048),dict(vertices_hex=None),dict(indices_hex=struct.pack('<6H',0,1,2,2,1,4).hex()),
+                   dict(declaration_hex='00'*16),dict(index_format=100)]:
+        try: screen_packet(metadata|dict(vertex_input=quad|change),pack(words))
+        except ValueError: continue
+        raise AssertionError('invalid screen quad evidence accepted')
     for change,data in [(dict(read_only=False),pack(words)),(dict(constants_hex=''),pack(words)),
             (dict(srgb_write=2),pack(words)),(dict(samplers=[]),pack(words)),
             (dict(shader='0x0'),pack(words)),(dict(counter=-1),pack(words)),(dict(trace_frame=3),pack(words)),

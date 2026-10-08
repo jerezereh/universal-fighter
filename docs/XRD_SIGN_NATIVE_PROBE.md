@@ -733,6 +733,12 @@ rectangles inside the source viewport are allowed; removing every interior pixel
 The separate excluded report records rectangles and omitted counts and preserves the
 unfiltered report. Do not use error-selected masks to claim fidelity, and do not accept
 feet/whole-fighter presentation from a comparison which excludes them.
+The LUT-consumer screen record additionally retains its bound vertex program/constants
+and, for the observed indexed CPU quad call, four bounded vertex records, six indices and
+the native declaration. Stage/constant/stride/index/declaration framing and local hashes
+are checked before retaining these inputs. Vertex padding has no shader-input meaning;
+interpret declared attributes only. The native bloom and low-resolution coordinate
+transforms differ, so do not invent a shared zero/normalized UV mapping for effect replay.
 
 `--settle-layer` requires normalization, up to four selected requests, no fixed
 `--layer-presentations` and no per-sample transform inspection. It starts candidates at

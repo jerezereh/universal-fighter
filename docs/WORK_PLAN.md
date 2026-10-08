@@ -270,6 +270,11 @@ retain the unfiltered report and record omitted pixels/evidence separately. The 
 HUD-band comparison retains 47,036 interior pixels with about 5.817/255 mean error; feet
 are omitted, so it cannot establish whole-fighter color or foot placement. Continue
 effects/geometry investigation using that limited regional diagnostic.
+The native LUT-consumer vertex program, constants, four CPU quad vertices, six indices
+and declaration are now captured with clean bounded native/source restoration. Separate
+bloom/low-resolution coordinate transforms and a partial internal-target rectangle are
+observed. Use those inputs for diagnostic effect reuse before private effect generation;
+unrelated source scene contributions cannot become accepted isolated fighter pixels.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

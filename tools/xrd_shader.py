@@ -30,7 +30,37 @@ def screen_packet(metadata,data):
             not re.fullmatch('0x[0-9a-f]{1,8}',lut.get('surface','')) or lut['surface']=='0x0' or
             lut.get('format')!=21 or any(type(lut.get(k))!=int or not 2<=lut[k]<=1024 for k in ('width','height'))):
         raise ValueError('invalid native LUT surface association')
-    return metadata|dict(sha256=hashlib.sha256(data).hexdigest(),color_verified=False,replay_verified=False)
+    vertex=metadata.get('vertex_program');vertex_hash=None
+    if vertex is not None:
+        if (type(vertex)!=dict or set(vertex)!={'shader','code_hex','assembly','constants_hex'} or
+                not re.fullmatch('0x[0-9a-f]{1,8}',vertex.get('shader','')) or vertex['shader']=='0x0' or
+                not re.fullmatch('[0-9a-f]{16,131072}',vertex.get('code_hex','')) or len(vertex['code_hex'])%8 or
+                not re.fullmatch('[0-9a-f]{8192}',vertex.get('constants_hex','')) or
+                not isinstance(vertex.get('assembly'),str) or not 1<=len(vertex['assembly'])<=131072):
+            raise ValueError('invalid screen vertex observation')
+        code=bytes.fromhex(vertex['code_hex'])
+        if struct.unpack_from('<I',code)[0] not in (0xfffe0200,0xfffe0300) or code[-4:]!=b'\xff\xff\0\0':
+            raise ValueError('unsupported screen vertex program')
+        vertex_hash=hashlib.sha256(code).hexdigest()
+    vertex_input=metadata.get('vertex_input');input_hash=None
+    if vertex_input is not None:
+        if (type(vertex_input)!=dict or set(vertex_input)!={'stride','index_format','vertices_hex','indices_hex','declaration_hex'} or
+                type(vertex_input['stride'])!=int or not 16<=vertex_input['stride']<=256 or vertex_input['stride']%4 or
+                vertex_input['index_format'] not in (101,102) or
+                any(type(vertex_input[k])!=str for k in ('vertices_hex','indices_hex','declaration_hex')) or
+                not re.fullmatch('[0-9a-f]{'+str(vertex_input['stride']*8)+'}',vertex_input['vertices_hex']) or
+                not re.fullmatch('[0-9a-f]{'+str(24 if vertex_input['index_format']==101 else 48)+'}',vertex_input['indices_hex']) or
+                not re.fullmatch('[0-9a-f]{32,512}',vertex_input['declaration_hex']) or len(vertex_input['declaration_hex'])%16):
+            raise ValueError('invalid screen quad input')
+        indices=bytes.fromhex(vertex_input['indices_hex'])
+        if any(n>=4 for n in struct.unpack('<6'+('H' if vertex_input['index_format']==101 else 'I'),indices)):
+            raise ValueError('grading index outside quad')
+        declaration=bytes.fromhex(vertex_input['declaration_hex'])
+        if declaration[-8:]!=struct.pack('<HH4B',255,0,17,0,0,0):
+            raise ValueError('grading declaration end missing')
+        input_hash=hashlib.sha256(bytes.fromhex(vertex_input['vertices_hex'])+indices+declaration).hexdigest()
+    return metadata|dict(sha256=hashlib.sha256(data).hexdigest(),vertex_code_sha256=vertex_hash,vertex_input_sha256=input_hash,
+        color_verified=False,replay_verified=False)
 
 
 def opaque_alpha_variant(data):
