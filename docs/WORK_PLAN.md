@@ -205,9 +205,13 @@ The new-session crossover also rejects its landing frame through presentation 24
 native camera depth/height continue changing, and the outline uses camera-distance
 extrusion. Private replay now derives a fixed camera baseline from native values and
 rebases the camera-world/view-space uniforms while restoring source state. Neutral
-left-facing capture passes; full crossover with this fix awaits another starting-position
-reset. Named pre-view subtraction supplies absolute body-origin observations for unit
-calibration; horizontal samples agree, but vertical units/foot placement remain pending.
+left-facing capture passes. After the user's reset, the full 135-step crossover also
+completes with paired settled pixels, both grounded facings and restored source/graphics.
+The facing oracle now permits identical canonical idle silhouettes; the original failed
+assertion is preserved beside an offline pixel/state reassessment. Named pre-view
+subtraction supplies absolute body-origin observations. Walking/jump/crossover samples
+verify matching horizontal/vertical world-to-logical scales without a retail constant.
+Foot placement, receiver scale choice and color/postprocess fidelity remain pending.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Original menu pause,
 clash/superfreeze and universal stop/result ownership still need dedicated validation.

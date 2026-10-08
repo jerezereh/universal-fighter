@@ -1,6 +1,6 @@
 """Authored native-alpha bounds and rejection checks; no source assets."""
 import copy
-from xrd_layer import layer_pixels, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle
+from xrd_layer import layer_pixels, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle, unit_calibration
 
 metadata=dict(width=3,height=2,kind='render-layer',format=21,native_coverage_verified=False,
     source_graphics_state_verified=True,replayed_draws=2)
@@ -89,3 +89,40 @@ for key,value in [('raw_sha256','different'),('source_render_origin',[float('nan
     except ValueError: pass
     else: raise AssertionError('unready native frame accepted')
 print('Normalized framing and consecutive native-pixel/state evidence checks passed.')
+
+facing=copy.deepcopy(pairs)
+for c in facing:
+    left=c['request_index']>0
+    c['observation']['fighters'][0]['facing_left']=left;c['source_facing_left']=left
+    c['raw_sha256']=c['rgb_sha256']=c['alpha_sha256']='same-canonical-idle'
+assert settled_oracle('render-facing',facing,copy.deepcopy(facing),steps)['passed']
+one_side=copy.deepcopy(facing)
+for c in one_side:
+    c['source_facing_left']=False;c['observation']['fighters'][0]['facing_left']=False
+assert not settled_oracle('render-facing',one_side,copy.deepcopy(one_side),steps)['passed']
+assert not settled_oracle('render-framing',facing,copy.deepcopy(facing),steps)['passed']
+print('Facing normalization accepts identical canonical idle pixels; missing facing and unchanged motion still reject.')
+
+units=[]
+for x,y in [(0,0),(10000,10000),(-10000,20000),(30000,30000)]:
+    c=copy.deepcopy(pairs[0]);c['observation']['fighters'][0].update(x_raw=x,y_raw=y)
+    c.update(pixels_per_world_unit=2,native_absolute_body_origin=[x/2000,0,y/2000]);units.append(c)
+fit=unit_calibration(units)
+assert fit['world_per_source_logical_unit']==.5 and fit['pixels_per_source_logical_unit']==1
+assert fit['projection_pivot']==[10,15] and fit['body_origin_mapping_verified']
+assert not fit['foot_pivot_verified'] and not fit['host_publishable']
+for change in [dict(native_absolute_body_origin=[float('nan'),0,0]),dict(native_absolute_body_origin=[0,1,0]),
+        dict(native_absolute_body_origin=[2,0,0]),dict(projection_pivot=[11,15]),dict(identical_native_pixels=False)]:
+    bad=copy.deepcopy(units);bad[0].update(change)
+    try: unit_calibration(bad)
+    except ValueError: pass
+    else: raise AssertionError('unverified/mismatched unit sample accepted')
+bad=copy.deepcopy(units)
+for c in bad: c['native_absolute_body_origin'][2]*=2
+try: unit_calibration(bad)
+except ValueError: pass
+else: raise AssertionError('unequal native axis scale accepted')
+try: unit_calibration([units[0]]*3)
+except ValueError: pass
+else: raise AssertionError('grounded-only unit samples accepted')
+print('Observed unit fit, zero origin, axis agreement and unsupported foot/color publication checks passed.')

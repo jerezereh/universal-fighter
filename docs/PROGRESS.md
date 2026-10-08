@@ -1,5 +1,37 @@
 # Progress record
 
+## 2026-10-08 — Complete private-camera crossover and observed unit calibration
+
+- The user's reset is confirmed by read-only exact-PID state observation. One attempt
+  times out before attachment, with no native start/updates and intact original code.
+  Retry passes walking/jumping: 28 exact updates, 60 blocked opportunities, 88 successful
+  presentations, eight paired images, no clipping/errors and clean source/graphics restore.
+- The fixed private camera then completes all 135 crossover updates, 82 blocked
+  opportunities and 217 successful presentations. Both grounded inward facings, landing,
+  relative walking after the flip and input histories pass. Six paired images settle at
+  presentations 3/4, 4/5 and 4/5; source state remains held and all hooks restore.
+- The original render-facing assertion rejects an unchanged alpha silhouette. Inspection
+  shows the same idle pose correctly normalized to face right on both source sides;
+  canonicalization can preserve the silhouette. Removed that inappropriate motion
+  requirement from the facing oracle. Authored checks retain rejection of one-sided
+  evidence, noncanonical layers and unchanged motion. The original failed inspection
+  remains intact; an offline pixel-hash/state recheck writes `render-reassessment.json`.
+- Added a bounded offline calibration command to `xrd_layer.py`, reusing paired captures.
+  It rechecks restoration, raw pixel hashes, native alpha and settled state association,
+  then fits actual world X/Z against source logical X/Y. Seven selected samples include
+  three vertical positions and both source facings. Axis slopes agree, zero-origin
+  offsets are below two millionths of a world unit and maximum residual below 0.000011.
+  No retail scale constant or address is added to code. Nonfinite samples, inconsistent
+  projection, nonzero depth, insufficient movement and unequal axis scales reject.
+- Native body-origin/unit mapping is verified for this sample set. Anatomical foot
+  placement, receiver scale choice and HDR/postprocess color fidelity remain pending;
+  calibration explicitly stays nonpublishable. The private image visibly faces right
+  when native Sol faces left. No host boundary/patch changes or connected SIGN are claimed.
+- Evidence under `20261008-170542-583145`: pre-attach timeout `183253-632755`, movement
+  `183332-941990`, complete crossover `183415-114401` (all use `boundary-20261008-` prefix).
+  The movement folder contains `unit-calibration.json`; both successful native traces
+  retain separate render reassessments. Focused authored tests and syntax checks pass.
+
 ## 2026-10-08 — Camera-dependent outline and native world origin
 
 - Final-code Punch repeat passes 20 exact updates, 74 blocked opportunities and eight

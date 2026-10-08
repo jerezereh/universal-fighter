@@ -638,15 +638,21 @@ for each program. A centered private view initializes its Y/Z offset from the fi
 native camera/body observation and retains that baseline across requested updates;
 camera-world and view-space values are rebased only during private draws. Original
 constant bytes restore afterward. This avoids importing source camera-zoom interpolation
-into the isolated actor. Neutral left-facing fixed-view proof passes; the full landing
-transition still needs a repeat from reset positions.
+into the isolated actor. Neutral left-facing and the subsequent full 135-step crossover
+complete with settled pairs and clean restoration. A canonicalized idle silhouette can
+match on both sides; the facing oracle no longer mistakes this for missing motion.
 
 When a body program supplies `PreViewTranslation`, diagnostic metadata also records
 that vector and `native_absolute_body_origin` from the original local-to-world origin
 minus pre-view translation. These shader-derived observations can be compared with
-source logical X/Y to derive units without retail field guesses. Current horizontal
-samples agree near 0.429913 world units per source logical unit; vertical mapping and
-the receiver's foot pivot are not accepted from these grounded observations alone.
+source logical X/Y to derive units without retail field guesses. Walking/jump/crossover
+samples verify the same scale horizontally and vertically, with near-zero intercepts.
+Run `python tools/xrd_layer.py <motion-trace> <crossover-trace>` to recheck retained
+pixel hashes, paired states and restoration and write separate render reassessments and
+`unit-calibration.json`. It never changes the original trace inspection. Insufficient
+movement, inconsistent geometry, nonfinite coordinates, nonzero depth and differing
+axis scales reject. Anatomical foot placement, receiver scale choice and publishable
+color remain unaccepted; body-origin calibration does not enable guest capabilities.
 
 `--settle-layer` requires normalization, up to four selected requests, no fixed
 `--layer-presentations` and no per-sample transform inspection. It starts candidates at
