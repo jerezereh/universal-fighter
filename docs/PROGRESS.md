@@ -1,5 +1,34 @@
 # Progress record
 
+## 2026-10-08 — Graded movement, standing Punch and full crossover pass
+
+- Repeated the native render oracles with private HDR/native grading/coverage enabled.
+  Walk/jump completes 28 exact updates and eight paired source/layer captures, with
+  source-linked movement in both directions, airborne state, unclipped framing and
+  consecutive identical pixels at each selected counter. Readiness varies from 3/4 to
+  8/9 presentations; a fixed delay remains insufficient.
+- Standing Punch completes 20 exact updates, one attack activation and four native
+  active-normal steps. Eight paired layers show changed startup/active/recovery poses,
+  with the active normal rendered and all selected pairs stable at presentations 3/4.
+- The complete 135-step crossover passes with six paired captures, both grounded source
+  facings, relative forward/back movement and canonical right-facing private output.
+  Stable pairs arrive at 3/4, 7/8 and 9/10 presentations. Visual inspection of the final
+  left-facing-source layer shows right-facing colored Sol/weapon. All three trials retain
+  original draws, zero transparent RGB, clean source-input linkage and verified native/
+  graphics-state restoration. No host producer capability is enabled by these checks.
+- One movement attempt times out before attachment/native start; its retry passes.
+  Initial attempts to reuse the crossover receipt's expanded plan reject its file/segment
+  bounds before instrumentation. Reconstructed nine original segments and asserted the
+  expansion matches all 135 retained input packets exactly; bounds were not widened.
+- Native bloom/blur/SMAA and final color fidelity remain pending, along with anatomical
+  pivot/host scale and persistent clock/input/result/contact ownership. Next reset the
+  original offline training scene to distant Sol/Ky for the render/effects comparison.
+  The generic receiver and pinned host boundary are unchanged. Source images/programs
+  and reconstructed local input plans remain ignored.
+- Evidence: probe `20261008-211431-636314`; walk/jump
+  `boundary-20261008-212322-598030`, Punch `boundary-20261008-212403-457965`, full crossover
+  `boundary-20261008-212548-864650`; pre-start timeout `boundary-20261008-212233-971255`.
+
 ## 2026-10-08 — Native private HDR grading and constant restoration pass
 
 - Rebuilt the reopened SIGN session profile (PID 15132), with 174 uninterrupted owner

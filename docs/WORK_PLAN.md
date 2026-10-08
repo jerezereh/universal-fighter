@@ -252,7 +252,13 @@ neutral grading trial, with eight held-state captures and identical private nati
 pixels at presentations 3/4 for four counters. Source/graphics restoration and coverage
 checks pass. Repeat graded movement/normal/facing oracles next; native effects, final color,
 foot/scale acceptance, persistent ownership and connected producer capabilities remain
-pending. The original failed trials remain rejected.
+pending. The original failed trials remain rejected. Graded walk/jump (28 updates),
+standing Punch (20 updates) and full crossover (135 updates) now pass linked native
+state/input, stable paired pixels, unclipped coverage and source/graphics restoration.
+Both original facings produce canonical right-facing private pixels. Readiness varies
+through presentation 10, so fixed-delay publication is still rejected. Reset distant
+offline Sol/Ky training next for the source render/effects comparison; final color,
+anatomical pivot/host scale and persistent result/contact ownership remain gates.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

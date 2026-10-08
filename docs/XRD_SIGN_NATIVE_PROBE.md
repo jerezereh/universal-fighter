@@ -695,14 +695,27 @@ The offline LUT tool accepts these inputs and measures the difference caused by 
 quantization before grading, while preserving coverage. Native HDR pixel readiness,
 exact postprocess arithmetic/bloom/blur/SMAA and a publishable host frame stay unverified.
 
-`--grade-layer <screen-inspection>` is experimental and has no accepted live result.
+`--grade-layer <screen-inspection>` now has clean bounded native neutral, walk/jump,
+standing Punch and full crossover results; it remains a diagnostic, not a producer.
 It requires a fresh same-session inventory with independent native-header ABI evidence.
 It renders into a private HDR texture, runs the native color program with that texture/
 current LUT and black substitutes for bloom/low-resolution inputs, then uses a native
 copy program and coverage blending into A8 RGBA. Original shader bytes remain local.
-Authored resource/state tests pass; source code/graphics restoration could not be
-verified after the failed native trial exited. Corrected sampling must be revalidated
-before this path or any resulting image is used as passthrough evidence.
+The initial crashed trial remains rejected and its restoration unverified. Fresh-session
+inspection revalidates the corrected sampler ABI. The next native diagnostic identifies
+vertex/pixel constant banks left changed by state-block application. Explicitly restore
+both captured banks afterward, including failure cleanup, then verify every byte alongside
+viewport, checked render states, shaders/FVF, depth and modified textures/samplers. Setter
+failures or any remaining mismatch reject the trial. Authored incomplete-block/setter/
+resource-failure checks and 83 literal native device ABI checks pass.
+
+Probe `20261008-211431-636314` retains successful grading trials: neutral
+`boundary-20261008-211808-150816`, walk/jump `boundary-20261008-212322-598030`, Punch
+`boundary-20261008-212403-457965` and complete crossover `boundary-20261008-212548-864650`.
+These verify graded coverage, held-state pixel equality and graphics/hook restoration.
+Source bloom/blur/SMAA, final color fidelity, anatomical pivot and host scale remain
+unaccepted. No connected producer, persistent result ownership or universal contact
+capability follows from these bounded render checks.
 
 `--settle-layer` requires normalization, up to four selected requests, no fixed
 `--layer-presentations` and no per-sample transform inspection. It starts candidates at
