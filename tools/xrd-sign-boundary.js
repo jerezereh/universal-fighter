@@ -628,7 +628,8 @@ rpc.exports = {
         if (renderHooks.length) {
             stopRequested = true;
             if (config.layer) layerStopping = true;
-            return {pending_renderer_stop: true};
+            return {pending_renderer_stop: true,
+                render_targets: renderHooks.map(h => ({address:h.target.toUInt32(),before:h.before}))};
         }
         stopReceipt = finishStop(); return stopReceipt;
     }

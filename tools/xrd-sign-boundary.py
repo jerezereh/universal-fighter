@@ -20,6 +20,7 @@ from xrd_combat import combat_fields, contact_check
 from xrd_render import render_pixels, save_render, render_check, draw_check, save_pass
 from xrd_shader import opaque_alpha_variant
 from xrd_layer import save_layer_preview, capture_steps, capture_presentations, render_oracle, settling_oracle
+from xrd_transform import transform_packet, transform_changes
 
 ROOT=Path(__file__).resolve().parent.parent
 EXE=Path('C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-/Binaries/Win32/GuiltyGearXrd.exe')
@@ -130,7 +131,7 @@ def layer_programs(folder,state,identity):
     return dict(target=color[0],programs=programs)
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False):
     receipt=json.loads((probe/'inspection.json').read_text())
     state=json.loads((probe/'state-profile.json').read_text())
     if scalar_path:
@@ -187,15 +188,17 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         layer=layer_programs(layer_path,state,identity)
         layer['capture_steps']=capture_steps(layer_steps or '0,1,2,3')
         layer['presentations']=capture_presentations(layer_presentations or '3',layer['capture_steps'])
+        layer['inspect_transforms']=inspect_transforms
         if len(layer['presentations'])>1 and oracle!='render-settle': raise ValueError('repeated render captures require the settling oracle')
     elif layer_steps or layer_presentations or oracle.startswith('render-'): raise ValueError('selected render oracle requires a private layer')
     if oracle.startswith('render-') and not plan_path: raise ValueError('render oracle requires a named input plan')
+    if inspect_transforms and not layer: raise ValueError('vertex observation requires a private layer')
     source_window=None
     if capture or trace_draws:
         # Rendering needs an unminimized window, but never requires desktop keyboard focus.
         shell=shutil.which('pwsh') or 'powershell.exe'
         source_window=json.loads(subprocess.check_output([shell,'-NoProfile','-ExecutionPolicy','Bypass',
-            '-File',str(ROOT/'tools/xrd-source-window.ps1'),'-Action','restore'],text=True,timeout=10))
+            '-File',str(ROOT/'tools/xrd-source-window.ps1'),'-Action','restore','-SourceProcessId',str(state['pid'])],text=True,timeout=10))
         if source_window['pid']!=state['pid'] or source_window['minimized']:
             raise ValueError('source render window/session mismatch')
     plan=None
@@ -217,7 +220,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     def receive(message,data):
         try: messages.put_nowait((message,data,time.perf_counter()))
         except queue.Full: overflow.append(True)
-    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];layers=[];scene_packets=[];layer_packets=[];render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
+    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];layers=[];transforms=[];scene_packets=[];layer_packets=[];render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
     started=time.perf_counter();started_utc=datetime.datetime.now(datetime.timezone.utc).isoformat();completed=0;next_request=.5 if plan else 1;request_log=[]
     with ReadOnlyProcess(state['pid'],EXE) as process:
         def unchanged():
@@ -269,6 +272,10 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         shaders.append(native|dict(file=name,sha256=hashlib.sha256(data).hexdigest()));continue
                     if message['type']=='send' and message['payload'].get('kind')=='mesh-layer-skipped':
                         diagnostics.append(message['payload']);continue
+                    if message['type']=='send' and message['payload'].get('kind')=='layer-transform':
+                        if not inspect_transforms or len(transforms)>=8: raise ValueError('vertex observation limit')
+                        native=message['payload'];code,constants,analysis=transform_packet(native,data)
+                        transforms.append((native|analysis,code,constants));continue
                     if message['type']=='send' and message['payload'].get('kind')=='render-pass':
                         pass_bytes+=len(data)
                         if len(passes)>=24 or pass_bytes>128<<20: raise ValueError('unbounded intermediate capture')
@@ -303,6 +310,13 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         finally:
             # A failed RPC must not prevent script/session teardown from removing the hook.
             if script is not None:
+                if source_window:
+                    try:
+                        status=json.loads(subprocess.check_output([shell,'-NoProfile','-ExecutionPolicy','Bypass',
+                            '-File',str(ROOT/'tools/xrd-source-window.ps1'),'-Action','restore','-SourceProcessId',str(state['pid'])],text=True,timeout=10))
+                        if status['pid']!=state['pid']: raise ValueError('cleanup source window/session changed')
+                        diagnostics.append(dict(phase='cleanup-window',**status))
+                    except Exception as error: errors.append(dict(cleanup_window_error=str(error)))
                 try:
                     for _ in range(20):
                         cleanup_receipt=bounded_call(frida,script.exports_sync.stop)
@@ -342,6 +356,19 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         detached=detached,loaded_code_restored=restored,source_unchanged=fingerprint(EXE)==SIGN_HASH,
         native_tick_verified=False,atomic_native_frame=False,host_step=False,isolated_rgba=False,universal_contact=False)
     if source_window: result['source_window']=source_window
+    if inspect_transforms:
+        folder=out/'transforms';folder.mkdir()
+        for i,(m,code,constants) in enumerate(transforms,1):
+            name=f'transform-{i:02}'
+            (folder/(name+'.vsbin')).write_bytes(code);(folder/(name+'.constants.bin')).write_bytes(constants)
+            (folder/(name+'.asm')).write_text(m['assembly']);(folder/(name+'.json')).write_text(json.dumps(m,indent=2))
+        try: result['transform_observation']=transform_changes(transforms)
+        except ValueError as error:
+            result['transform_observation']=dict(error=str(error),observations_only=True,transform_semantics_verified=False)
+            errors.append(dict(transform_error=str(error)))
+        if [(m['counter'],m['request_index'],m['presentation_index']) for m,_,_ in transforms]!=[(c['counter'],c['request_index'],c['presentation_index']) for c in layers]:
+            errors.append(dict(transform_error='missing/unpaired body transform observation'))
+        (folder/'inspection.json').write_text(json.dumps(result['transform_observation'],indent=2))
     if identity:
         (out/'draw-identity.json').write_text(json.dumps(identity,indent=2))
         result['diagnostic_mesh_suppression']=not inspect_shaders and not layer
@@ -457,6 +484,7 @@ if __name__=='__main__':
     p.add_argument('--capture-layer',type=Path,help='with --suppress-draws: clean shader inspection folder for bounded private opaque mesh replay')
     p.add_argument('--layer-steps',help='with --capture-layer: 2..8 ordered selected request indices starting at 0 (default 0,1,2,3)')
     p.add_argument('--layer-presentations',help='with --oracle render-settle: ordered held-counter presentations, starting at 3 and ending by 24')
+    p.add_argument('--inspect-layer-transforms',action='store_true',help='with --capture-layer: read original body vertex program/constants/viewport on each selected render')
     a=p.parse_args()
     if not 0<a.seconds<=120: p.error('seconds must be 0..120')
     if a.lease_check and not a.gate: p.error('--lease-check requires --gate')
@@ -464,4 +492,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms)

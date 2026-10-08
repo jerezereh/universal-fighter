@@ -10,7 +10,8 @@ vm.runInContext("config={layer:false};bytes=fixtureBytes;gate={target:'owner',ti
     "drawFilter={target:'draw',skipped:4};"+
     "inputHooks=[{detach(){fixtureCalls.push('detach-input');}}];"+
     "renderHooks=[{target:fixtureTarget,before:'abcd',listener:{detach(){fixtureCalls.push('detach-graphics');}}}];",context);
-assert.equal(context.rpc.exports.stop().pending_renderer_stop,true);
+const pending=context.rpc.exports.stop();assert.equal(pending.pending_renderer_stop,true);
+assert.equal(pending.render_targets[0].address,123);assert.equal(pending.render_targets[0].before,'abcd');
 assert.deepEqual(calls,[],'RPC removed live graphics hooks instead of scheduling');
 vm.runInContext('stopReceipt=finishStop()',context);
 assert.deepEqual(calls,['revert-draw','detach-input','detach-graphics','clear-watchdog','revert-owner']);

@@ -3,13 +3,18 @@
 param(
     [ValidateSet('status','restore','post-key','return-focus')][string]$Action = 'status',
     [ValidateSet('escape','enter','up','down','left','right','punch')][string]$Key = 'escape',
-    [long]$PreviousForeground = 0
+    [long]$PreviousForeground = 0,
+    [ValidateRange(0,2147483647)][int]$SourceProcessId = 0
 )
 $ErrorActionPreference = 'Stop'
+$expectedExe = 'C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-/Binaries/Win32/GuiltyGearXrd.exe'
 $sourceGames = @(Get-Process -Name GuiltyGearXrd -ErrorAction SilentlyContinue)
+$matchingProcesses = $sourceGames.Count
+$sourceGames = @($sourceGames | Where-Object { $_.Path -and
+    [IO.Path]::GetFullPath($_.Path) -eq [IO.Path]::GetFullPath($expectedExe) })
+if ($SourceProcessId -ne 0) { $sourceGames = @($sourceGames | Where-Object { $_.Id -eq $SourceProcessId }) }
 if ($sourceGames.Count -ne 1) { throw 'Expected exactly one running SIGN process.' }
 $sourceGame = $sourceGames[0]
-$expectedExe = 'C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-/Binaries/Win32/GuiltyGearXrd.exe'
 if ([IO.Path]::GetFullPath($sourceGame.Path) -ne [IO.Path]::GetFullPath($expectedExe) -or
     (Get-FileHash -LiteralPath $sourceGame.Path -Algorithm SHA256).Hash -ne 'F7A2E990B664F882BF16EAFA94433FF0460F0B630C083FD0760A0D7949E08B78') {
     throw 'Unverified source executable.'
@@ -77,5 +82,7 @@ $foregroundAfter = [SignWindow]::GetForegroundWindow()
     foreground_unchanged=($foregroundAfter -eq $foregroundBefore)
     foreground_hwnd=$foregroundAfter.ToInt64()
     idle_seconds=[SignWindow]::Idle(); source_verified=$true
+    responding=$sourceGame.Responding
+    matching_processes=$matchingProcesses
     key_message_posted=($Action -eq 'post-key'); key_effect_verified=$false
 } | ConvertTo-Json -Compress

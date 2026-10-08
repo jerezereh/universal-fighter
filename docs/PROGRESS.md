@@ -1,5 +1,53 @@
 # Progress record
 
+## 2026-10-07 — SIGN-only selection and native draw transforms
+
+- Corrected source selection after the user clarified that the other same-name process
+  is Rev2. Window helpers filter the exact SIGN installation path and executable hash,
+  optionally require the verified profile PID and check the window's owning PID.
+  GPU screenshots use that window handle. Name-based foreground input refuses multiple
+  running Xrd editions and rechecks before focus/keys. No Rev2 attachment or UI input
+  is part of this package. A prior mistaken read-only probe of its exited PID failed
+  before attachment; that failure is not SIGN evidence.
+- A minimized source prevented renderer-thread stop from completing in the initial
+  neutral trace. Unload/detach restored main source code, but its incomplete stop receipt
+  could not prove graphics restoration; that trace is rejected. Cleanup now restores
+  SIGN without activation before requesting renderer stop. Pending stop receipts retain
+  original graphics prefixes for independent after-detach verification. This does not
+  turn an incomplete renderer stop into an accepted private-resource cleanup.
+- Fresh neutral/shader traces pass three exact updates each, 142/132 blocked opportunities,
+  paired scene captures, zero errors and original source/graphics byte restoration.
+  Current mesh buffers and pixel programs are derived from those clean traces.
+- Added opt-in read-only body vertex shader/constants/viewport observation, using the
+  installed native shader disassembler. Program/constant/assembly packets are bounded
+  and matched to private images by counter, request and presentation. Acquired shader
+  and disassembly references release independently; raw code and constants remain local.
+- The live repeated-render diagnostic passes one exact update, 50 blocked opportunities,
+  51 Present calls and eight scene/mesh/transform pairs at presentations 3/6/12/24.
+  Source state, input history, private graphics restoration and full teardown pass with
+  zero errors. The strict settling assertion still fails: idle pixels agree, walking
+  presentation 3 differs from 6/12/24 by about 1.07 pixels horizontally.
+- Actual native assembly names the view projection, orthographic projection, actor
+  local-to-world and bone palette inputs. The viewport remains 1366x768; bone palette
+  constants stay identical within each held counter. Walking changes shader-used
+  projection and actor translation constants between presentations 3 and 6; they agree
+  at 6/12/24. Unused constant slots also churn and are not evidence of skeletal motion.
+  These observations narrow the cause to render transforms; they do not establish a
+  universal delay, source camera ownership, normalized pivot/units or complete coverage.
+- Background observation and default path-based selection also pass with both editions
+  running: the inspected exact-handle screenshot shows SIGN Sol/Ky training, SIGN remains
+  responsive and foreground is unchanged. Authored transform bounds/register comparison,
+  COM failures/reference release, multiple-edition input rejection, handle-based capture,
+  renderer stop and existing native input/layer/render/cleanup checks pass. PowerShell
+  syntax passes. No host boundary or patch changes.
+- Evidence under probe `20261008-005529-384458`: rejected minimized stop
+  `boundary-20261008-010007-782498`, clean neutral `boundary-20261008-011738-441156`,
+  clean shader inspection `boundary-20261008-011820-790575`, transform/settling diagnostic
+  `boundary-20261008-011854-057258`; background UI `20261008-012138-147159`.
+  Next derive frame readiness and source-independent framing/pivot from the actual draw
+  transforms, recheck movement/attack/facing, then persistent transport and universal
+  contacts/results. SIGN remains unconnected and complete guest capabilities stay false.
+
 ## 2026-10-07 — Measured settling and renderer-thread teardown
 
 - Added repeated held-counter captures at selected presentations, with at most eight

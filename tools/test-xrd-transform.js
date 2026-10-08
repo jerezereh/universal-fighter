@@ -1,0 +1,39 @@
+// Getter/disassembler failures release each acquired reference independently.
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+function fixture(failure=null) {
+    const calls=[],messages=[],zero={isNull:()=>true};
+    const shader={name:'shader',isNull:()=>false,toString:()=> 'shader'};
+    const assembly={name:'assembly',isNull:()=>false};
+    const text={readUtf8String:()=> 'vs_3_0\nmov o0,v0\n'};
+    const allocation=()=>({pointer:zero,data:new Uint8Array(4096),n:0,
+        writePointer(p){this.pointer=p;},readPointer(){return this.pointer;},writeU32(n){this.n=n;},readU32(){return this.n;}});
+    const context=vm.createContext({Map,Memory:{alloc:allocation},ptr:()=>zero,Uint8Array,
+        config:{layer:{inspect_transforms:true},suppress_draws:{parts:{body:{index_buffer:'i',vertex_buffer:'v'}}}},
+        gate:{initialCounter:10},renderCapture:{presentations:2},
+        Process:{getModuleByName:()=>({enumerateExports:()=>[{name:'D3DXDisassembleShader',address:1}]})},
+        bytes:(p,n)=>p.data.slice(0,n),hex:data=>Buffer.from(data).toString('hex'),send:(m,data)=>messages.push(m),
+        succeeded:(hr,name)=>{if(hr<0)throw Error(name+' failed');}});
+    context.NativeFunction=function(){return (code,color,comments,output)=>{
+        if(failure==='disassemble')return -1;output.writePointer(assembly);return 0;};};
+    context.com=(object,slot)=>(...args)=>{
+        if(slot===2){calls.push(object.name);if(failure==='release-'+object.name)throw Error('release failed');return 0;}
+        if(object===shader && slot===4){args[2].writeU32(8);return failure==='program'?-1:0;}
+        if(object===assembly && slot===4)return failure==='text-size'?200000:20;
+        if(object===assembly && slot===3)return text;
+        if(slot===93){if(failure==='shader')return -1;args[1].writePointer(shader);return 0;}
+        if(slot===95)return failure==='constants'?-1:0;
+        throw Error('unexpected method');
+    };
+    context.device={};context.d={indexBuffer:'i',vertexBuffer:'v'};context.viewport=allocation();
+    vm.runInContext(fs.readFileSync(__dirname+'/xrd-sign-layer.js','utf8'),context);
+    vm.runInContext('meshLayer={};',context);
+    return {calls,messages,run:()=>vm.runInContext('inspectLayerTransform(device,d,10,viewport)',context)};
+}
+const normal=fixture();normal.run();assert.deepEqual(normal.calls,['assembly','shader']);
+assert.equal(normal.messages[0].read_only,true);normal.run();assert.equal(normal.messages.length,1);
+for(const failure of ['shader','program','constants','disassemble','text-size','release-assembly']) {
+    const f=fixture(failure);assert.throws(f.run,/failed|unbounded/);
+    if(failure!=='shader') assert.ok(f.calls.includes('shader'));
+    if(['text-size','release-assembly'].includes(failure))assert.ok(f.calls.includes('assembly'));
+}
+console.log('Read-only transform observation, one body sample and independent shader/disassembly cleanup passed.');

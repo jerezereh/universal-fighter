@@ -28,13 +28,13 @@ def find_ffmpeg(requested=None):
         if not candidate or not Path(candidate).is_file(): continue
         help_text=subprocess.check_output([str(candidate),'-hide_banner','-h','filter=gfxcapture'],
             text=True,stderr=subprocess.STDOUT,timeout=10,creationflags=subprocess.CREATE_NO_WINDOW)
-        if 'window_exe' in help_text: return Path(candidate).resolve()
+        if 'hwnd' in help_text: return Path(candidate).resolve()
     raise ValueError('no installed gfxcapture-capable FFmpeg; pass --ffmpeg explicitly')
 
 
-def window(action='status',key='escape',previous=0):
+def window(action='status',key='escape',previous=0,source_pid=0):
     command=[POWERSHELL,'-NoProfile','-ExecutionPolicy','Bypass','-File',str(ROOT/'tools/xrd-source-window.ps1'),
-        '-Action',action,'-Key',key,'-PreviousForeground',str(previous)]
+        '-Action',action,'-Key',key,'-PreviousForeground',str(previous),'-SourceProcessId',str(source_pid)]
     return json.loads(subprocess.check_output(command,text=True,timeout=10,creationflags=subprocess.CREATE_NO_WINDOW))
 
 
@@ -68,9 +68,10 @@ def training_pair(state):
         for f,prefix in zip(state['fighters'],('sol','kyk')))
 
 
-def screenshot(ffmpeg,path):
+def screenshot(ffmpeg,path,hwnd):
+    if type(hwnd)!=int or hwnd<=0: raise ValueError('capture requires verified source window handle')
     subprocess.run([str(ffmpeg),'-hide_banner','-loglevel','error','-y','-f','lavfi','-i',
-        'gfxcapture=window_exe=GuiltyGearXrd.exe:capture_cursor=0:max_framerate=30,hwdownload,format=bgra',
+        f'gfxcapture=hwnd={hwnd}:capture_cursor=0:max_framerate=30,hwdownload,format=bgra',
         '-frames:v','1',str(path)],check=True,timeout=15,creationflags=subprocess.CREATE_NO_WINDOW)
     if path.read_bytes()[:8]!=b'\x89PNG\r\n\x1a\n': raise ValueError('invalid GPU screenshot')
 
@@ -87,22 +88,23 @@ def run(args):
     folder=ROOT/'artifacts/xrd-source-ui'/datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H%M%S-%f')
     folder.mkdir(parents=True)
     result=dict(action=args.action,mode=args.mode,steps=[],success=False,background_menu_input_verified=False)
-    driver=None;previous=0
+    driver=None;previous=0;profile=None
     try:
-        status=window('restore');result['window_before']=status;previous=status['foreground_hwnd']
         profile=json.loads((args.probe/'state-profile.json').read_text())
+        status=window('restore',source_pid=profile['pid']);result['window_before']=status;previous=status['foreground_hwnd']
         if profile['pid']!=status['pid'] or profile['exe_sha256']!=SIGN_HASH or fingerprint(EXE)!=SIGN_HASH:
             raise ValueError('source session/fingerprint mismatch')
         state=native_state(profile);result['native_before']=state
-        screenshot(args.ffmpeg,folder/'before.png')
+        screenshot(args.ffmpeg,folder/'before.png',status['hwnd'])
         if args.action=='observe': result['success']=True;return folder
         if args.action=='menu-check' and not training_pair(state): raise ValueError('menu check requires the known offline Sol/Ky scene')
         if args.mode=='foreground':
+            if status.get('matching_processes',1)!=1: raise ValueError('name-based foreground input requires only one running GuiltyGearXrd edition')
             deadline=time.monotonic()+args.wait_idle
             while not focus_allowed(status):
                 if time.monotonic()>=deadline:
                     result['deferred']='desktop active; no focus/input sent';return folder
-                time.sleep(1);status=window()
+                time.sleep(1);status=window(source_pid=profile['pid'])
             if status['pid']!=profile['pid']: raise ValueError('source process changed before input')
             if args.action=='menu-check' and not training_pair(native_state(profile)):
                 raise ValueError('source scene changed during idle wait; no input sent')
@@ -114,16 +116,18 @@ def run(args):
                 stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,creationflags=subprocess.CREATE_NO_WINDOW)
             if driver.stdout.readline().strip()!='ready window': raise RuntimeError('source input driver not ready')
             # Recheck immediately before activating: the user may have resumed typing during setup.
-            if not focus_allowed(window()): result['deferred']='desktop activity resumed before focus';return folder
+            current=window(source_pid=profile['pid'])
+            if current.get('matching_processes',1)!=1: raise ValueError('multiple GuiltyGearXrd editions before focus; no input sent')
+            if not focus_allowed(current): result['deferred']='desktop activity resumed before focus';return folder
             driver_command(driver,'focus');driver_command(driver,'scanmode on')
         def key(name,label):
             if driver:
-                current=window()
-                if current['pid']!=profile['pid'] or not current['foreground']:
+                current=window(source_pid=profile['pid'])
+                if current['pid']!=profile['pid'] or not current['foreground'] or current.get('matching_processes',1)!=1:
                     raise ValueError('source focus/identity changed; no key sent')
                 driver_command(driver,'key '+hex(KEYS[name]))
-            else: result['steps'].append(window('post-key',name))
-            time.sleep(.25);screenshot(args.ffmpeg,folder/(label+'.png'))
+            else: result['steps'].append(window('post-key',name,source_pid=profile['pid']))
+            time.sleep(.25);screenshot(args.ffmpeg,folder/(label+'.png'),status['hwnd'])
         if args.action=='key': key(args.key,'after');result['input_sent']=True;result['key_effect_verified']=False
         else:
             candidate=json.loads((args.boundary/'candidate.json').read_text())
@@ -148,9 +152,9 @@ def run(args):
             try: driver.wait(timeout=3)
             except subprocess.TimeoutExpired: driver.terminate();driver.wait(timeout=3)
             if previous and previous!=result['window_before']['hwnd']:
-                try: result['focus_return']=window('return-focus',previous=previous)
+                try: result['focus_return']=window('return-focus',previous=previous,source_pid=profile['pid'])
                 except Exception as error: result['focus_return_error']=str(error)
-        try: result['window_after']=window()
+        try: result['window_after']=window(source_pid=profile['pid'] if profile else 0)
         except Exception as error: result['status_error']=str(error)
         (folder/'inspection.json').write_text(json.dumps(result,indent=2))
         print(json.dumps({k:v for k,v in result.items() if k not in ('native_before','native_after','steps')},indent=2))

@@ -25,17 +25,25 @@ def main():
         (boundary/'candidate.json').write_text('{}')
         (boundary/'inspection.json').write_text(json.dumps(dict(pid=123,observations_only=True,loaded_code_restored=True)))
         ffmpeg=root/'ffmpeg.exe';ffmpeg.write_bytes(b'authored')
-        with patch.object(ui.subprocess,'check_output',lambda *a,**k:'Filter gfxcapture window_exe'):
+        with patch.object(ui.subprocess,'check_output',lambda *a,**k:'Filter gfxcapture hwnd'):
             assert ui.find_ffmpeg(ffmpeg)==ffmpeg
-        with patch.object(ui.subprocess,'check_output',lambda *a,**k:'Unknown filter'):
+        with patch.object(ui.subprocess,'check_output',lambda *a,**k:'Filter gfxcapture window_exe'):
             try: ui.find_ffmpeg(ffmpeg)
             except ValueError: pass
             else: raise AssertionError('unsupported capture runtime accepted')
+        preview=root/'capture.png'
+        def capture(command,**kwargs):
+            assert 'gfxcapture=hwnd=10:' in command[command.index('-i')+1]
+            assert 'window_exe' not in ' '.join(command)
+            preview.write_bytes(b'\x89PNG\r\n\x1a\n')
+        with patch.object(ui.subprocess,'run',capture): ui.screenshot(ffmpeg,preview,10)
         calls=[]
-        def window(action='status',key='escape',previous=0):
+        def window(action='status',key='escape',previous=0,source_pid=0):
+            assert source_pid==123
             calls.append((action,key))
             return dict(pid=123,hwnd=10,foreground=False,idle_seconds=0,foreground_hwnd=20)
-        def shot(ffmpeg,path): path.write_bytes(b'authored preview')
+        def shot(ffmpeg,path,hwnd):
+            assert hwnd==10;path.write_bytes(b'authored preview')
         args=SimpleNamespace(probe=probe,boundary=boundary,ffmpeg=ffmpeg,action='menu-check',mode='background',key='escape',wait_idle=0)
         with patch.object(ui,'ROOT',root),patch.object(ui,'window',window),patch.object(ui,'native_state',lambda p:state),\
              patch.object(ui,'fingerprint',lambda p:ui.SIGN_HASH),patch.object(ui,'screenshot',shot),\
@@ -50,13 +58,18 @@ def main():
                 out=ui.run(args);r=json.loads((out/'inspection.json').read_text())
                 assert not r['success'] and 'unverified' in r and calls.count(('post-key','escape'))==1
             calls.clear();args.mode='foreground'
+            with patch.object(ui,'window',lambda *a,**k:window(*a,**k)|dict(matching_processes=2)),\
+                 patch.object(ui.subprocess,'Popen',side_effect=AssertionError('ambiguous driver started')):
+                out=ui.run(args);r=json.loads((out/'inspection.json').read_text())
+                assert 'edition' in r['error'] and not any(a=='post-key' for a,k in calls)
             with patch.object(ui.subprocess,'Popen',side_effect=AssertionError('driver started on active desktop')):
                 out=ui.run(args);r=json.loads((out/'inspection.json').read_text())
                 assert 'deferred' in r and not any(a=='post-key' for a,k in calls)
             (root/'tools').mkdir()
             (root/'tools/upstreams.json').write_text(json.dumps(dict(universalModder=dict(path='reference',commit='pin'))))
             focused=[False];commands=[];lose_focus=[False]
-            def foreground_window(action='status',key='escape',previous=0):
+            def foreground_window(action='status',key='escape',previous=0,source_pid=0):
+                assert source_pid==123
                 calls.append((action,key))
                 if action=='return-focus': assert previous==20;focused[0]=False
                 return dict(pid=123,hwnd=10,foreground=focused[0] and not lose_focus[0],

@@ -581,6 +581,34 @@ prefix/code hashes are still checked after unload/detach; scheduling alone is no
 Neutral, shader and private repeated-capture checks validate the revised shutdown in
 the recovered training session. No native guest capability is promoted by these checks.
 
+## Read-only native vertex transforms
+
+Add `--inspect-layer-transforms` to a private layer capture. Each selected body render
+reads the original vertex program, 256 float constant registers and viewport, then uses
+the already loaded native D3DX shader disassembler. It preserves the original program
+and constants. Getter/disassembler bounds and independent COM release are checked.
+Up to eight packets pair with mesh images by source counter, request and presentation;
+programs, native assembly and constants are saved only under ignored `transforms/`.
+The analyzer reports bitwise changed register indices and viewport differences without
+assigning camera or skeletal semantics automatically.
+
+Fresh probe `20261008-005529-384458`, diagnostic `boundary-20261008-011854-057258`,
+passes one exact update/50 blocked opportunities, 51 presentations and eight transform/
+scene/mesh pairs. State/history remain held, source graphics restore and complete native
+teardown passes. The strict settling oracle still fails: walking presentation 3 differs
+from 6/12/24, which agree. Actual disassembly identifies projection, orthographic
+projection, local-to-world and bone palette parameters. The 1366x768 viewport and bone
+palette stay unchanged within each held group. Shader-used projection/translation inputs
+change between walking presentations 3 and 6 and agree thereafter. Changing unused
+constant slots are not interpreted as skeletal movement. This does not accept a general
+render delay or prove source-independent framing/pivot.
+
+If SIGN becomes minimized during capture, cleanup first restores its verified window
+without activation so renderer-thread teardown can run. Pending stop receipts include
+saved graphics prefixes for after-detach checking, but a stop that never completes still
+fails. SIGN helpers use the exact installed path/hash and profile PID, independent of
+a concurrent Rev2 executable with the same name. See `XRD_SOURCE_UI.md`.
+
 ## Remaining producer gates
 
 A unique signature is only a candidate. Before building a producer around it:

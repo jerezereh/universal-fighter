@@ -184,6 +184,13 @@ No universal fixed delay is accepted. Short render plans finish once both render
 arrive, and graphics hooks are removed on the renderer thread before source updates
 resume. The recovered native checks pass teardown; the settling assertion stays failed.
 Next inspect actual draw transforms/viewport for camera/framing/pivot ownership.
+Native read-only body vertex observations now pass paired held-counter captures.
+The viewport and bone palette remain stable; shader-used projection and actor translation
+inputs change between walking presentations 3 and 6, alongside the mesh pixels.
+The strict settling assertion remains failed. Next derive frame readiness and independent
+framing/pivot from those actual transforms rather than accepting a fixed six-presentation
+delay. Source windows are selected by SIGN path/hash/profile PID; screenshots use its
+verified handle, and name-based foreground driving refuses concurrent Xrd editions.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Original menu pause,
 clash/superfreeze and universal stop/result ownership still need dedicated validation.

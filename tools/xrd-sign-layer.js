@@ -54,6 +54,48 @@ function layerShader(device, sourceShader, program) {
     const shader = output.readPointer(); meshLayer.shaders.set(id, shader); return shader;
 }
 
+function inspectLayerTransform(device,d,counter,viewport) {
+    if (!config.layer.inspect_transforms || meshLayer.transform_captured ||
+        d.indexBuffer !== config.suppress_draws.parts.body.index_buffer ||
+        d.vertexBuffer !== config.suppress_draws.parts.body.vertex_buffer) return;
+    const output = Memory.alloc(4); output.writePointer(ptr(0));
+    let shader = ptr(0), assembly = ptr(0);
+    try {
+        succeeded(com(device,93,'int',['pointer'])(device,output),'GetVertexShader');
+        shader=output.readPointer();
+        if (shader.isNull()) throw new Error('missing body vertex shader');
+        const size=Memory.alloc(4);size.writeU32(0);
+        succeeded(com(shader,4,'int',['pointer','pointer'])(shader,ptr(0),size),'vertex GetFunction size');
+        const length=size.readU32();
+        if (length<8 || length>65536 || length%4) throw new Error('invalid vertex program bounds');
+        const code=Memory.alloc(length);
+        succeeded(com(shader,4,'int',['pointer','pointer'])(shader,code,size),'vertex GetFunction');
+        if (size.readU32()!==length) throw new Error('vertex program size drift');
+        const constants=Memory.alloc(4096);
+        succeeded(com(device,95,'int',['uint','pointer','uint'])(device,0,constants,256),'GetVertexShaderConstantF');
+        const sdk=Process.getModuleByName('d3dx9_43.dll');
+        const entry=sdk.enumerateExports().find(e=>e.name==='D3DXDisassembleShader');
+        if (!entry) throw new Error('missing native shader disassembler');
+        const disassemble=new NativeFunction(entry.address,'int',['pointer','int','pointer','pointer'],
+            {abi:'stdcall',exceptions:'propagate'});
+        output.writePointer(ptr(0));
+        succeeded(disassemble(code,0,ptr(0),output),'D3DXDisassembleShader');assembly=output.readPointer();
+        const textSize=com(assembly,4,'uint',[])(assembly);
+        if (textSize<1 || textSize>131072) throw new Error('unbounded vertex assembly');
+        const textAddress=com(assembly,3,'pointer',[])(assembly);
+        const data=new Uint8Array(length+4096);
+        data.set(bytes(code,length));data.set(bytes(constants,4096),length);
+        send({kind:'layer-transform',counter,request_index:(counter-gate.initialCounter)>>>0,
+            presentation_index:renderCapture.presentations+1,shader:shader.toString(),bytecode_size:length,
+            constants:256,assembly:textAddress.readUtf8String(textSize-1),
+            viewport_hex:hex(bytes(viewport,24)),read_only:true},data.buffer);
+        meshLayer.transform_captured=true;
+    } finally {
+        try {if(!assembly.isNull()) com(assembly,2,'uint',[])(assembly);}
+        finally {if(!shader.isNull()) com(shader,2,'uint',[])(shader);}
+    }
+}
+
 function replayMeshDraw(device, original, values, d) {
     const g = gate, p = config.layer;
     if (layerDrawing || layerFailed || layerStopping || g === null || g.resumed || g.executing || Date.now() > g.deadline || layerCaptures >= p.capture_steps.length * p.presentations.length ||
@@ -99,6 +141,7 @@ function replayMeshDraw(device, original, values, d) {
         succeeded(com(device, 59, 'int', ['uint','pointer'])(device, 1, blockOut), 'CreateStateBlock'); block = blockOut.readPointer();
         if (meshLayer === null) createLayer(device, counter, targets[0][1]);
         if (meshLayer.counter !== counter) throw new Error('source advanced during private replay');
+        inspectLayerTransform(device,d,counter,viewport);
         const shader = layerShader(device, sourceShader, p.programs[oldPixel]);
         for (const [index] of targets) if (index !== 0)
             succeeded(com(device, 37, 'int', ['uint','pointer'])(device, index, ptr(0)), 'disable extra target');

@@ -4,8 +4,11 @@ The user authorized autonomous offline source UI on 2026-10-07. This supersedes 
 earlier manual-menu preference. Keep source work offline; scripts do not select online
 routes or make account/configuration changes.
 
-`tools/xrd-source-window.ps1` fingerprints the exact source EXE and requires one matching
-process/window. `status` reports minimization, foreground and desktop idle. `restore`
+`tools/xrd-source-window.ps1` selects the exact SIGN installation path, fingerprints its
+EXE and requires one matching process/window. `-SourceProcessId` can pin the current
+profile's PID. The window's owning PID must agree. SIGN and Rev2 share an executable
+name; a same-name Rev2 process is not selected. `status` reports minimization, foreground,
+desktop idle, responsiveness and the total same-name process count. `restore`
 uses [SW_SHOWNOACTIVATE](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow)
 to restore rendering without activation. It was verified on the minimized training
 window: the game resumed rendering while Codex remained foreground. Native memory/state
@@ -28,7 +31,9 @@ python tools/xrd-source-ui.py $probe --action menu-check --mode foreground --wai
 
 Observation is the default and does not activate the window.
 FFmpeg is located in existing PATH, project cache or the installed WinGet package and
-checked for `gfxcapture`; `--ffmpeg` can override its path. Nothing is downloaded.
+checked for `gfxcapture` with `hwnd`; `--ffmpeg` can override its path. Capture targets
+the verified SIGN window handle. Background observation passes with both editions
+running, preserves foreground and shows SIGN Sol/Ky training. Nothing is downloaded.
 
 `key` performs one bounded action and captures the result; message/input delivery alone is never an accepted UI
 effect. The agent must inspect the screenshot before choosing another action. Available
@@ -42,7 +47,10 @@ than silently switching to foreground input or sending a blind second key.
 
 Foreground mode only takes focus when the desktop has been idle for at least 60 seconds,
 or when the game is already foreground. A bounded `--wait-idle` can defer the check while
-the user is working. The driver refuses keys if another app becomes foreground. It uses
+the user is working. The pinned WinDrive selects by executable name, so foreground mode
+refuses multiple running Xrd editions and rechecks before focus/keys. Background detection
+and exact-window messages remain independent of that driver restriction. The driver
+refuses keys if another app becomes foreground. It uses
 scan codes, removes its temporary topmost flag and returns focus to the earlier window
 only if the game still owns foreground. It does not restore focus over a later user
 window switch. Receipts preserve failures and unknown outcomes.
