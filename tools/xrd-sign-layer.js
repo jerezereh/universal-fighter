@@ -254,6 +254,25 @@ function shaderProgram(device,kind='vertex') {
 
 function vertexProgram(device) { return shaderProgram(device); }
 
+function textureSurface(device,slot) {
+    const output=Memory.alloc(4);output.writePointer(ptr(0));
+    let texture=ptr(0),surface=ptr(0);
+    try {
+        succeeded(com(device,64,'int',['uint','pointer'])(device,slot,output),'GetTexture');
+        texture=output.readPointer();
+        if(texture.isNull() || com(texture,10,'uint',[])(texture)!==3) throw new Error('LUT requires a native 2D texture');
+        output.writePointer(ptr(0));
+        succeeded(com(texture,18,'int',['uint','pointer'])(texture,0,output),'GetSurfaceLevel');surface=output.readPointer();
+        const desc=Memory.alloc(32);
+        succeeded(com(surface,12,'int',['pointer'])(surface,desc),'LUT GetDesc');
+        return {slot,texture:texture.toString(),surface:surface.toString(),format:desc.readU32(),
+            width:desc.add(24).readU32(),height:desc.add(28).readU32()};
+    } finally {
+        try {if(!surface.isNull())com(surface,2,'uint',[])(surface);}
+        finally {if(!texture.isNull())com(texture,2,'uint',[])(texture);}
+    }
+}
+
 function inspectScreenShader(device,d) {
     const key=d.currentTarget+':'+d.pixelShader;
     if (d.screenShaders.has(key)) return;
@@ -268,10 +287,15 @@ function inspectScreenShader(device,d) {
         succeeded(com(device,69,'int',['uint','uint','pointer'])(device,slot,11,state),'GetSamplerState sRGB');
         samplers.push({slot,texture:d['texture'+slot]??null,srgb:state.readU32()});
     }
+    const lutBindings=[...program.assembly.matchAll(/^\/\/\s+ColorGradingLUT\s+s(\d+)\s+(\d+)\s*$/gm)];
+    if(lutBindings.length>1 || lutBindings.some(m=>Number(m[1])>=16 || Number(m[2])!==1))
+        throw new Error('ambiguous LUT sampler binding');
+    const lut=lutBindings.length?textureSurface(device,Number(lutBindings[0][1])):null;
+    if(lut!==null && samplers[lut.slot].texture!==lut.texture) throw new Error('LUT texture binding drift');
     d.screenShaders.add(key);
     send({kind:'screen-shader',shader:program.shader,code_size:program.code.length,assembly:program.assembly,
         source_target:d.currentTarget,constants_hex:hex(bytes(constants,224*16)),srgb_write:srgb.readU32(),
-        samplers,read_only:true},program.code.buffer);
+        samplers,lut_source:lut,counter:d.counter,trace_frame:d.frames+1,trace_event:d.events.length,read_only:true},program.code.buffer);
 }
 
 function inspectMeshVertexShader(device,d,filter) {

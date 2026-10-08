@@ -197,13 +197,13 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     gate_options=gate_evidence(gate_receipt,candidate,state) if gate_receipt else None
     if (capture or trace_draws) and (not gate_options or expire): raise ValueError('render diagnostics require the bounded stepping experiment')
     if capture_passes and not trace_draws: raise ValueError('render-pass capture requires a draw trace')
-    if inspect_screen and (not trace_draws or not capture or suppress_path or plan_path):
+    if inspect_screen and (not trace_draws or not capture or suppress_path and not layer_path or plan_path):
         raise ValueError('screen shader observation requires exclusive neutral capture/draw trace')
     identity=None
     if inspect_shaders and not suppress_path: raise ValueError('mesh shader inspection requires local buffer identity')
     if suppress_path:
         identity=json.loads(suppress_path.read_text())
-        if (not trace_draws or not capture or capture_passes or (plan_path and (not layer_path or not oracle.startswith('render-'))) or expire or identity.get('pid')!=state['pid'] or
+        if (not trace_draws or not capture or capture_passes and not (layer_path and inspect_screen) or (plan_path and (not layer_path or not oracle.startswith('render-'))) or expire or identity.get('pid')!=state['pid'] or
                 identity.get('exe_sha256')!=SIGN_HASH or not identity.get('geometry_match_verified') or
                 identity.get('actor_identity_verified') is not False or identity.get('isolated_rgba') is not False or
                 set(identity.get('parts',{}))!={'body','head','weapon'} or

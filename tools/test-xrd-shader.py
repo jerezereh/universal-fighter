@@ -25,13 +25,16 @@ def main():
                 [words[0],0x02000001,0x800f0000,0x80e40000,0xffff]): reject(bad)
     print('Shader framing/comments/end, untouched original prefix, reserved/dynamic constants and subroutine/output rejection passed.')
     metadata=dict(kind='screen-shader',code_size=len(pack(words)),read_only=True,shader='0x1000',source_target='0x2000',
+        counter=12,trace_frame=1,trace_event=0,lut_source=None,
         constants_hex='00'*(224*16),assembly='ps_3_0\n',srgb_write=0,
         samplers=[dict(slot=i,texture=None,srgb=0) for i in range(16)])
     result=screen_packet(metadata,pack(words))
     assert not result['color_verified'] and not result['replay_verified']
     for change,data in [(dict(read_only=False),pack(words)),(dict(constants_hex=''),pack(words)),
             (dict(srgb_write=2),pack(words)),(dict(samplers=[]),pack(words)),
-            (dict(shader='0x0'),pack(words)),({},pack(words)[:-1]),({},pack([0xfffe0300]+words[1:]))]:
+            (dict(shader='0x0'),pack(words)),(dict(counter=-1),pack(words)),(dict(trace_frame=3),pack(words)),
+            (dict(lut_source=dict(slot=2,texture='0x1234',surface='0x5678',format=21,width=256,height=16)),pack(words)),
+            ({},pack(words)[:-1]),({},pack([0xfffe0300]+words[1:]))]:
         try: screen_packet(metadata|change,data)
         except ValueError: continue
         raise AssertionError('invalid/promoted screen program accepted')

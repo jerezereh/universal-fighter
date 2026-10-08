@@ -4,9 +4,12 @@ function fixture(failure=null) {
     const calls=[],messages=[],zero={isNull:()=>true};
     const shader={name:'shader',isNull:()=>false,toString:()=> 'shader'};
     const assembly={name:'assembly',isNull:()=>false};
+    const texture={name:'texture',isNull:()=>false,toString:()=> '0x3000'};
+    const surface={name:'surface',isNull:()=>false,toString:()=> '0x4000'};
     const text={readUtf8String:()=> 'vs_3_0\nmov o0,v0\n'};
     const allocation=()=>({pointer:zero,data:new Uint8Array(4096),n:0,
-        writePointer(p){this.pointer=p;},readPointer(){return this.pointer;},writeU32(n){this.n=n;},readU32(){return this.n;}});
+        writePointer(p){this.pointer=p;},readPointer(){return this.pointer;},writeU32(n){this.n=n;},readU32(){return this.n;},
+        add(offset){return {readU32:()=>offset===24?256:16};}});
     const context=vm.createContext({Map,Memory:{alloc:allocation},ptr:()=>zero,Uint8Array,
         config:{layer:{inspect_transforms:true},suppress_draws:{parts:{body:{index_buffer:'i',vertex_buffer:'v'}}}},
         gate:{initialCounter:10},renderCapture:{presentations:2},
@@ -24,14 +27,19 @@ function fixture(failure=null) {
         if(slot===95 || slot===110)return failure==='constants'?-1:0;
         if(slot===58){if(failure==='state')return -1;args[2].writeU32(0);return 0;}
         if(slot===69){if(failure==='sampler')return -1;args[3].writeU32(0);return 0;}
+        if(slot===64){if(failure==='texture')return -1;args[2].writePointer(texture);return 0;}
+        if(object===texture && slot===10)return failure==='type'?5:3;
+        if(object===texture && slot===18){if(failure==='surface')return -1;args[2].writePointer(surface);return 0;}
+        if(object===surface && slot===12){args[1].writeU32(21);return failure==='description'?-1:0;}
         throw Error('unexpected method');
     };
-    context.device={};context.d={indexBuffer:'i',vertexBuffer:'v',pixelShader:'shader',currentTarget:'target',screenShaders:new Set()};context.viewport=allocation();
+    context.device={};context.d={indexBuffer:'i',vertexBuffer:'v',pixelShader:'shader',currentTarget:'target',screenShaders:new Set(),counter:12,frames:0,events:[]};context.viewport=allocation();
     vm.runInContext(fs.readFileSync(__dirname+'/xrd-sign-layer.js','utf8'),context);
     vm.runInContext('meshLayer={};filter={vertices:new Set()};',context);
     return {calls,messages,run:()=>vm.runInContext('inspectLayerTransform(device,d,10,viewport)',context),
         inspect:()=>vm.runInContext('inspectMeshVertexShader(device,d,filter)',context),
-        screen:()=>vm.runInContext('inspectScreenShader(device,d)',context)};
+        screen:()=>vm.runInContext('inspectScreenShader(device,d)',context),
+        texture:()=>vm.runInContext('textureSurface(device,2)',context)};
 }
 const normal=fixture();normal.run();assert.deepEqual(normal.calls,['assembly','shader']);
 assert.equal(normal.messages[0].read_only,true);normal.run();assert.equal(normal.messages.length,1);
@@ -63,3 +71,12 @@ for(const [method,values,expected] of [
     assert.equal(vm.runInContext('twoTriangleDraw(method,args)',selection),expected);
 }
 console.log('Screen program getters, constants/sRGB observations, COM failures and two-triangle selection passed.');
+const linked=fixture();const description=linked.texture();
+assert.equal(description.texture,'0x3000');assert.equal(description.surface,'0x4000');assert.equal(description.width,256);
+assert.deepEqual(linked.calls,['surface','texture']);
+for(const failure of ['texture','type','surface','description','release-surface']) {
+    const f=fixture(failure);assert.throws(f.texture,/failed|texture/);
+    if(failure!=='texture')assert.ok(f.calls.includes('texture'));
+    if(['description','release-surface'].includes(failure))assert.ok(f.calls.includes('surface'));
+}
+console.log('Native LUT texture/surface association and independent reference cleanup passed.');

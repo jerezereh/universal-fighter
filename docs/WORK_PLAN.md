@@ -217,6 +217,10 @@ constants, sampler/sRGB state, held source updates and restored hooks. The obser
 pipeline includes generated color grading, bloom and SMAA; generic gamma correction
 is not accepted as source color fidelity. Next obtain an unobscured distant fighter
 reference and investigate private HDR/LUT replay. The original programs stay local.
+The subsequent distant reference links the native LUT sampler to its captured surface
+at a held source state. Offline LUT/exponent application now preserves private alpha
+and visibly improves diagnostic colors. A8 precision loss, bloom/blur/SMAA and exact
+native postprocess replay remain unaccepted; this preview does not enable publication.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Original menu pause,
 clash/superfreeze and universal stop/result ownership still need dedicated validation.

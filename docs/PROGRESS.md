@@ -1,5 +1,42 @@
 # Progress record
 
+## 2026-10-08 — Paired native LUT reference and diagnostic colors
+
+- The user supplied a distant scene. Read-only observation finds grounded Sol far left
+  and Ky right; neutral credits return the sampled walking state to idle. A private
+  reference passes three exact updates/161 blocked opportunities, eight paired images
+  and clean restoration. Original-window evidence shows Sol separated from Ky; the
+  training HUD still partly overlaps the source feet, so it is not an anatomical pivot
+  measurement. Native body world Z and source logical Y remain zero when grounded.
+- Added native LUT sampler/surface association to screen inspection. The sampler comes
+  from the actual program's named constant table; getters verify its current 2D texture
+  and level-zero surface. Both references release independently on failure. Screen
+  observations now retain held counter and draw interval/event identity. Combined
+  neutral private replay, screen inspection and completed-target capture preserve all
+  original draws; diagnostic suppression and interactive plans remain excluded.
+- The combined native proof passes three exact updates/196 blocked opportunities,
+  198 successful presentations, eight private/source paired images, 28 program/target
+  records and 21 intermediate readbacks (117,335,232 packet bytes). The named LUT
+  consumer maps to the captured 256x16 A8 surface at the same held fighter state.
+  Source/graphics hashes restore after detach, with no errors or changes to Rev2/focus.
+- Added `xrd_color.py`: an offline diagnostic applies the actual captured packed LUT
+  using its observed inline color exponent. No retail register/scale/address is
+  hardcoded. Pixel/program hashes, source association, settled native alpha, cube
+  bounds and inline instruction framing are checked. Standard trilinear interpolation
+  preserves every original alpha byte and zero RGB outside coverage. Authored identity/
+  powered/color-axis/black-material and failure checks pass.
+- Inspected the diagnostic against the native reference: skin, clothing and hair colors
+  visibly approach the final source image. This is not quantitative full-color acceptance:
+  A8 input may already lose HDR precision, and bloom/blur/SMAA/native half precision are
+  omitted. The crop records the native image origin, with coverage five pixels below it,
+  but anatomical foot placement and host receiver scale remain unverified. Color and
+  publishable guest capabilities stay false. Next inspect private HDR precision and
+  original postprocess replay, then persistent producer/contact/result ownership.
+- Evidence under `20261008-170542-583145`: private reference `190045-674750`, source
+  passes `190227-456455`, combined proof `190519-746467` (all use `boundary-20261008-`
+  prefix). The combined folder contains local `color-lut-preview.json`, RGBA/checker
+  previews, programs, LUT and source references. No assets or native data are committed.
+
 ## 2026-10-08 — Native screen-draw color-pipeline inventory
 
 - Added optional `--inspect-screen-shaders` to the existing bounded boundary observer.

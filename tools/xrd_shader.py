@@ -22,6 +22,14 @@ def screen_packet(metadata,data):
     if (len(samplers)!=16 or any(s.get('slot')!=i or type(s.get('srgb'))!=int or s['srgb'] not in (0,1) or
             s.get('texture') is not None and not re.fullmatch('0x[0-9a-f]{1,8}',s['texture'])
             for i,s in enumerate(samplers))): raise ValueError('invalid screen sampler observation')
+    for key,low,high in [('counter',0,0xffffffff),('trace_frame',1,2),('trace_event',0,8191)]:
+        if type(metadata.get(key))!=int or not low<=metadata[key]<=high: raise ValueError('invalid screen frame identity')
+    lut=metadata.get('lut_source')
+    if lut is not None and (type(lut.get('slot'))!=int or not 0<=lut['slot']<16 or
+            lut.get('texture')!=samplers[lut['slot']]['texture'] or
+            not re.fullmatch('0x[0-9a-f]{1,8}',lut.get('surface','')) or lut['surface']=='0x0' or
+            lut.get('format')!=21 or any(type(lut.get(k))!=int or not 2<=lut[k]<=1024 for k in ('width','height'))):
+        raise ValueError('invalid native LUT surface association')
     return metadata|dict(sha256=hashlib.sha256(data).hexdigest(),color_verified=False,replay_verified=False)
 
 

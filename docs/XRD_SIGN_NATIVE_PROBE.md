@@ -654,8 +654,9 @@ movement, inconsistent geometry, nonfinite coordinates, nonzero depth and differ
 axis scales reject. Anatomical foot placement, receiver scale choice and publishable
 color remain unaccepted; body-origin calibration does not enable guest capabilities.
 
-`--inspect-screen-shaders` requires neutral `--capture-render --trace-draws` without a
-mesh filter or input plan. It preserves the original draws and records the first
+`--inspect-screen-shaders` requires neutral `--capture-render --trace-draws` without
+diagnostic mesh suppression or an input plan. A private layer retaining original draws
+can be combined with this inspection and `--capture-passes`. It records the first
 pixel-program/target occurrence among two-triangle draws, up to 32 observations. Native
 program/disassembly, original 224 float constant registers, sRGB write state and sixteen
 sampler states/successfully observed texture bindings remain local. Unknown initial
@@ -665,6 +666,17 @@ all failures. The native proof records 28 occurrences, including fog/distortion,
 blur/bloom, generated color grading and SMAA, with disabled sRGB states and clean
 source/graphics restoration. Private HDR/color-grading replay and final color fidelity
 remain unimplemented; no generic gamma adjustment is accepted from these observations.
+
+The inspection now derives the named `ColorGradingLUT` sampler and uses native texture/
+surface getters to link the current 2D resource to a completed target readback. Getter
+references release independently. Held counter and draw interval/event identity accompany
+the observation. `python tools/xrd_color.py <combined-neutral-trace>` verifies native
+program/pixel hashes, settled body/source state and LUT association, then writes an
+offline RGBA/checker diagnostic using the observed inline color exponent and captured
+packed color cube. It preserves native alpha and transparent RGB. Color improves in the
+inspected reference, but standard interpolation, A8 precision loss and omitted bloom/
+blur/SMAA prevent full fidelity acceptance. The diagnostic crop retains a derived image
+origin; neither anatomical foot placement nor a publishable host frame is implied.
 
 `--settle-layer` requires normalization, up to four selected requests, no fixed
 `--layer-presentations` and no per-sample transform inspection. It starts candidates at
