@@ -67,3 +67,24 @@ def main():
 
 
 if __name__=='__main__': main()
+
+# Clock reads must keep one engine identity, including across the last read.
+from unittest.mock import patch
+from xrd_state import read_clock
+class ClockMemory:
+    def __init__(self,values,change_after=99): self.values=iter(values);self.roots=0;self.change_after=change_after
+    def read(self,address,size):
+        assert size==4
+        if address==0x10020:
+            self.roots+=1;value=0x20000 if self.roots<=self.change_after else 0
+        else:
+            assert address==0x2001c;value=next(self.values)
+        return struct.pack('<I',value)
+if __name__=='__main__':
+    with patch('xrd_state.time.sleep',lambda _:None):
+        p=dict(module_base=0x10000,engine_global_rva=0x20);candidate=dict(counter_field=0x18)
+        assert read_clock(ClockMemory([0xfffffffe,0xffffffff,0,1,2,3]),p,candidate)['advancing']
+        assert read_clock(ClockMemory([7]*6),p,candidate)['paused']
+        for change in (0,1,7): reject(lambda:read_clock(ClockMemory([7]*6,change),p,candidate))
+        for field in (True,0,-4,3,4<<20): reject(lambda:read_clock(ClockMemory([7]*6),p,dict(counter_field=field)))
+    print('Read-only counter bounds, wrap and initial/intermediate/final source engine changes checked.')

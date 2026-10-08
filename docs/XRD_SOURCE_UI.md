@@ -27,6 +27,7 @@ $probe = 'artifacts/xrd-sign-native/<current-session-probe>'
 python tools/xrd-source-ui.py $probe
 python tools/xrd-source-ui.py $probe --action key --key escape --mode foreground --wait-idle 120
 python tools/xrd-source-ui.py $probe --action menu-check --mode foreground --wait-idle 120 --boundary '<clean same-session boundary trace>'
+python tools/xrd-source-ui.py $probe --action clock-check --expected-clock paused --boundary '<clean same-session boundary trace>'
 ```
 
 Observation is the default and does not activate the window.
@@ -60,6 +61,15 @@ clock, sends Escape and samples the clock. Only a verified pause allows the seco
 and resume check. An unexpected menu/key result stops for screenshot inspection. This
 check does not install native hooks or advance source updates artificially. Full menu
 navigation and native menu-pause semantics must be accepted from live results separately.
+
+`clock-check` sends no input and never activates the source. After a human menu action,
+use `--expected-clock paused` or `advancing` with a clean same-session boundary receipt.
+Six bounded counter reads handle uint32 wrap and reject engine changes; a paused success
+also requires unchanged fighter snapshots. This route works while SIGN and Rev2 run
+together, independently of foreground mode. Native pause and subsequent manual resume
+now pass clock/snapshot evidence with an inspected exact-window pause-menu capture.
+This is a bounded read-only observation, not atomic source state or an autonomous UI
+input acceptance. The stepping experiment also checks advancement before attaching.
 
 Exit codes: 0 for observation/verified menu check or a delivered single key (effect still
 requires inspection), 1 for a failure/unverified menu check, 2 for desktop-activity

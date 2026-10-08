@@ -10,7 +10,7 @@ import subprocess
 import time
 
 from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
-from xrd_state import observe
+from xrd_state import observe, read_clock, clock_check
 
 ROOT=Path(__file__).resolve().parent.parent
 EXE=Path('C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-/Binaries/Win32/GuiltyGearXrd.exe')
@@ -52,14 +52,21 @@ def native_state(profile):
 
 
 def source_clock(profile,candidate):
-    values=[]
     with ReadOnlyProcess(profile['pid'],EXE) as process:
-        for _ in range(6):
-            root=int.from_bytes(process.read(profile['module_base']+profile['engine_global_rva'],4),'little')
-            if not root: raise ValueError('source battle is unavailable')
-            values.append(int.from_bytes(process.read(root+4+candidate['counter_field'],4),'little'))
-            time.sleep(.06)
-    return dict(samples=values,paused=len(set(values))==1,advancing=all(b>a for a,b in zip(values,values[1:])))
+        return read_clock(process,profile,candidate)
+
+
+def clock_candidate(profile,boundary):
+    candidate=json.loads((boundary/'candidate.json').read_text())
+    evidence=json.loads((boundary/'inspection.json').read_text());count=evidence.get('samples',0)
+    field=candidate.get('counter_field')
+    if (evidence.get('pid')!=profile['pid'] or type(count)!=int or count<100 or evidence.get('errors')!=[] or
+            evidence.get('observations_only') is not True or evidence.get('loaded_code_restored') is not True or
+            evidence.get('detached') is not True or evidence.get('source_unchanged') is not True or
+            evidence.get('continuity_gaps')!=0 or evidence.get('counter_deltas')!={'1':count} or
+            type(field)!=int or not 0<field<4<<20 or field%4):
+        raise ValueError('menu clock requires clean same-session boundary/counter evidence')
+    return candidate
 
 
 def training_pair(state):
@@ -97,6 +104,16 @@ def run(args):
         state=native_state(profile);result['native_before']=state
         screenshot(args.ffmpeg,folder/'before.png',status['hwnd'])
         if args.action=='observe': result['success']=True;return folder
+        if args.action=='clock-check':
+            if not training_pair(state): raise ValueError('clock check requires the known offline Sol/Ky scene')
+            candidate=clock_candidate(profile,args.boundary)
+            result.update(read_only=True,clock=source_clock(profile,candidate),native_after=native_state(profile))
+            result['fighters_unchanged']=state['fighters']==result['native_after']['fighters']
+            result['expected_clock']=args.expected_clock
+            result['success']=result['clock'][args.expected_clock] and training_pair(result['native_after']) and \
+                (args.expected_clock!='paused' or result['fighters_unchanged'])
+            screenshot(args.ffmpeg,folder/'after.png',status['hwnd'])
+            return folder
         if args.action=='menu-check' and not training_pair(state): raise ValueError('menu check requires the known offline Sol/Ky scene')
         if args.mode=='foreground':
             if status.get('matching_processes',1)!=1: raise ValueError('name-based foreground input requires only one running GuiltyGearXrd edition')
@@ -130,10 +147,7 @@ def run(args):
             time.sleep(.25);screenshot(args.ffmpeg,folder/(label+'.png'),status['hwnd'])
         if args.action=='key': key(args.key,'after');result['input_sent']=True;result['key_effect_verified']=False
         else:
-            candidate=json.loads((args.boundary/'candidate.json').read_text())
-            evidence=json.loads((args.boundary/'inspection.json').read_text())
-            if evidence['pid']!=profile['pid'] or not evidence['observations_only'] or not evidence['loaded_code_restored']:
-                raise ValueError('menu clock requires a clean same-session native observation')
+            candidate=clock_candidate(profile,args.boundary)
             result['clock_before']=source_clock(profile,candidate)
             if not result['clock_before']['advancing']: raise ValueError('menu check requires an advancing training scene')
             key('escape','menu');result['clock_menu']=source_clock(profile,candidate)
@@ -166,14 +180,16 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('probe',type=Path,help='verified current-session native probe')
     p.add_argument('--ffmpeg',type=Path,help='installed FFmpeg with gfxcapture; defaults to existing PATH/local cache/WinGet installation')
-    p.add_argument('--action',choices=('observe','key','menu-check'),default='observe')
+    p.add_argument('--action',choices=('observe','key','menu-check','clock-check'),default='observe')
+    p.add_argument('--expected-clock',choices=('paused','advancing'),help='required for read-only --action clock-check')
     p.add_argument('--key',choices=KEYS,default='escape')
     p.add_argument('--mode',choices=('background','foreground'),default='background')
     p.add_argument('--boundary',type=Path,help='clean same-session boundary trace for --action menu-check')
     p.add_argument('--wait-idle',type=float,default=0,help='bounded wait for 60 seconds idle before taking focus')
     a=p.parse_args()
     a.ffmpeg=find_ffmpeg(a.ffmpeg)
-    if a.action=='menu-check' and not a.boundary: p.error('menu-check requires --boundary')
+    if a.action in ('menu-check','clock-check') and not a.boundary: p.error(a.action+' requires --boundary')
+    if a.action=='clock-check' and not a.expected_clock: p.error('clock-check requires --expected-clock')
     folder=run(a)
     receipt=json.loads((folder/'inspection.json').read_text())
     if receipt.get('deferred'): raise SystemExit(2)

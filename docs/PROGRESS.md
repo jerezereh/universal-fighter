@@ -1,5 +1,36 @@
 # Progress record
 
+## 2026-10-08 — Original SIGN menu pause/resume and clock preflight
+
+- The user opened SIGN's original offline pause menu. Six read-only counter reads agree,
+  and fighter transforms, pose/state names and collision snapshots remain unchanged
+  across an additional one-second interval. The exact-HWND GPU capture shows the pause
+  menu. After the user resumes, all counter reads advance and idle snapshots change.
+  Both checks preserve foreground, use the exact SIGN path/hash/PID and send no input.
+  This verifies original menu pause/resume for the observed scene; it does not prove
+  pause detection during a persistent producer transaction or any clash/superfreeze.
+- Added read-only `clock-check --expected-clock paused|advancing` to the source UI
+  helper. It requires a clean same-session observer/counter receipt and known Sol/Ky
+  scene, compares snapshots for a paused result and captures before/after window images.
+  It never starts an input driver, even with foreground mode/two same-name editions.
+  Shared bounded counter reading rejects changed engine identity and handles uint32 wrap.
+- Stepping experiments now require an advancing original source clock before Frida
+  attachment. A held/discontinuous clock refuses to attach; no native credits are issued.
+  The preflight is outside the existing experiment's duration. A menu opened after
+  attachment still falls under the existing deadlines/watchdog and is not newly accepted.
+- The first new CLI run wrongly used the fighter-object field bound for the larger
+  engine counter. It fails without input/hooks; corrected the check to reuse the actual
+  instruction-derived boundary counter range. The subsequent native CLI repeat passes.
+  Authored counter wrap/bounds, identity changes, unclean evidence, changed paused state
+  and read-only/input separation checks pass. Syntax and boundary regressions pass.
+- Native preflight plus three-step repeat passes 3 exact updates/264 blocked opportunities,
+  267 successful Present calls, held fighter state/input history and source/graphics
+  restoration. No host runtime changes or guest capabilities are enabled. Remaining:
+  native color grading/readiness, persistent producer and universal contact/results.
+- Evidence: `artifacts/xrd-source-ui/20261008-192908-828455` paused, `193247-931466` resumed,
+  rejected CLI `193958-373460`, final CLI `194107-325153`; preflight/step receipt under
+  `20261008-170542-583145/boundary-20261008-194151-904773`. Original-source bytes stay local.
+
 ## 2026-10-08 — Native private HDR precision proof
 
 - Added opt-in `--hdr-layer`: normalized, neutral private mesh replay uses the native

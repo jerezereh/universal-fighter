@@ -14,7 +14,7 @@ import threading
 import time
 
 from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
-from xrd_state import assembly_rows, boundary_candidate, observe
+from xrd_state import assembly_rows, boundary_candidate, observe, read_clock
 from xrd_input import input_candidate, input_mask, input_plan, input_check, oracle_passed
 from xrd_combat import combat_fields, contact_check
 from xrd_render import render_pixels, save_render, render_check, draw_check, save_pass
@@ -266,8 +266,12 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             base,size=process.module_base()
             return base==state['module_base'] and size==receipt['image_size'] and hashlib.sha256(process.read(base+state['code_rva'],state['code_size'])).hexdigest()==state['code_sha256']
         if not unchanged(): raise ValueError('source session/code changed; run a fresh probe')
-        phase='attach';native_start_attempted=False
+        phase='preflight';native_start_attempted=False;clock_preflight=None
         try:
+            if gate_options:
+                clock_preflight=read_clock(process,state,candidate)
+                if not clock_preflight['advancing']: raise ValueError('original source clock is held or discontinuous; resume offline training before stepping')
+            started=time.perf_counter();phase='attach'
             session=bounded_call(frida,lambda:frida.attach(state['pid']))
             phase='load'
             source=(ROOT/'tools/xrd-sign-boundary.js').read_text()
@@ -417,6 +421,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         return_addresses=sorted(set(r['return_address'] for r in records)),errors=errors,
         observations_only=not bool(gate_options),boundary_experiment=bool(gate_options),boundary_aligned=True,temporary_code_interception=True,
         native_start_attempted=native_start_attempted,
+        clock_preflight=clock_preflight,
         detached=detached,loaded_code_restored=restored,source_unchanged=fingerprint(EXE)==SIGN_HASH,
         native_tick_verified=False,atomic_native_frame=False,host_step=False,isolated_rgba=False,universal_contact=False)
     if source_window: result['source_window']=source_window

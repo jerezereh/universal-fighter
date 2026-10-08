@@ -6,6 +6,28 @@ from pathlib import Path
 import re
 import struct
 import subprocess
+import time
+
+
+def clock_check(values):
+    if len(values)!=6 or any(type(v)!=int or not 0<=v<=0xffffffff for v in values):
+        raise ValueError('requires six bounded source counter reads')
+    deltas=[(b-a)&0xffffffff for a,b in zip(values,values[1:])]
+    return dict(samples=values,paused=not any(deltas),advancing=all(0<d<0x80000000 for d in deltas))
+
+
+def read_clock(process,profile,candidate):
+    field=candidate.get('counter_field')
+    if type(field)!=int or not 0<field<4<<20 or field%4: raise ValueError('invalid source counter field')
+    global_address=profile['module_base']+profile['engine_global_rva']
+    root=int.from_bytes(process.read(global_address,4),'little');values=[]
+    if not root: raise ValueError('source battle is unavailable')
+    for _ in range(6):
+        if int.from_bytes(process.read(global_address,4),'little')!=root: raise ValueError('source engine changed during clock observation')
+        values.append(int.from_bytes(process.read(root+4+field,4),'little'))
+        time.sleep(.06)
+    if int.from_bytes(process.read(global_address,4),'little')!=root: raise ValueError('source engine changed during clock observation')
+    return clock_check(values)
 
 
 def assembly_rows(text):
