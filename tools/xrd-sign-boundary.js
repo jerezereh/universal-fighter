@@ -89,7 +89,8 @@ function twoTriangleDraw(method,args) {
 
 function installDrawTrace(device) {
     drawTrace = {device, active: false, frames: 0, events: [], counter: null, surfaces: new Map(),
-        currentTarget: null, passSeen: new Set(), passBytes: 0, passIndex: 0,screenShaders:new Set()};
+        currentTarget: null, passSeen: new Set(), passBytes: 0, passIndex: 0,screenShaders:new Set(),
+        lutShaders:new Set(),colorBoundarySteps:new Set()};
     // D3D9 interface slots, not source-game offsets. Capture two complete Present intervals.
     const methods = [[37, 'SetRenderTarget', ['u', 'p']], [43, 'Clear', ['u', 'p', 'u', 'u', 'u', 'u']],
         [65, 'SetTexture', ['u', 'p']], [81, 'DrawPrimitive', ['u', 'u', 'u']],
@@ -124,6 +125,10 @@ function installDrawTrace(device) {
                 if (method === 'SetStreamSource' && args[1].toUInt32() === 0)
                     this.binding = ['vertexBuffer', args[2].toString()];
                 if (method === 'SetRenderTarget' && args[1].toUInt32() === 0) this.targetBinding = args[2].toString();
+                if(config.inspect_screen_shaders && config.layer && twoTriangleDraw(method,args)) {
+                    try {observeLayerColorBoundary(d);}
+                    catch(error) {send({kind:'error',phase:'layer-color-boundary',message:String(error)});}
+                }
                 if (!d.active) return;
                 if(config.inspect_screen_shaders && gate!==null && !gate.resumed && !gate.executing &&
                     twoTriangleDraw(method,args)) {

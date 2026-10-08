@@ -316,6 +316,14 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         native=screen_packet(message['payload'],data)
                         name=f'screen-{len(screens)+1:02}.bin';(out/name).write_bytes(data)
                         screens.append(native|dict(file=name));continue
+                    if message['type']=='send' and message['payload'].get('kind')=='layer-color-boundary':
+                        native=message['payload']
+                        if (not inspect_screen or not layer or len([d for d in diagnostics if d.get('kind')=='layer-color-boundary'])>=8 or
+                                native.get('observation_only') is not True or native.get('native_grading_replayed') is not False or
+                                type(native.get('private_draws'))!=int or not 1<=native['private_draws']<=8192 or
+                                native.get('request_index') not in layer['capture_steps']):
+                            raise ValueError('invalid private color boundary observation')
+                        diagnostics.append(native);continue
                     if message['type']=='send' and message['payload'].get('kind')=='mesh-shader':
                         native=message['payload']
                         if len(shaders)>=32 or not 8<=len(data)<=65536 or len(data)%4 or native['code_size']!=len(data):

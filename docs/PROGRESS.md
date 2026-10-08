@@ -1,5 +1,24 @@
 # Progress record
 
+## 2026-10-08 — Native grading phase and private HDR lifetime
+
+- Added bounded observation of the original two-triangle LUT-consumer draw relative
+  to the private mesh. The role comes from the inspected program's named LUT sampler;
+  no retail addresses or guessed call locations are introduced. One observation per
+  selected source step records counter/presentation and completed private draw count.
+  It observes source bindings after draw tracing ends without suppressing native draws.
+- The native repeat passes three exact updates/183 blocked opportunities, 185 successful
+  Present calls, four held-state HDR/source captures, clean inputs and restored native/
+  graphics code. Each selected step (0..3) observes all 13 private mesh draws still live
+  at presentation 3 when the original LUT consumer is about to run. This establishes a
+  concrete point for private GPU grading before EndScene releases the layer.
+- Authored lifetime/role/deduplication and changed-counter checks pass, along with
+  existing shader/resource restoration and syntax checks. This observation does not
+  replay grading, establish pixel readiness or enable the producer. Next duplicate the
+  actual native color program against a private HDR texture and preserve mesh coverage.
+- Evidence: `20261008-170542-583145/boundary-20261008-194848-267630`. Original program
+  handles, source targets and native images remain in ignored diagnostics.
+
 ## 2026-10-08 — Original SIGN menu pause/resume and clock preflight
 
 - The user opened SIGN's original offline pause menu. Six read-only counter reads agree,

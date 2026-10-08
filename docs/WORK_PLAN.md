@@ -230,6 +230,10 @@ Original source menu pause/resume now passes read-only counter/snapshot/GPU evid
 after user menu actions. A reusable read-only clock check and pre-attachment stepping
 preflight reject held/discontinuous clocks. Menu changes during a persistent transaction,
 clash/superfreeze and universal stop/result ownership remain pending.
+The native LUT-consumer draw now observes all 13 private HDR mesh draws still live at
+four held source counters, before EndScene releases the layer. This provides a verified
+location for private GPU color grading; original draws and source/graphics restoration
+pass. Grading replay and final RGBA readiness remain the next implementation gate.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

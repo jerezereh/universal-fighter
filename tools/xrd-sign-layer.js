@@ -293,10 +293,27 @@ function inspectScreenShader(device,d) {
         throw new Error('ambiguous LUT sampler binding');
     const lut=lutBindings.length?textureSurface(device,Number(lutBindings[0][1])):null;
     if(lut!==null && samplers[lut.slot].texture!==lut.texture) throw new Error('LUT texture binding drift');
+    if(lut!==null)d.lutShaders.add(program.shader);
     d.screenShaders.add(key);
     send({kind:'screen-shader',shader:program.shader,code_size:program.code.length,assembly:program.assembly,
         source_target:d.currentTarget,constants_hex:hex(bytes(constants,224*16)),srgb_write:srgb.readU32(),
         samplers,lut_source:lut,counter:d.counter,trace_frame:d.frames+1,trace_event:d.events.length,read_only:true},program.code.buffer);
+}
+
+function observeLayerColorBoundary(d) {
+    const current=meshLayer,g=gate;
+    if (!config.layer || current===null || g===null || g.resumed || g.executing ||
+            !d.lutShaders.has(d.pixelShader) || renderCapture.counter!==current.counter) return;
+    const step=(current.counter-g.initialCounter)>>>0;
+    if(d.colorBoundarySteps.has(step))return;
+    if(d.colorBoundarySteps.size>=8)throw new Error('private color boundary observation limit');
+    const root=Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
+    if(root.add(4+config.candidate.counter_field).readU32()!==current.counter)throw new Error('source advanced at color boundary');
+    d.colorBoundarySteps.add(step);
+    send({kind:'layer-color-boundary',counter:current.counter,request_index:step,
+        presentation_index:renderCapture.presentations+1,private_draws:current.draws,
+        source_target:d.currentTarget,shader:d.pixelShader,private_hdr:Boolean(config.layer.hdr),
+        observation_only:true,native_grading_replayed:false});
 }
 
 function inspectMeshVertexShader(device,d,filter) {

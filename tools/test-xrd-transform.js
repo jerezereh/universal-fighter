@@ -33,13 +33,14 @@ function fixture(failure=null) {
         if(object===surface && slot===12){args[1].writeU32(21);return failure==='description'?-1:0;}
         throw Error('unexpected method');
     };
-    context.device={};context.d={indexBuffer:'i',vertexBuffer:'v',pixelShader:'shader',currentTarget:'target',screenShaders:new Set(),counter:12,frames:0,events:[]};context.viewport=allocation();
+    context.device={};context.d={indexBuffer:'i',vertexBuffer:'v',pixelShader:'shader',currentTarget:'target',screenShaders:new Set(),lutShaders:new Set(),colorBoundarySteps:new Set(),counter:12,frames:0,events:[]};context.viewport=allocation();
     vm.runInContext(fs.readFileSync(__dirname+'/xrd-sign-layer.js','utf8'),context);
     vm.runInContext('meshLayer={};filter={vertices:new Set()};',context);
     return {calls,messages,run:()=>vm.runInContext('inspectLayerTransform(device,d,10,viewport)',context),
         inspect:()=>vm.runInContext('inspectMeshVertexShader(device,d,filter)',context),
         screen:()=>vm.runInContext('inspectScreenShader(device,d)',context),
-        texture:()=>vm.runInContext('textureSurface(device,2)',context)};
+        texture:()=>vm.runInContext('textureSurface(device,2)',context),context,
+        boundary:()=>vm.runInContext('observeLayerColorBoundary(d)',context)};
 }
 const normal=fixture();normal.run();assert.deepEqual(normal.calls,['assembly','shader']);
 assert.equal(normal.messages[0].read_only,true);normal.run();assert.equal(normal.messages.length,1);
@@ -80,3 +81,15 @@ for(const failure of ['texture','type','surface','description','release-surface'
     if(['description','release-surface'].includes(failure))assert.ok(f.calls.includes('surface'));
 }
 console.log('Native LUT texture/surface association and independent reference cleanup passed.');
+const point=fixture();
+vm.runInContext(`config.state={engine_global_rva:0};config.candidate={counter_field:0};config.layer.hdr=true;
+    gate={initialCounter:10,resumed:false,executing:false};renderCapture={counter:10,presentations:2};
+    Process.mainModule={base:{add:()=>({readPointer:()=>({add:()=>({readU32:()=>10})})})}};
+    meshLayer={counter:10,draws:13};d.lutShaders.add('shader');`,point.context);
+point.boundary();point.boundary();
+assert.equal(point.messages.length,1);assert.equal(point.messages[0].private_draws,13);
+assert.equal(point.messages[0].native_grading_replayed,false);assert.equal(point.messages[0].request_index,0);
+vm.runInContext('meshLayer=null',point.context);point.boundary();assert.equal(point.messages.length,1);
+vm.runInContext('meshLayer={counter:11,draws:13};renderCapture.counter=11',point.context);
+assert.throws(point.boundary,/source advanced/);
+console.log('Private layer lifetime/color-phase identity, deduplication and changed counter rejection passed.');
