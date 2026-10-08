@@ -113,6 +113,11 @@ function gradeLayer(device,d) {
         for(const [slot,target] of targets)try{succeeded(com(device,37,'int',['uint','pointer'])(device,slot,target),'grading restore target');}catch(error){failure=error;}
         try{succeeded(com(device,39,'int',['pointer'])(device,depth),'grading restore depth');}catch(error){failure=error;}
         try{if(!block.isNull())succeeded(com(block,5,'int',[])(block),'grading restore state');}catch(error){failure=error;}
+        // The observed native state-block path leaves both constant banks changed.
+        if(!block.isNull()) {
+            try{succeeded(com(device,94,'int',['uint','pointer','uint'])(device,0,vertex,256),'grading restore vertex constants');}catch(error){failure=error;}
+            try{succeeded(com(device,109,'int',['uint','pointer','uint'])(device,0,pixel,224),'grading restore pixel constants');}catch(error){failure=error;}
+        }
         for(const resource of references)try{if(!resource.isNull())com(resource,2,'uint',[])(resource);}catch(error){failure=error;}
         d.pixelShader=oldPixel;d.currentTarget=oldTarget;layerDrawing=false;
         if(failure)throw failure;

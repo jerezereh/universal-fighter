@@ -1,5 +1,33 @@
 # Progress record
 
+## 2026-10-08 — Native private HDR grading and constant restoration pass
+
+- Rebuilt the reopened SIGN session profile (PID 15132), with 174 uninterrupted owner
+  updates, clean screen/mesh inventories and fresh Sol body/head/weapon bindings. The
+  more precise native diagnostic identifies changed vertex and pixel constant banks
+  after state-block application; viewport and checked render states match.
+- Restore both captured float constant banks explicitly after applying the source state
+  block, including failure teardown. Keep independent setter failures and byte-for-byte
+  verification; no failed restoration is accepted. Authored tests model an incomplete
+  constant-bank restore, failed setters and persistent mismatch rejection. Grading,
+  layer/readiness, dependency-table tests and JavaScript syntax pass; the installed
+  native header now validates 83 literal device calls.
+- The corrected live neutral trial passes three exact native updates, 92 blocked
+  opportunities, eight paired held-state source/graded captures and complete hook/
+  graphics-state restoration. Each of four selected source counters has identical private
+  A8 pixels at presentations 3/4 after original native HDR grading and coverage replay.
+  All 13 matched mesh draws remain present; native alpha retains black materials and
+  uncovered RGB is zero. Visual inspection shows recognizable colored Sol/weapon with
+  outlines and a transparent background. This is the first accepted bounded GPU grading
+  diagnostic, not acceptance of full source presentation or a connected producer.
+- Native bloom/blur/SMAA, final source-color fidelity, foot placement/receiver scale,
+  persistent clock/input/result ownership and universal contacts remain pending. Repeat
+  graded motion/normal/facing oracles next. No host boundary or protocol changed; Rev2
+  remains outside the target. All source programs and images remain ignored.
+- Evidence: probe `20261008-211431-636314`; rejected specific-state diagnostic
+  `boundary-20261008-211624-600264`; successful native grading
+  `boundary-20261008-211808-150816`. Earlier failed trials remain recorded.
+
 ## 2026-10-08 — Fresh sampler inspection passes; grading restoration remains rejected
 
 - Rebuilt the live profile for reopened SIGN PID 35268 and revalidated owner/input

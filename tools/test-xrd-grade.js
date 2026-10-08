@@ -37,6 +37,7 @@ function fixture(failure=null) {
             if(failure==='restore-vertex')vertex[0]^=1;
             if(failure==='restore-pixel')pixel[0]^=1;
             if(failure==='restore-render')states.set(7,(states.get(7)||0)^1);
+            if(failure==='incomplete-constants'){vertex[0]^=1;pixel[0]^=1;}
             return 0;
         }
         if(slot===23){if(failure==='texture')return -1;const t=pointer('texture-'+(textures.length+1));textures.push(t);a[7].writePointer(t);return 0;}
@@ -63,7 +64,9 @@ function fixture(failure=null) {
         if(slot===69){samplerStates.set(a[1]+':'+a[2],a[3]);return 0;}
         if(slot===107){boundShader=a[1];return 0;}
         if(slot===106){if(failure==='copy')return -1;a[2].writePointer(copy);return 0;}
-        if(slot===109){pixel.set(a[2].data,a[1]*16);return 0;}
+        if(slot===94){if(failure==='vertex-setter')return -1;if(failure!=='restore-vertex')vertex.set(a[2].data,a[1]*16);return 0;}
+        if(slot===109){if(a[3]===224 && failure==='pixel-setter')return -1;
+            if(a[3]!==224 || failure!=='restore-pixel')pixel.set(a[2].data,a[1]*16);return 0;}
         if(slot===83){
             draws++;assert.equal(fvf,0xa0204);assert.equal(boundDepth,zero);assert.equal(a[1],5);assert.equal(a[2],2);assert.equal(a[4],48);
             if(draws===1){assert.equal(boundShader,shader);assert.equal(sampler.get(0),hdr);assert.equal(sampler.get(2),lut);
@@ -80,16 +83,20 @@ function fixture(failure=null) {
     context.hdr=hdr;vm.runInContext('meshLayer.texture=hdr',context);
     return {releases,context,run:()=>vm.runInContext('gradeLayer(device,d)',context),
         restore:()=>{assert.equal(boundTarget,target);assert.equal(boundDepth,depth);assert.equal(boundShader,shader);assert.equal(boundVertex,vs);
-            assert.equal(fvf,99);assert.equal(sampler.get(2),lut);assert.equal(vm.runInContext('layerDrawing',context),false);},
+            assert.equal(fvf,99);assert.equal(sampler.get(2),lut);assert.equal(vm.runInContext('layerDrawing',context),false);
+            assert.ok(vertex.every(n=>n===0) && pixel.every(n=>n===0));},
         release:()=>vm.runInContext('for(const resource of meshLayer.extra)com(resource,2,"uint",[])(resource)',context)};
 }
 const good=fixture();good.run();good.restore();good.release();assert.equal(vm.runInContext('Boolean(meshLayer.graded)',good.context),true);
 assert.ok(good.releases.includes('copy') && good.releases.includes('texture-1') && good.releases.includes('surface-2'));
-for(const failure of ['block','texture','surface','copy','grade-draw','mask-draw']) {
+for(const failure of ['block','texture','surface','copy','grade-draw','mask-draw','vertex-setter','pixel-setter']) {
     const f=fixture(failure);assert.throws(f.run,/failed/);f.restore();f.release();
     assert.ok(f.releases.includes('source-target') && f.releases.includes('source-shader') && f.releases.includes('lut'));
     if(failure==='surface')assert.ok(f.releases.includes('texture-1'));
 }
+// A device path which omits constants from state-block restore must still recover them.
+const incomplete=fixture('incomplete-constants');
+incomplete.run();incomplete.restore();incomplete.release();
 for(const [failure,diagnostic] of [['restore-viewport','viewport'],['restore-vertex','vertex constants'],
         ['restore-pixel','pixel constants'],['restore-render','render state 7']]) {
     const f=fixture(failure);assert.throws(f.run,new RegExp('native grading state did not restore: '+diagnostic));

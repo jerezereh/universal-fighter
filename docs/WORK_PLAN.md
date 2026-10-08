@@ -246,7 +246,13 @@ grading trial survives but rejects a graphics-state restoration mismatch before 
 an image. More precise mismatch diagnostics and authored rejection tests are implemented;
 two subsequent pre-start attachment timeouts require a clean SIGN restart before collecting
 that diagnostic. A separate read-only clock check confirms the current source still runs.
-GPU grading, final RGBA readiness and producer capabilities remain unaccepted.
+The next fresh session identifies vertex/pixel constant banks as the restoration mismatch.
+Explicitly restoring both saved banks after state-block application now passes the live
+neutral grading trial, with eight held-state captures and identical private native A8
+pixels at presentations 3/4 for four counters. Source/graphics restoration and coverage
+checks pass. Repeat graded movement/normal/facing oracles next; native effects, final color,
+foot/scale acceptance, persistent ownership and connected producer capabilities remain
+pending. The original failed trials remain rejected.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.
