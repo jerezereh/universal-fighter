@@ -26,11 +26,15 @@ function fixture(failure=null) {
     };
     context.device={};context.d={indexBuffer:'i',vertexBuffer:'v'};context.viewport=allocation();
     vm.runInContext(fs.readFileSync(__dirname+'/xrd-sign-layer.js','utf8'),context);
-    vm.runInContext('meshLayer={};',context);
-    return {calls,messages,run:()=>vm.runInContext('inspectLayerTransform(device,d,10,viewport)',context)};
+    vm.runInContext('meshLayer={};filter={vertices:new Set()};',context);
+    return {calls,messages,run:()=>vm.runInContext('inspectLayerTransform(device,d,10,viewport)',context),
+        inspect:()=>vm.runInContext('inspectMeshVertexShader(device,d,filter)',context)};
 }
 const normal=fixture();normal.run();assert.deepEqual(normal.calls,['assembly','shader']);
 assert.equal(normal.messages[0].read_only,true);normal.run();assert.equal(normal.messages.length,1);
+const inventory=fixture();inventory.inspect();inventory.inspect();
+assert.equal(inventory.messages.length,1);assert.equal(inventory.messages[0].kind,'mesh-vertex-shader');
+assert.deepEqual(inventory.calls,['assembly','shader']);
 for(const failure of ['shader','program','constants','disassemble','text-size','release-assembly']) {
     const f=fixture(failure);assert.throws(f.run,/failed|unbounded/);
     if(failure!=='shader') assert.ok(f.calls.includes('shader'));

@@ -54,10 +54,7 @@ function layerShader(device, sourceShader, program) {
     const shader = output.readPointer(); meshLayer.shaders.set(id, shader); return shader;
 }
 
-function inspectLayerTransform(device,d,counter,viewport) {
-    if (!config.layer.inspect_transforms || meshLayer.transform_captured ||
-        d.indexBuffer !== config.suppress_draws.parts.body.index_buffer ||
-        d.vertexBuffer !== config.suppress_draws.parts.body.vertex_buffer) return;
+function vertexProgram(device) {
     const output = Memory.alloc(4); output.writePointer(ptr(0));
     let shader = ptr(0), assembly = ptr(0);
     try {
@@ -71,8 +68,6 @@ function inspectLayerTransform(device,d,counter,viewport) {
         const code=Memory.alloc(length);
         succeeded(com(shader,4,'int',['pointer','pointer'])(shader,code,size),'vertex GetFunction');
         if (size.readU32()!==length) throw new Error('vertex program size drift');
-        const constants=Memory.alloc(4096);
-        succeeded(com(device,95,'int',['uint','pointer','uint'])(device,0,constants,256),'GetVertexShaderConstantF');
         const sdk=Process.getModuleByName('d3dx9_43.dll');
         const entry=sdk.enumerateExports().find(e=>e.name==='D3DXDisassembleShader');
         if (!entry) throw new Error('missing native shader disassembler');
@@ -83,17 +78,36 @@ function inspectLayerTransform(device,d,counter,viewport) {
         const textSize=com(assembly,4,'uint',[])(assembly);
         if (textSize<1 || textSize>131072) throw new Error('unbounded vertex assembly');
         const textAddress=com(assembly,3,'pointer',[])(assembly);
-        const data=new Uint8Array(length+4096);
-        data.set(bytes(code,length));data.set(bytes(constants,4096),length);
-        send({kind:'layer-transform',counter,request_index:(counter-gate.initialCounter)>>>0,
-            presentation_index:renderCapture.presentations+1,shader:shader.toString(),bytecode_size:length,
-            constants:256,assembly:textAddress.readUtf8String(textSize-1),
-            viewport_hex:hex(bytes(viewport,24)),read_only:true},data.buffer);
-        meshLayer.transform_captured=true;
+        return {shader:shader.toString(),code:bytes(code,length),assembly:textAddress.readUtf8String(textSize-1)};
     } finally {
         try {if(!assembly.isNull()) com(assembly,2,'uint',[])(assembly);}
         finally {if(!shader.isNull()) com(shader,2,'uint',[])(shader);}
     }
+}
+
+function inspectMeshVertexShader(device,d,filter) {
+    if (filter.vertices.has(d.vertexShader)) return;
+    if (filter.vertices.size>=32) throw new Error('vertex shader limit');
+    const program=vertexProgram(device);
+    d.vertexShader=program.shader;
+    if (filter.vertices.has(program.shader)) return;
+    filter.vertices.add(program.shader);
+    send({kind:'mesh-vertex-shader',shader:program.shader,code_size:program.code.length,
+        assembly:program.assembly,source_target:d.currentTarget,read_only:true},program.code.buffer);
+}
+
+function inspectLayerTransform(device,d,counter,viewport) {
+    if (!config.layer.inspect_transforms || meshLayer.transform_captured ||
+        d.indexBuffer !== config.suppress_draws.parts.body.index_buffer ||
+        d.vertexBuffer !== config.suppress_draws.parts.body.vertex_buffer) return;
+    const program=vertexProgram(device), constants=Memory.alloc(4096);
+    succeeded(com(device,95,'int',['uint','pointer','uint'])(device,0,constants,256),'GetVertexShaderConstantF');
+    const data=new Uint8Array(program.code.length+4096);
+    data.set(program.code);data.set(bytes(constants,4096),program.code.length);
+    send({kind:'layer-transform',counter,request_index:(counter-gate.initialCounter)>>>0,
+        presentation_index:renderCapture.presentations+1,shader:program.shader,bytecode_size:program.code.length,
+        constants:256,assembly:program.assembly,viewport_hex:hex(bytes(viewport,24)),read_only:true},data.buffer);
+    meshLayer.transform_captured=true;
 }
 
 function replayMeshDraw(device, original, values, d) {

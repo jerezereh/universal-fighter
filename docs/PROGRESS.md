@@ -1,5 +1,23 @@
 # Progress record
 
+## 2026-10-07 — Complete native vertex program inventory
+
+- Expanded clean mesh shader inspection to include native vertex bytecode/disassembly.
+  The shared getter bounds programs/assembly and independently releases both references.
+  Initial collection exposed missing retained vertex bindings and sent duplicate packets
+  until the controller limit rejected it. Source/graphics restoration passed. Vertex
+  bindings are now retained with the other draw bindings, and actual shader IDs are
+  deduplicated independently before publication.
+- The repeat passes three exact updates, 127 blocked opportunities, four scene images,
+  five vertex programs/five pixel programs and clean source/graphics teardown. Actual
+  main-color programs share projection/orthographic/local-to-world inputs, but their
+  uniform bindings differ; the outline also uses camera-dependent extrusion and depth
+  offsets. No guessed register map or retail program is committed.
+- Authored one-observation-per-program and independent COM failure cleanup checks pass;
+  layer regression and Python/JavaScript syntax pass. Evidence under current probe:
+  rejected `boundary-20261008-013253-256534`, clean `boundary-20261008-013443-811288`.
+  Next test private projection/depth ownership with bindings derived from this inventory.
+
 ## 2026-10-07 — SIGN-only selection and native draw transforms
 
 - Corrected source selection after the user clarified that the other same-name process

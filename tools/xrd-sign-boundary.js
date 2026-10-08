@@ -41,7 +41,7 @@ function installDrawFilter(device, identity) {
                 return result;
             }
             if (config.inspect_mesh_shaders) {
-                try { inspectMeshShader(object, d, filter); }
+                try { inspectMeshVertexShader(object, d, filter); inspectMeshShader(object, d, filter); }
                 catch (error) { send({kind: 'error',phase: 'mesh-shader',message: String(error)}); }
                 return original(object, type, base, min, vertices, start, primitives);
             }
@@ -50,7 +50,7 @@ function installDrawFilter(device, identity) {
         }
         return original(object, type, base, min, vertices, start, primitives);
     }, 'int', ['pointer','uint','int','uint','uint','uint','uint'], 'stdcall');
-    drawFilter = {target, replacement, skipped: 0, shaders: new Set()};
+    drawFilter = {target, replacement, skipped: 0, shaders: new Set(), vertices: new Set()};
     Interceptor.replace(target, replacement); Interceptor.flush();
 }
 
@@ -110,6 +110,7 @@ function installDrawTrace(device) {
                 const d = drawTrace;
                 if (d === null || !args[0].equals(d.device)) return;
                 if (method === 'SetIndices') this.binding = ['indexBuffer', args[1].toString()];
+                if (method === 'SetVertexShader') this.binding = ['vertexShader', args[1].toString()];
                 if (method === 'SetPixelShader') this.binding = ['pixelShader', args[1].toString()];
                 if (method === 'SetStreamSource' && args[1].toUInt32() === 0)
                     this.binding = ['vertexBuffer', args[2].toString()];

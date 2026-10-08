@@ -592,6 +592,13 @@ programs, native assembly and constants are saved only under ignored `transforms
 The analyzer reports bitwise changed register indices and viewport differences without
 assigning camera or skeletal semantics automatically.
 
+`--inspect-mesh-shaders` also saves the bounded vertex inventory in `mesh-vertices.json`
+and local `vertex-XX.bin` files. The current clean inventory has five programs across
+depth/color/shadow targets. Vertex bindings remain cached after trace intervals, and
+shader IDs are deduplicated independently. Main-color programs have different uniform
+bindings, including outline extrusion/depth terms; normalization must derive and validate
+each program's bindings rather than reuse the first body's register map.
+
 Fresh probe `20261008-005529-384458`, diagnostic `boundary-20261008-011854-057258`,
 passes one exact update/50 blocked opportunities, 51 presentations and eight transform/
 scene/mesh pairs. State/history remain held, source graphics restore and complete native

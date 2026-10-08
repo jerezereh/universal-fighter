@@ -220,7 +220,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     def receive(message,data):
         try: messages.put_nowait((message,data,time.perf_counter()))
         except queue.Full: overflow.append(True)
-    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];layers=[];transforms=[];scene_packets=[];layer_packets=[];render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
+    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];vertices=[];layers=[];transforms=[];scene_packets=[];layer_packets=[];render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
     started=time.perf_counter();started_utc=datetime.datetime.now(datetime.timezone.utc).isoformat();completed=0;next_request=.5 if plan else 1;request_log=[]
     with ReadOnlyProcess(state['pid'],EXE) as process:
         def unchanged():
@@ -230,7 +230,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         try:
             session=bounded_call(frida,lambda:frida.attach(state['pid']))
             source=(ROOT/'tools/xrd-sign-boundary.js').read_text()
-            if layer: source+='\n'+(ROOT/'tools/xrd-sign-layer.js').read_text()
+            if layer or inspect_shaders: source+='\n'+(ROOT/'tools/xrd-sign-layer.js').read_text()
             script=session.create_script(source)
             script.on('message',receive);bounded_call(frida,script.load)
             settings=dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,layer=layer)
@@ -270,6 +270,14 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                             raise ValueError('invalid shader readback')
                         name=f'shader-{len(shaders)+1:02}.bin';(out/name).write_bytes(data)
                         shaders.append(native|dict(file=name,sha256=hashlib.sha256(data).hexdigest()));continue
+                    if message['type']=='send' and message['payload'].get('kind')=='mesh-vertex-shader':
+                        native=message['payload']
+                        if (not inspect_shaders or len(vertices)>=32 or not 8<=len(data)<=65536 or len(data)%4 or
+                                native['code_size']!=len(data) or native.get('read_only') is not True or
+                                not isinstance(native.get('assembly'),str) or not 1<=len(native['assembly'])<=131072):
+                            raise ValueError('invalid vertex shader inspection')
+                        name=f'vertex-{len(vertices)+1:02}.bin';(out/name).write_bytes(data)
+                        vertices.append(native|dict(file=name,sha256=hashlib.sha256(data).hexdigest()));continue
                     if message['type']=='send' and message['payload'].get('kind')=='mesh-layer-skipped':
                         diagnostics.append(message['payload']);continue
                     if message['type']=='send' and message['payload'].get('kind')=='layer-transform':
@@ -376,7 +384,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             errors.append(dict(filter_error='no matching mesh draws suppressed'))
         if inspect_shaders:
             (out/'mesh-shaders.json').write_text(json.dumps(shaders,indent=2));result['mesh_shaders']=len(shaders)
-            if not shaders: errors.append(dict(shader_error='no matching mesh shaders observed'))
+            (out/'mesh-vertices.json').write_text(json.dumps(vertices,indent=2));result['mesh_vertex_shaders']=len(vertices)
+            if not shaders or not vertices: errors.append(dict(shader_error='missing matching mesh shaders'))
     if layer:
         for image in layers:
             try:
