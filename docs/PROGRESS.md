@@ -1514,3 +1514,10 @@ the synthetic architecture gate allows the first real-game adapter.
   renames. `go vet` and `gofmt` are clean.
 - Not done: the Windows importer (item 3) and the IKEMEN wiring (item 4). Hit/contact event
   properties wait for the protocol design.
+- Windows shared-layer importer (`runtime/passthrough_layer_windows.go`, plus a stub for other OSes):
+  syscall-only D3D12 fence wait, D3D11 `OpenSharedResourceByName` and `WGL_NV_DX_interop2`, with a
+  local-texture GPU copy where registering the shared texture is refused. The round-trip test
+  emulates the producer's shared texture and fence, imports them into a hidden GL context and reads
+  back the logical RGBA. It passes in 0.6 s on this machine, and an unsignalled fence value times
+  out instead of blocking. The full runtime suite passes. vet is clean for Windows and for the
+  Linux stub. build-runtime/apply-runtime include the new files. IKEMEN wiring (item 4) is next.

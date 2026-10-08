@@ -120,8 +120,12 @@ pipelining (image for tick N-1 delivered with state for tick N) as an explicit, 
    `accept: ["shared-layer:d3d12"]` at hello. A guest without the capability fails the connection.
    A layer-only reply may omit `image`. Fence values must increase per memory/fence pair. Until
    item 4 lands, the IKEMEN glue panics explicitly if a layer is negotiated.
-3. [ ] Windows importer: D3D12 fence + D3D11 open + WGL DX interop, standalone with a self-test
-   (`runtime/passthrough_layer_windows.go`).
+3. [x] Windows importer: D3D12 fence + D3D11 open + WGL DX interop, standalone with a self-test
+   (`runtime/passthrough_layer_windows.go`; non-Windows stub `passthrough_layer_other.go`).
+   `openSharedLayer` imports by name into the current GL context. `Update(value, timeout)` releases
+   GL ownership, waits for the fence (bounded), refreshes the local copy where the driver refuses
+   to register the shared texture, and locks the texture for GL until the next update.
+   `TestSharedLayerImportRoundTrip` emulates the producer's resources and passes on Intel Iris Xe.
 4. [ ] Host glue: draw the imported texture as `Texture_GL33` in `syncPassthroughRender`;
    `apply-runtime.py` copies the new file. Needs the pinned IKEMEN tree to build.
 5. [ ] Hit/contact event properties (item 3) once the protocol design settles.
