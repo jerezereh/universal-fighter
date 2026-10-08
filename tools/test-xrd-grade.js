@@ -22,6 +22,7 @@ function fixture(failure=null) {
         gate:{resumed:false,executing:false,initialCounter:10},renderCapture:{counter:10},
         Process:{mainModule:{base:{add:()=>({readPointer:()=>({add:()=>({readU32:()=>10})})})}}},
         shaderProgram:()=>({shader:'source-shader',code:Uint8Array.from([1,2,3,4])}),
+        captureBackBuffer:()=>({metadata:{format:failure==='stage-format'?113:21},data:new Uint8Array(4)}),send:()=>{},
         bytes:(p,n)=>p.data.slice(0,n),hex:a=>Buffer.from(a).toString('hex'),
         succeeded:(hr,name)=>{if(hr<0)throw Error(name+' failed');}});
     context.renderState=(device,id)=>states.get(id)||0;
@@ -77,13 +78,13 @@ function fixture(failure=null) {
         }
         throw Error('unexpected COM slot '+slot);
     };
-    context.device=pointer('device');context.d={pixelShader:'source-shader',currentTarget:'source-target'};
+    context.device=pointer('device');context.d={pixelShader:'source-shader',currentTarget:'source-target',events:[]};
     vm.runInContext('let meshLayer={counter:10,texture:null,width:4,height:4,extra:[]};let layerDrawing=false;',context);
     vm.runInContext(fs.readFileSync(__dirname+'/xrd-sign-grade.js','utf8'),context);
     context.hdr=hdr;vm.runInContext('meshLayer.texture=hdr',context);
     return {releases,context,run:()=>vm.runInContext('gradeLayer(device,d)',context),
         runSource:()=>{
-            context.config.layer.source_color=true;context.config.layer.grade.vertex_original_hex='01020304';
+            context.config.layer.source_color=true;context.config.layer.source_view=true;context.config.layer.grade.vertex_original_hex='01020304';
             context.sourceReplay=()=>{assert.equal(boundVertex,vs);assert.equal(fvf,99);assert.equal(boundShader,shader);
                 assert.equal(sampler.get(0).name,'scene');context.replays=(context.replays||0)+1;
                 return failure==='source-draw'?-1:0;};
@@ -99,6 +100,7 @@ const sourceView=fixture();sourceView.context.config.layer.projection=null;sourc
 const sourceColor=fixture();sourceColor.runSource();sourceColor.restore();sourceColor.release();
 assert.equal(sourceColor.context.replays,1);
 const sourceFailure=fixture('source-draw');assert.throws(sourceFailure.runSource,/failed/);sourceFailure.restore();sourceFailure.release();
+const stageFormat=fixture('stage-format');assert.throws(stageFormat.runSource,/native A8/);stageFormat.restore();
 assert.ok(good.releases.includes('copy') && good.releases.includes('texture-1') && good.releases.includes('surface-2'));
 for(const failure of ['block','texture','surface','copy','grade-draw','mask-draw','vertex-setter','pixel-setter']) {
     const f=fixture(failure);assert.throws(f.run,/failed/);f.restore();f.release();

@@ -746,6 +746,14 @@ The source scene and effects are reused wholesale; `full_source_color_replayed` 
 these diagnostics from private HDR grading. Never claim isolated bloom or source color
 from them. Similar error against the final backbuffer calls for a same-presentation original
 color-target comparison before attributing differences to later effects or material replay.
+Original-camera grading also captures that original color target at the same counter and
+presentation, after the native draw and before private processing. `--color-stage` selects
+these reference packets for the offline comparison and verifies stage/shader/state/hash/
+viewport linkage. Its report is separate from final-backbuffer comparisons. Full-source
+control matches interior RGB exactly; the sampled private-input path differs by at most
+one byte in 0.0272% of unexcluded interior pixels. This is base graded RGB evidence only;
+silhouette borders, independent source alpha, final postprocessing and host pivot/scale
+remain separate gates. Native stage readback failures reject the diagnostic.
 
 `--settle-layer` requires normalization, up to four selected requests, no fixed
 `--layer-presentations` and no per-sample transform inspection. It starts candidates at

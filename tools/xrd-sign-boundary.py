@@ -550,7 +550,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         except ValueError as error:
             result['draw_check']=dict(passed=False,error=str(error));errors.append(dict(check_error=str(error)))
         (out/'draw-summary.json').write_text(json.dumps(result['draw_check'],indent=2))
-    if capture_passes:
+    if capture_passes or source_view:
         pass_results=[]
         for native,data in passes:
             try:

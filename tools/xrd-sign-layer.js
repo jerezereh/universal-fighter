@@ -519,6 +519,7 @@ function finishMeshLayer(device) {
             native_color_grading_replayed:Boolean(current.graded),native_bloom_replayed:false,
             source_view_projection:Boolean(config.layer.source_view),
             full_source_color_replayed:Boolean(config.layer.source_color),
+            ...(config.layer.source_view?{source_color_shader:config.layer.grade.shader}:{}),
             ...(current.sourceViewport?{source_viewport:current.sourceViewport}:{}),
             source_graphics_state_verified: current.state_verified, hresult: 0,
             ...(config.layer.projection ? {normalized_projection:true,projection_pivot:config.layer.projection.pivot,

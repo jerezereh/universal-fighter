@@ -40,6 +40,14 @@ function gradeLayer(device,d,replaySource=null) {
         if(replaySource===null || hex(shaderProgram(device,'vertex').code)!==p.vertex_original_hex)
             throw new Error('unverified original color draw/vertex program');
     }
+    if(config.layer.source_view) {
+        const captured=captureBackBuffer(device,root,current.counter,true);
+        if(![21,22].includes(captured.metadata.format))throw new Error('original color-stage capture requires native A8/X8 pixels');
+        send({...captured.metadata,pass_index:((current.counter-g.initialCounter)>>>0)+1,
+            trace_event:d.events.length,presentation_index:renderCapture.presentations+1,
+            request_index:(current.counter-g.initialCounter)>>>0,capture_boundary:'after-original-color-draw',
+            original_color_stage:true,original_color_shader:p.shader,hresult:0},captured.data);
+    }
     const oldPixel=d.pixelShader,oldTarget=d.currentTarget,targets=[],references=[],samplers=[];
     const vp=Memory.alloc(24),vertex=Memory.alloc(4096),pixel=Memory.alloc(224*16);
     let block=ptr(0),depth=ptr(0),lut=ptr(0),sourceShader=ptr(0),sourceVertex=ptr(0),sourceFvf=0,failure=null;

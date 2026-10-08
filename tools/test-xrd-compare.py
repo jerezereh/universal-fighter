@@ -58,6 +58,20 @@ with tempfile.TemporaryDirectory() as temporary:
     try: compare_trace(folder, [(5, 5, 8, 11)])
     except ValueError: pass
     else: raise AssertionError('unexplained exclusion accepted')
+    for i in range(1,5):
+        file=folder/'layers'/f'render-{i:02}.json'; layer=json.loads(file.read_text())
+        layer.update(full_source_color_replayed=True,source_color_shader='0x5000');file.write_text(json.dumps(layer))
+        stage=layer|dict(original_color_stage=True,original_color_shader='0x5000',
+            capture_boundary='after-original-color-draw',raw=f'pass-{i:02}.raw')
+        (folder/stage['raw']).write_bytes(private.tobytes())
+        (folder/f'pass-{i:02}.json').write_text(json.dumps(stage))
+    result=compare_trace(folder,color_stage=True)
+    assert all(s['exact_rgb_fraction']==1 and s['reference_scope']=='original-color-stage' for s in result['samples'])
+    stage_file=folder/'pass-01.json';stage=json.loads(stage_file.read_text())
+    stage_file.write_text(json.dumps(stage|dict(original_color_shader='0x6000')))
+    try: compare_trace(folder,color_stage=True)
+    except ValueError: pass
+    else: raise AssertionError('unlinked stage shader accepted')
     file = folder / 'layers/render-01.json'; metadata = json.loads(file.read_text())
     for field, value in [('source_viewport', [0, 0, 15, 16]), ('counter', 100),
                          ('raw_sha256', '0' * 64), ('normalized_projection', True)]:

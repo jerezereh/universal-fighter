@@ -95,6 +95,13 @@ def main():
         reject(lambda:pass_pixels(meta|changes,b'abcd'+pixels))
     reject(lambda:pass_pixels(meta,b'abcd'+pixels[:-1]))
     print('Native half/float/integer pass decoding, source alpha retention, nonfinite preview handling and bounds passed.')
+    stage=meta|dict(format=21,pixel_bytes=4,pitch=4,capture_boundary='after-original-color-draw',
+        original_color_stage=True,original_color_shader='0x1234',presentation_index=3,request_index=0)
+    pass_pixels(stage,b'abcd'+bytes([1,2,3,255]))
+    for changes in [dict(original_color_stage=False),dict(presentation_index=4),dict(request_index=1),
+                    dict(original_color_shader='0x0'),dict(format=113)]:
+        reject(lambda:pass_pixels(stage|changes,b'abcd'+bytes([1,2,3,255])))
+    print('Original color-stage role, presentation/step, format and shader bounds passed.')
 
 
 if __name__ == '__main__': main()

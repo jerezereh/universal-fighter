@@ -1,5 +1,37 @@
 # Progress record
 
+## 2026-10-08 — Same-presentation color target resolves the base-color uncertainty
+
+- Original-camera grading now reads the original color target immediately after its
+  native draw, before private grading/replay. Four bounded A8/X8 stage packets retain
+  source counter/presentation/request/shader and snapshots. Source-view diagnostics save
+  these separately from final backbuffer captures. Unsupported stage formats fail during
+  instrumentation instead of aborting receipt generation after cleanup.
+- Added `--color-stage` to the comparison: match original shader, counter, presentation,
+  fighter snapshots, hashes and observed viewport before comparing the stage reference.
+  It keeps separate stage/backbuffer and excluded/unfiltered reports. Stage packet role/
+  format/presentation/request guards and mismatched-reference tests pass, along with
+  existing grade/resource/readback/comparison tests and syntax/compile checks. A sandbox
+  temporary-fixture permission failure passes on the normal escalated test rerun.
+- Both native trials pass three exact updates, four original-stage/private/source image
+  sets and source/graphics/hook restoration. Original full-source replay matches all
+  47,786 unexcluded opaque interior RGB pixels exactly in each of four held frames.
+  More importantly, the private HDR/LUT path (without full-source color reuse) matches
+  99.9728% of 47,814 unexcluded interior pixels, with max channel error 1/255 and mean
+  error approximately 0.000091/255 in all four frames. Feet are included in these interior
+  measurements; a two-pixel silhouette border is still excluded. This establishes the
+  sampled original-camera base graded RGB agreement, not independent alpha/foot geometry.
+- In that same private-input trial the final-backbuffer regional mean error remains
+  approximately 5.95/255. The original-stage agreement localizes those differences after
+  the color draw; a specific later pass is not yet identified as the complete cause.
+  Earlier speculation about missing bloom as the dominant error is not supported.
+  Full presentation, silhouette edges, anatomical pivot/host scale, normalized-color
+  fidelity across inputs and persistent source/result/contact ownership remain pending.
+  No producer capability is enabled by these measurements.
+- Evidence: `20261008-222305-484036/boundary-20261008-231102-884880` (full-source control),
+  `boundary-20261008-231639-591930` (private inputs), each with original-color stage and
+  separate comparison reports. Native programs, images and constants remain ignored.
+
 ## 2026-10-08 — Original full-source color draw diagnostic passes
 
 - Added `--source-color-layer`, exclusive to neutral original-camera diagnostics with

@@ -281,6 +281,12 @@ effect inputs and masks the result with private Sol coverage; it never becomes a
 fighter render. Final-backbuffer regional error remains similar, so missing bloom is not
 an established cause. Next compare the original color target at the same held presentation
 before later postprocessing; final color, source-mask/foot and producer gates remain.
+Same-presentation original color-target readback now passes with four linked frames.
+Full-source replay matches interior RGB exactly; private HDR/LUT grading matches 99.9728%
+of unexcluded interior pixels (max channel error 1/255), including sampled foot interiors.
+The final-backbuffer error remains about 5.95/255, localizing it after the color draw.
+Identify the later presentation pass next; this does not establish independent alpha,
+anatomical pivot/host scale, normalized color across inputs or producer capabilities.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

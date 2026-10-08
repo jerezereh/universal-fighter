@@ -75,10 +75,17 @@ def pass_pixels(metadata,data):
                          ('counter',0,0xffffffff),('pass_index',1,24),('trace_event',0,8192)):
         if type(metadata.get(key))!=int or not low<=metadata[key]<=high: raise ValueError('invalid pass '+key)
     if (type(metadata.get('format'))!=int or metadata['format'] not in formats or
-        metadata.get('capture_boundary')!='before-target-switch' or metadata.get('hresult')!=0 or
+        metadata.get('capture_boundary') not in ('before-target-switch','after-original-color-draw') or metadata.get('hresult')!=0 or
         metadata.get('multisample')!=0 or any(metadata.get(k) is not False for k in
             ('atomic_native_frame','isolated_rgba','native_render_latency_verified'))):
         raise ValueError('unsupported/promoted intermediate readback')
+    if metadata['capture_boundary']=='after-original-color-draw' and (
+            metadata.get('original_color_stage') is not True or metadata['format'] not in (21,22) or
+            metadata.get('presentation_index')!=3 or type(metadata.get('request_index'))!=int or
+            not 0<=metadata['request_index']<=3 or metadata['pass_index']!=metadata['request_index']+1 or
+            not re.fullmatch('0x[0-9a-f]{1,8}',metadata.get('original_color_shader','')) or
+            metadata['original_color_shader']=='0x0'):
+        raise ValueError('invalid original color-stage capture')
     dtype,channels=formats[metadata['format']]
     pixel_bytes=np.dtype(dtype).itemsize*channels
     width,height,size=metadata['width'],metadata['height'],metadata['state_size']
@@ -108,7 +115,7 @@ def save_pass(folder,metadata,data,observation):
     name=f"pass-{metadata['pass_index']:02}"
     result={k:v for k,v in metadata.items() if k!='segments'}|analysis|dict(
         image=name+'.png',raw=name+'.raw',raw_sha256=hashlib.sha256(pixels).hexdigest(),
-        observation=observation,first_completed_binding=True)
+        observation=observation,first_completed_binding=metadata['capture_boundary']=='before-target-switch')
     (folder/(name+'.raw')).write_bytes(pixels)
     (folder/(name+'.png')).write_bytes(png_rgb(metadata['width'],metadata['height'],rgb))
     (folder/(name+'.json')).write_text(json.dumps(result,indent=2))
