@@ -1545,3 +1545,9 @@ the synthetic architecture gate allows the first real-game adapter.
   (cold capture path); the producer now primes a frame before announcing readiness.
 - Open: decoupling the exchange from IKEMEN's frame (pipelining or a looser deadline) for 60 FPS;
   hit/contact properties (PASSTHROUGH_V2 item 5) wait for the protocol design.
+- Guest image timing fix: passthrough image and layer updates were queued on sys.mainThreadTask, which
+  IKEMEN drains in await after drawing and swapping, so the guest image lagged its own state and boxes
+  by one frame. Updates now run directly when already on the main (GL) thread, identified inside the
+  first queued task. The layer profile also prints IKEMEN's drawn FPS next to the guest tick rate.
+- Rev2 live after the fix (smoke): ~59 ticks/s, drawn 35-37 mean. The import's interop lock rose to
+  ~3.2 ms before the draw (from ~1 ms after the swap); exchange ~11 ms. Still not playable.

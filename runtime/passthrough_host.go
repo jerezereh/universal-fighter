@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sync/atomic"
 	"time"
 
 	gl "github.com/go-gl/gl/v3.3-core/gl"
@@ -14,6 +15,8 @@ var passthroughLayers = map[*PassthroughRuntime]*sharedLayerImport{}
 
 // UF_LAYER_PROFILE=1: per-runtime averages over ~60 frames of the guest round trip and of the
 // main-thread layer task phases, printed to stdout (the passthrough trace). Main thread only.
+// fps counts guest frames (IKEMEN ticks); drawn is IKEMEN's own smoothed rendered-frame rate, which
+// falls below fps when IKEMEN runs late and skips drawing to catch up.
 var passthroughLayerProfile = os.Getenv("UF_LAYER_PROFILE") == "1"
 
 type layerProfile struct {
@@ -42,8 +45,8 @@ func profileLayerFrame(r *PassthroughRuntime, s *sharedLayerImport, task time.Du
 	}
 	if p.frames == 60 {
 		avg := func(d time.Duration) float64 { return float64(d.Microseconds()) / float64(p.frames) / 1000 }
-		fmt.Printf("[layer-profile] %s fps=%.1f frames=%d exchange=%.2fms task=%.2fms (max %.2fms) unlock=%.2fms wait=%.2fms copy=%.2fms lock=%.2fms\n",
-			r.config.Game, float64(p.frames)/time.Since(p.since).Seconds(), p.frames, avg(p.exchange), avg(p.task), float64(p.maxTask.Microseconds())/1000,
+		fmt.Printf("[layer-profile] %s fps=%.1f drawn=%.1f frames=%d exchange=%.2fms task=%.2fms (max %.2fms) unlock=%.2fms wait=%.2fms copy=%.2fms lock=%.2fms\n",
+			r.config.Game, float64(p.frames)/time.Since(p.since).Seconds(), sys.gameFPS, p.frames, avg(p.exchange), avg(p.task), float64(p.maxTask.Microseconds())/1000,
 			avg(p.unlock), avg(p.wait), avg(p.copy), avg(p.lock))
 		*p = layerProfile{since: time.Now()}
 	}
@@ -60,6 +63,23 @@ func init() {
 	}
 }
 
+// IKEMEN's main (GL) thread, learned inside the first queued task (that goroutine is locked to its OS
+// thread). Guest image updates run directly when the caller is already on it. A queued task runs only in
+// await, after the frame was drawn and swapped, which showed the guest image one frame behind the state
+// and boxes of the tick it belongs to.
+var passthroughMainThread uint32
+
+func runPassthroughOnMain(f func()) {
+	if id := currentThreadID(); id != 0 && id == atomic.LoadUint32(&passthroughMainThread) {
+		f()
+		return
+	}
+	sys.mainThreadTask <- func() {
+		atomic.StoreUint32(&passthroughMainThread, currentThreadID())
+		f()
+	}
+}
+
 // syncPassthroughLayer draws the guest's shared GPU layer (docs/PASSTHROUGH_V2.md item 4): the import is
 // (re)opened when the guest's resources change, then each frame waits for that frame's fence value and
 // hands the texture to GL. Colours are already premultiplied, as IKEMEN's true-colour sprites expect.
@@ -68,7 +88,7 @@ func syncPassthroughLayer(r *PassthroughRuntime, sprite *Sprite, l GuestLayer) {
 	sprite.Offset = [2]int16{int16(math.Round(float64(l.Pivot[0]))), int16(math.Round(float64(l.Pivot[1])))}
 	sprite.coldepth = 32
 	timeout := time.Duration(r.config.TimeoutMS) * time.Millisecond
-	sys.mainThreadTask <- func() {
+	runPassthroughOnMain(func() {
 		started := time.Now()
 		renderer, ok := gfx.(*Renderer_GL33)
 		if !ok {
@@ -100,10 +120,10 @@ func syncPassthroughLayer(r *PassthroughRuntime, sprite *Sprite, l GuestLayer) {
 		if passthroughLayerProfile {
 			profileLayerFrame(r, s, time.Since(started))
 		}
-	}
+	})
 }
 
-// GPU uploads use IKEMEN's main-thread queue; reuse each fighter's texture.
+// GPU uploads run on IKEMEN's main thread (runPassthroughOnMain); reuse each fighter's texture.
 func (c *Char) syncPassthroughRender() {
 	r, ok := c.foreign.(*PassthroughRuntime)
 	if !ok {
@@ -138,7 +158,7 @@ func (c *Char) syncPassthroughRender() {
 	sprite.Size, sprite.Offset, sprite.coldepth = [2]uint16{uint16(i.Width), uint16(i.Height)}, i.Pivot, 32
 	// IKEMEN's true-color path expects premultiplied RGB, unlike the wire format.
 	data := guestTexturePixels(i.RGBA)
-	sys.mainThreadTask <- func() {
+	runPassthroughOnMain(func() {
 		started := time.Now()
 		if sprite.Tex == nil || sprite.Tex.GetWidth() != int32(i.Width) || sprite.Tex.GetHeight() != int32(i.Height) {
 			tex, err := gfx.newTexture(int32(i.Width), int32(i.Height), 32, false)
@@ -151,7 +171,7 @@ func (c *Char) syncPassthroughRender() {
 		if passthroughLayerProfile {
 			profileLayerFrame(r, nil, time.Since(started))
 		}
-	}
+	})
 }
 
 func hasPassthrough() bool {

@@ -16,6 +16,9 @@ type sharedLayerImport struct {
 	GLTexture     uint32
 }
 
+// currentThreadID is unknown here: runPassthroughOnMain always queues.
+func currentThreadID() uint32 { return 0 }
+
 func openSharedLayer(l GuestLayer) (*sharedLayerImport, error) {
 	return nil, fmt.Errorf("shared GPU layers require Windows")
 }

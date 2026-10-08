@@ -29,7 +29,14 @@ var (
 	ptCreateEvt  = ptKernel32.NewProc("CreateEventW")
 	ptWaitObject = ptKernel32.NewProc("WaitForSingleObject")
 	ptCloseH     = ptKernel32.NewProc("CloseHandle")
+	ptThreadID   = ptKernel32.NewProc("GetCurrentThreadId")
 )
+
+// currentThreadID identifies IKEMEN's main (GL) thread for runPassthroughOnMain.
+func currentThreadID() uint32 {
+	id, _, _ := ptThreadID.Call()
+	return uint32(id)
+}
 
 const (
 	ptGLTexture2D       = 0x0DE1
