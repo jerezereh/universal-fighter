@@ -259,6 +259,12 @@ Both original facings produce canonical right-facing private pixels. Readiness v
 through presentation 10, so fixed-delay publication is still rejected. Reset distant
 offline Sol/Ky training next for the source render/effects comparison; final color,
 anatomical pivot/host scale and persistent result/contact ownership remain gates.
+Original-camera private grading now passes four source-linked captures with an observed
+1366x768 viewport inside the 1920x1080 internal allocation. Direct viewport cropping
+replaces an invalid whole-allocation resize. Interior RGB comparison reports remaining
+differences but the original HUD overlaps Sol's feet, so final material color/effects
+acceptance requires a HUD-free reference or observed overlay exclusion. The diagnostic
+tool rejects stale/unaligned evidence and never enables producer capabilities.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

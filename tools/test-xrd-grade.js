@@ -78,7 +78,7 @@ function fixture(failure=null) {
         throw Error('unexpected COM slot '+slot);
     };
     context.device=pointer('device');context.d={pixelShader:'source-shader',currentTarget:'source-target'};
-    vm.runInContext('let meshLayer={counter:10,texture:null,extra:[]};let layerDrawing=false;',context);
+    vm.runInContext('let meshLayer={counter:10,texture:null,width:4,height:4,extra:[]};let layerDrawing=false;',context);
     vm.runInContext(fs.readFileSync(__dirname+'/xrd-sign-grade.js','utf8'),context);
     context.hdr=hdr;vm.runInContext('meshLayer.texture=hdr',context);
     return {releases,context,run:()=>vm.runInContext('gradeLayer(device,d)',context),
@@ -88,6 +88,7 @@ function fixture(failure=null) {
         release:()=>vm.runInContext('for(const resource of meshLayer.extra)com(resource,2,"uint",[])(resource)',context)};
 }
 const good=fixture();good.run();good.restore();good.release();assert.equal(vm.runInContext('Boolean(meshLayer.graded)',good.context),true);
+const sourceView=fixture();sourceView.context.config.layer.projection=null;sourceView.run();sourceView.restore();sourceView.release();
 assert.ok(good.releases.includes('copy') && good.releases.includes('texture-1') && good.releases.includes('surface-2'));
 for(const failure of ['block','texture','surface','copy','grade-draw','mask-draw','vertex-setter','pixel-setter']) {
     const f=fixture(failure);assert.throws(f.run,/failed/);f.restore();f.release();

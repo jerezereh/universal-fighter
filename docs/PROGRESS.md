@@ -1,5 +1,39 @@
 # Progress record
 
+## 2026-10-08 — Original-camera graded comparison and observed viewport bounds
+
+- Verified the user-positioned distant offline Sol/Ky scene in SIGN PID 36644, excluding
+  concurrent Rev2. Rebuilt owner/input, screen and mesh evidence for this process.
+- Added opt-in `--source-view-layer` for neutral original-camera grading diagnostics.
+  It rejects normalized projection, input plans, readiness/transform sampling and custom
+  capture selections. Private targets retain native allocation dimensions; grading now
+  uses those owned dimensions rather than assuming a normalized projection object.
+  Metadata records the observed original mesh viewport. No host boundary changed.
+- Two native source-view trials each pass three exact updates, four linked source/private
+  captures, all 13 mesh draws and source/graphics/hook restoration. The internal target
+  is 1920x1080 but the observed viewport/backbuffer is 1366x768. A preliminary whole-image
+  resize produces misleading errors and is withdrawn. The comparison now requires the
+  observed matching viewport and crops unused allocation space without resampling.
+- Added `xrd_compare.py`: checks clean native-header/source/input/restoration receipts,
+  raw hashes, paired counters/presentations/fighter snapshots and opaque coverage. It
+  excludes a two-pixel silhouette border and reports diagnostic interior RGB differences,
+  never color fidelity, independent source alpha, geometry acceptance or publishability.
+  Four samples have approximately 8.35..8.40/255 mean channel error and 50.46% exact RGB;
+  the source HUD overlaps the feet, so these are mixed diagnostics, not material fidelity.
+  Error-map inspection concentrates the largest differences at the HUD-covered feet.
+- Authored comparison tests reject stale hashes/counters, wrong viewport, normalized
+  frames, partial/clipped/leaking masks and empty interiors. Grading/layer/boundary tests,
+  83 native-header device ABI checks, JavaScript syntax and Python compilation pass.
+  Sandbox fixture creation fails on temporary-directory permissions; the affected
+  comparison/boundary tests pass outside the sandbox. No test failure is hidden.
+- Next obtain a HUD-free original reference (if SIGN offers a display toggle) or define
+  an explicitly observed overlay exclusion before attributing remaining RGB differences
+  to native effects. Bloom/blur/SMAA, final color, anatomical pivot/host scale and persistent
+  result/contact ownership stay pending. Retail programs/images remain ignored.
+- Evidence: probe `20261008-222305-484036`; source-view trials
+  `boundary-20261008-222950-043767` and `boundary-20261008-223440-453922`; accepted diagnostic
+  coordinate comparison is the latter's `source-comparison.json`, with `source-error-heat.png`.
+
 ## 2026-10-08 — Graded movement, standing Punch and full crossover pass
 
 - Repeated the native render oracles with private HDR/native grading/coverage enabled.

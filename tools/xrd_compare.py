@@ -1,0 +1,89 @@
+"""Measure original-camera private grading versus source RGB; never promote fidelity."""
+import hashlib
+import json
+from pathlib import Path
+import re
+
+from xrd_layer import layer_pixels
+
+
+def compare_pixels(source, private):
+    import numpy as np
+    if (source.dtype != np.uint8 or private.dtype != np.uint8 or source.shape != private.shape or
+            source.ndim != 3 or source.shape[2] != 4 or any(not 5 <= n <= 2048 for n in source.shape[:2])):
+        raise ValueError('requires matching bounded BGRA source/private images')
+    covered = private[:, :, 3] == 255
+    if not np.isin(private[:, :, 3], [0, 255]).all() or not covered.any() or covered.all():
+        raise ValueError('requires partial opaque native coverage')
+    if np.any(private[~covered, :3]) or any(np.any(edge) for edge in
+            (covered[0], covered[-1], covered[:, 0], covered[:, -1])):
+        raise ValueError('leaking RGB or clipped source-view coverage')
+    height, width = covered.shape
+    padded = np.pad(covered, 2)
+    interior = np.ones_like(covered)
+    for y in range(5):
+        for x in range(5):
+            interior &= padded[y:y + height, x:x + width]
+    if not interior.any():
+        raise ValueError('no opaque interior after excluding two-pixel edges')
+    delta = abs(source[interior, :3].astype('int16') - private[interior, :3].astype('int16'))
+    return dict(covered_pixels=int(covered.sum()), interior_pixels=int(interior.sum()),
+        edge_exclusion_pixels=2, mean_absolute_rgb_error=float(delta.mean()),
+        p95_absolute_channel_error=float(np.percentile(delta, 95)), max_channel_error=int(delta.max()),
+        exact_rgb_fraction=float(np.all(delta == 0, axis=1).mean()),
+        source_mask_is_private_coverage=True, geometry_alignment_verified=False,
+        color_verified=False, isolated_rgba=False, host_publishable=False)
+
+
+def compare_trace(folder):
+    import numpy as np
+    receipt = json.loads((folder / 'inspection.json').read_text())
+    if (receipt['errors'] or not all(receipt.get(k) is True for k in
+            ('loaded_code_restored', 'detached', 'source_unchanged', 'controlled_update_step_verified',
+             'source_input_routing_verified', 'private_layer_state_restored')) or
+            receipt.get('d3d_abi', {}).get('native_header_checked') is not True or
+            receipt.get('render_cleanup', {}).get('render_code_restored') is not True):
+        raise ValueError('requires clean source/input/graphics/native-ABI evidence')
+    files = sorted((folder / 'layers').glob('render-[0-9][0-9].json'))
+    if len(files) != 4:
+        raise ValueError('requires four bounded neutral source-view captures')
+    results = []
+    for file in files:
+        layer = json.loads(file.read_text())
+        scene = json.loads((folder / file.name).read_text())
+        if (layer.get('source_view_projection') is not True or layer.get('normalized_projection') or
+                layer.get('native_color_grading_replayed') is not True or
+                layer.get('frame_readiness_candidate') or
+                any(layer[k] != scene[k] for k in ('counter', 'presentation_index')) or
+                layer['observation']['fighters'] != scene['observation']['fighters']):
+            raise ValueError('unlinked or normalized/non-graded source-view comparison')
+        images = []
+        for directory, metadata in ((folder, scene), (folder / 'layers', layer)):
+            if not re.fullmatch(r'render-[0-9]{2}\.bgra', metadata['raw']):
+                raise ValueError('invalid raw capture filename')
+            raw = (directory / metadata['raw']).read_bytes()
+            if hashlib.sha256(raw).hexdigest() != metadata['raw_sha256']:
+                raise ValueError('native pixel hash changed')
+            if directory == folder / 'layers':
+                layer_pixels(metadata, raw)
+            images.append(np.frombuffer(raw, dtype='uint8').reshape(metadata['height'], metadata['width'], 4))
+        # Larger internal allocations can contain a backbuffer-sized viewport. Never
+        # resize the entire allocation and misidentify geometry errors as color errors.
+        if (layer.get('source_viewport') != [0, 0, scene['width'], scene['height']] or
+                scene['width'] > layer['width'] or scene['height'] > layer['height']):
+            raise ValueError('source/private viewport alignment is not observed')
+        images[1] = images[1][:scene['height'], :scene['width']]
+        results.append(dict(counter=layer['counter'], capture=file.name,
+            private_dimensions=[layer['width'], layer['height']],
+            source_dimensions=[scene['width'], scene['height']],
+            comparison_resampling='none', source_viewport_crop=True, **compare_pixels(*images)))
+    result = dict(samples=results, diagnostic_only=True, color_verified=False, host_publishable=False)
+    (folder / 'source-comparison.json').write_text(json.dumps(result, indent=2))
+    return result
+
+
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('trace', type=Path)
+    print(json.dumps(compare_trace(parser.parse_args().trace.resolve()), indent=2))

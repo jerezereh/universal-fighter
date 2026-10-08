@@ -105,7 +105,7 @@ function createLayer(device, counter, sourceTarget, sourceDepth = null) {
         const owned=textureTarget(device,width,height,113);texture=owned.texture;output.writePointer(owned.surface);
     } else succeeded(com(device, 28, 'int', ['uint','uint','uint','uint','uint','uint','pointer','pointer'])(
         device, width, height, config.layer.hdr?113:21, 0, 0, 0, output, ptr(0)), 'CreateRenderTarget');
-    meshLayer = {target: output.readPointer(),texture,extra:texture?[texture]:[], counter, shaders: new Map(), draws: 0, cleared: false, state_verified: true};
+    meshLayer = {target: output.readPointer(),texture,width,height,extra:texture?[texture]:[], counter, shaders: new Map(), draws: 0, cleared: false, state_verified: true};
     if (projection) {
         if (sourceDepth===null || sourceDepth.isNull()) throw new Error('missing native depth description');
         succeeded(com(sourceDepth,12,'int',['pointer'])(sourceDepth,desc),'depth GetDesc');
@@ -392,6 +392,8 @@ function replayMeshDraw(device, original, values, d) {
             succeeded(com(device,40,'int',['pointer'])(device,output),'GetDepthStencilSurface');sourceDepth=output.readPointer();
         }
         if (meshLayer === null) createLayer(device, counter, targets[0][1],sourceDepth);
+        if(p.source_view && !meshLayer.sourceViewport)
+            meshLayer.sourceViewport=Array.from({length:4},(_,i)=>viewport.add(i*4).readU32());
         if (meshLayer.counter !== counter) throw new Error('source advanced during private replay');
         inspectLayerTransform(device,d,counter,viewport);
         const shader = layerShader(device, sourceShader, p.programs[oldPixel]);
@@ -477,6 +479,8 @@ function finishMeshLayer(device) {
             replayed_draws: current.draws, skipped_draws_total: layerSkipped,
             color_product_draws_total: layerColorBlends,
             native_color_grading_replayed:Boolean(current.graded),native_bloom_replayed:false,
+            source_view_projection:Boolean(config.layer.source_view),
+            ...(current.sourceViewport?{source_viewport:current.sourceViewport}:{}),
             source_graphics_state_verified: current.state_verified, hresult: 0,
             ...(config.layer.projection ? {normalized_projection:true,projection_pivot:config.layer.projection.pivot,
                 pixels_per_world_unit:config.layer.projection.pixels_per_world_unit,

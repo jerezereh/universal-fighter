@@ -717,6 +717,17 @@ Source bloom/blur/SMAA, final color fidelity, anatomical pivot and host scale re
 unaccepted. No connected producer, persistent result ownership or universal contact
 capability follows from these bounded render checks.
 
+`--source-view-layer` provides a separate neutral grading diagnostic with original camera
+constants and viewport, without normalization, input plans or readiness claims. Native
+allocation dimensions can exceed the used viewport: the observed 1920x1080 scene target
+uses a 1366x768 viewport/backbuffer. Do not scale the entire allocation to compare pixels.
+Run `python tools/xrd_compare.py <source-view-trace>` to verify linked/hash-clean captures
+and the observed viewport, crop unused allocation space and measure opaque interior RGB.
+The mask comes from private coverage; it is not an independently recovered source alpha.
+The current source HUD covers the feet and contributes large errors. These measurements
+do not establish geometry/material fidelity or isolate bloom/AA errors. Keep all source
+images and program inventories local and obtain an unobscured reference before acceptance.
+
 `--settle-layer` requires normalization, up to four selected requests, no fixed
 `--layer-presentations` and no per-sample transform inspection. It starts candidates at
 presentation 3 and compares complete native pixel buffers from consecutive renders at

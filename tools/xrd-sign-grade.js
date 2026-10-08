@@ -72,7 +72,7 @@ function gradeLayer(device,d) {
         if(lut.isNull())throw new Error('missing native grading LUT');
         output.writePointer(ptr(0));succeeded(com(device,59,'int',['uint','pointer'])(device,1,output),'grading state block');
         block=output.readPointer();references.push(block);
-        const colored=textureTarget(device,config.layer.projection.width,config.layer.projection.height,21);
+        const colored=textureTarget(device,current.width,current.height,21);
         current.extra.push(colored.texture,colored.surface);
         const black=textureTarget(device,1,1,21);current.extra.push(black.texture,black.surface);
         succeeded(com(device,39,'int',['pointer'])(device,ptr(0)),'grading disable depth');
@@ -81,7 +81,7 @@ function gradeLayer(device,d) {
         succeeded(com(device,43,'int',['uint','pointer','uint','uint','float','uint'])(device,0,ptr(0),1,0xff000000,1,0),'grading black clear');
         succeeded(com(device,37,'int',['uint','pointer'])(device,0,colored.surface),'grading color target');
         const privateVp=Memory.alloc(24);privateVp.writeByteArray(bytes(vp,24));privateVp.writeU32(0);privateVp.add(4).writeU32(0);
-        privateVp.add(8).writeU32(config.layer.projection.width);privateVp.add(12).writeU32(config.layer.projection.height);
+        privateVp.add(8).writeU32(current.width);privateVp.add(12).writeU32(current.height);
         privateVp.add(16).writeFloat(0);privateVp.add(20).writeFloat(1);
         succeeded(com(device,47,'int',['pointer'])(device,privateVp),'grading viewport');
         succeeded(com(device,92,'int',['pointer'])(device,ptr(0)),'grading fixed vertex shader');
@@ -93,7 +93,7 @@ function gradeLayer(device,d) {
             for(const [state,value] of [[1,3],[2,3],[11,0]])succeeded(com(device,69,'int',['uint','uint','uint'])(device,slot,state,value),'grading sampler state');
         }
         succeeded(com(device,107,'int',['pointer'])(device,sourceShader),'native grading shader');
-        const quad=gradingQuad(config.layer.projection.width,config.layer.projection.height,false);
+        const quad=gradingQuad(current.width,current.height,false);
         succeeded(com(device,83,'int',['uint','uint','pointer','uint'])(device,5,2,quad,48),'native private grading draw');
         const copy=Memory.alloc(p.copy_hex.length/2);copy.writeByteArray(p.copy_hex.match(/../g).map(x=>parseInt(x,16)));
         output.writePointer(ptr(0));succeeded(com(device,106,'int',['pointer','pointer'])(device,copy,output),'coverage copy shader');
@@ -105,7 +105,7 @@ function gradeLayer(device,d) {
         for(const [state,value] of [[1,3],[2,3],[5,1],[6,1],[7,0],[11,0]])
             succeeded(com(device,69,'int',['uint','uint','uint'])(device,p.copy_sampler,state,value),'coverage point sampler');
         for(const [id,value] of gradingBlendStates(true))succeeded(com(device,57,'int',['uint','uint'])(device,id,value),'coverage blend state');
-        const mask=gradingQuad(config.layer.projection.width,config.layer.projection.height,true);
+        const mask=gradingQuad(current.width,current.height,true);
         succeeded(com(device,83,'int',['uint','uint','pointer','uint'])(device,5,2,mask,48),'native coverage draw');
         current.graded=colored.surface;
     } finally {

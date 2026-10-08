@@ -192,7 +192,7 @@ def grading_programs(folder,state):
         copy_hex=copy_code.hex(),copy_sampler=copy_table['InTexture'][1],copy_constant=copy_table['TextureComponentReplicateAlpha'][1])
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False):
     receipt=json.loads((probe/'inspection.json').read_text())
     state=json.loads((probe/'state-profile.json').read_text())
     if scalar_path:
@@ -232,7 +232,9 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if capture_passes and not trace_draws: raise ValueError('render-pass capture requires a draw trace')
     if hdr and (not layer_path or not normalize or settle or plan_path or layer_presentations):
         raise ValueError('HDR diagnostic requires normalized neutral layer without readiness/input-plan claims')
-    if grade_path and (not layer_path or not normalize or hdr):raise ValueError('native grading requires a normalized A8 output layer')
+    if source_view and (not grade_path or normalize or settle or plan_path or inspect_transforms or hdr or layer_presentations or layer_steps):
+        raise ValueError('source-view comparison requires exclusive neutral graded capture without normalization/readiness claims')
+    if grade_path and (not layer_path or not (normalize or source_view) or hdr):raise ValueError('native grading requires normalized or diagnostic source-view A8 output')
     if inspect_screen and (not trace_draws or not capture or suppress_path and not layer_path or plan_path):
         raise ValueError('screen shader observation requires exclusive neutral capture/draw trace')
     identity=None
@@ -253,6 +255,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         if not identity or inspect_shaders: raise ValueError('layer capture requires exclusive mesh identity')
         layer=layer_programs(layer_path,state,identity,normalize)
         layer['hdr']=hdr or bool(grade_path)
+        layer['source_view']=source_view
         if grade_path:layer['grade']=grading_programs(grade_path,state)
         layer['capture_steps']=capture_steps(layer_steps or '0,1,2,3')
         layer['presentations']=capture_presentations(layer_presentations or '3',layer['capture_steps'])
@@ -616,6 +619,7 @@ if __name__=='__main__':
     p.add_argument('--settle-layer',action='store_true',help='with --normalize-layer: wait for two consecutive identical native layers at one held source counter, bounded through presentation 24')
     p.add_argument('--hdr-layer',action='store_true',help='normalized neutral diagnostic: preserve native float16 RGB/opaque alpha; no settling/publication claim')
     p.add_argument('--grade-layer',type=Path,help='clean same-session screen program inspection: native private HDR grading and coverage into A8 output')
+    p.add_argument('--source-view-layer',action='store_true',help='neutral grading diagnostic: retain original camera/pixel coordinates for source comparison; no readiness claim')
     a=p.parse_args()
     if not 0<a.seconds<=120: p.error('seconds must be 0..120')
     if a.lease_check and not a.gate: p.error('--lease-check requires --gate')
@@ -623,4 +627,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer)
