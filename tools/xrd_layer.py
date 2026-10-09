@@ -126,7 +126,7 @@ def settling_oracle(layers,scenes,steps,presentations):
 
 
 def render_oracle(kind,layers,scenes,steps):
-    if kind not in ('render-motion','render-attack','render-framing','render-facing','render-neutral'): raise ValueError('unknown native render oracle')
+    if kind not in ('render-motion','render-attack','render-framing','render-facing','render-neutral','render-position'): raise ValueError('unknown native render oracle')
     if ([c.get('request_index') for c in layers]!=steps or [c.get('request_index') for c in scenes]!=steps or
             any(c.get('counter')!=s.get('counter') or c['observation']['fighters']!=s['observation']['fighters']
                 for c,s in zip(layers,scenes))):
@@ -146,7 +146,7 @@ def render_oracle(kind,layers,scenes,steps):
     normal=[c for c in layers if any(n['value']=='NmlAtk5A' for n in c['observation']['fighters'][0]['state_candidates'])]
     active=any(c['observation']['fighters'][0]['hit_count']>0 for c in normal)
     changed=len({c['alpha_sha256'] for c in layers})>1 and len({c['rgb_sha256'] for c in layers})>1
-    if kind in ('render-framing','render-facing','render-neutral'):
+    if kind in ('render-framing','render-facing','render-neutral','render-position'):
         if any(c.get('normalized_projection') is not True or c.get('canonical_right_facing') is not True or
                 c.get('source_facing_left')!=c['observation']['fighters'][0]['facing_left'] or
                 c.get('projection_pivot')!=layers[0].get('projection_pivot') or c.get('touches_target_edge') is not False
@@ -157,6 +157,7 @@ def render_oracle(kind,layers,scenes,steps):
         risen=any(b['y_raw']>a['y_raw']+10000 for a,b in zip(native,native[1:]))
         # Canonicalizing the same idle pose across a crossover can preserve its silhouette.
         if kind=='render-neutral': passed=True
+        elif kind=='render-position': passed=(walked_left or walked_right) and all(f['y_raw']==0 and f['hit_count']==0 for f in native)
         elif kind=='render-framing': passed=walked_left and walked_right and risen and changed
         else: passed={f['facing_left'] for f in native}=={False,True}
     else: passed=(left and right and jump if kind=='render-motion' else bool(normal) and active) and changed
@@ -165,7 +166,7 @@ def render_oracle(kind,layers,scenes,steps):
         active_normal_rendered=active,mesh_images_changed=changed,
         clipped_render_steps=[c['request_index'] for c in layers if c.get('touches_target_edge')],
         native_render_latency_verified=False,atomic_native_frame=False,isolated_rgba=False)
-    if kind in ('render-framing','render-facing','render-neutral'):
+    if kind in ('render-framing','render-facing','render-neutral','render-position'):
         result.update(camera_independent_projection=True,native_walk_left=walked_left,
             native_walk_right=walked_right,native_rise=risen,source_facings=sorted({f['facing_left'] for f in native}))
     return result

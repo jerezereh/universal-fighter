@@ -1,5 +1,37 @@
 # Progress record
 
+## 2026-10-09 — Fresh-session positioning oracle
+
+- SIGN restarted as PID22700 with a different module load address. Rebuilt the module
+  probe, actual code-derived observation profile, enclosing-function/input validation,
+  mesh identities/programs and native screen/quad/lookup inventory. Prior heap pointers,
+  graphics IDs and receipts were not treated as current. New default offline Sol/Ky
+  scene has both fighters grounded with idle poses and no active boxes.
+- One pre-start observer attachment timeout remains rejected. Clean observer then
+  records 138 uninterrupted increments. Fresh gate/render, mesh and 13-stage screen
+  repeats each pass three exact updates and source/graphics hook restoration.
+  Evidence under ignored `20261009-173227-222153`: observer
+  `boundary-20261009-173403-281840`, draw identity
+  `boundary-20261009-173459-153541`, mesh inventory
+  `boundary-20261009-173556-218209`, screen inventory
+  `boundary-20261009-173702-803954`. Loaded hashes differ with relocation; installed
+  executable identity and fresh actual loaded code remain independently checked.
+- Added `render-position` to the existing native rendering oracle. It requires observed
+  horizontal movement, zero vertical displacement/active attack boxes in selected samples,
+  canonical normalized geometry and the existing state/image/counter/restoration checks.
+  It permits positioning through verified original inputs instead of guessed coordinates
+  or menu keys. Authored checks reject unchanged, airborne and attacking samples; existing
+  layer/HDR/framing/facing/unit checks pass.
+- Native 24-step forward positioning passes in `boundary-20261009-173857-550785`:
+  24 exact updates, 29 blocked opportunities, four linked captures, grounded movement,
+  neutral opponent inputs and clean restoration. Both selected samples have identical
+  consecutive private pixels, with no clipping; body position changes in the source,
+  while private camera framing stays canonical. No clock/scene/presentation limit changes.
+- Next run the 97-step crossover from the fresh session's left-side start after checking
+  the current spacing. The previous interrupted 135-step runs remain unaccepted; separate
+  positioning and crossover trials do not prove persistent transaction ownership. Foot/
+  scale, silhouette alpha, source producer and universal contacts/results remain pending.
+
 ## 2026-10-08 — Mirrored crossover scene gate
 
 - The shorter mirrored crossover compiles to 97 requests, using ten approach frames

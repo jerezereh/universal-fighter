@@ -329,6 +329,11 @@ from the current right-side position; no complete 135-step postprocess proof is 
 The 97-request mirrored plan is ready but its first run is blocked before any input by
 the existing minimum non-contact separation guard. Move Sol farther right of Ky manually,
 with approximately default starting separation and both idle, before that next check.
+After the game restart, fresh actual-code/graphics observations are rebuilt for the new
+process and module address. A grounded positioning oracle now passes 24 source forward
+steps through verified ingress with settled private images and restored state. Next run
+the shorter crossover from the current left-side setup; independent trials do not prove
+persistent transaction ownership and the incomplete 135-step evidence remains rejected.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

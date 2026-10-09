@@ -76,6 +76,13 @@ for c in normalized:
     c.update(normalized_projection=True,canonical_right_facing=True,source_facing_left=False,
         projection_pivot=[10,15],source_render_origin=[0,0,0,1],touches_target_edge=False,width=20,height=20)
 assert render_oracle('render-framing',normalized,copy.deepcopy(normalized),steps)['passed']
+positioned=copy.deepcopy(normalized[:2]);position_steps=steps[:2]
+assert render_oracle('render-position',positioned,copy.deepcopy(positioned),position_steps)['passed']
+unchanged=copy.deepcopy(positioned);unchanged[1]['observation']['fighters'][0]['x_raw']=unchanged[0]['observation']['fighters'][0]['x_raw']
+assert not render_oracle('render-position',unchanged,copy.deepcopy(unchanged),position_steps)['passed']
+for field,value in [('y_raw',20000),('hit_count',1)]:
+    bad=copy.deepcopy(positioned);bad[1]['observation']['fighters'][0][field]=value
+    assert not render_oracle('render-position',bad,copy.deepcopy(bad),position_steps)['passed']
 pairs=[]
 for c in normalized:
     for p in (4,5):
