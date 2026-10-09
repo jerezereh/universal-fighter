@@ -445,6 +445,7 @@ function observePresent() {
                     this.stopping = stopRequested;
                     if (this.stopping) { this.valid = true; return; }
                     const root = Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
+                    if(root.isNull())return; // Offline menus can render without a battle engine.
                     this.counter = root.add(4 + config.candidate.counter_field).readU32();
                     this.device = args[0].toString(); this.method = method.method; this.valid = true;
                     if (config.trace_draws && this.method === 'Present' && gate !== null && !gate.resumed) {
@@ -696,6 +697,19 @@ function armGateRemoval() {
     }, 12000);
 }
 
+function verifyGateOwner(checkState=true) {
+    try {
+        const root=Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
+        if(!root.equals(gate.root))throw new Error('transaction scene changed');
+        if(checkState)assertTransactionHeld(gate,root.add(4+config.candidate.counter_field).readU32(),transactionState(root));
+    } catch(error) {
+        gate.resumed=true;gate.credits=0;gate.frameReady=null;
+        send({kind:'error',phase:'gate',message:String(error)+'; original execution resumed',
+            ...(error.ownership_changes?{ownership_changes:error.ownership_changes}:{})});
+        throw error;
+    }
+}
+
 function finishStop() {
     const skipped = drawFilter === null ? 0 : drawFilter.skipped;
     removeDrawFilter();
@@ -780,18 +794,7 @@ rpc.exports = {
             gate.frameReady === null || expectedCounter !== gate.frameReady ||
             ((expectedCounter-gate.initialCounter)>>>0) >= 3))
             throw new Error('transaction frame not ready, stale or exhausted');
-        if (gate.ownsState) {
-            try {
-                const root=Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
-                if(!root.equals(gate.root))throw new Error('transaction scene changed');
-                assertTransactionHeld(gate,root.add(4+config.candidate.counter_field).readU32(),transactionState(root));
-            } catch(error) {
-                gate.resumed=true;gate.credits=0;gate.frameReady=null;
-                send({kind:'error',phase:'gate',message:String(error)+'; original execution resumed',
-                    ...(error.ownership_changes?{ownership_changes:error.ownership_changes}:{})});
-                throw error;
-            }
-        }
+        if (gate.ownsState) verifyGateOwner();
         if (!gate.renewable) gate.deadline = Date.now() + 8000;
         gate.frameReady = null;
         gate.inputs = inputs.slice();
@@ -801,6 +804,8 @@ rpc.exports = {
     heartbeat() {
         if (gate === null || !gate.renewable || gate.resumed || Date.now() > gate.deadline)
             throw new Error('renewable gate unavailable or expired');
+        // Check scene identity even when updates stop; in-flight owned state may change.
+        if(gate.ownsState)verifyGateOwner(!gate.pending && !gate.executing);
         gate.deadline = Date.now() + 8000;
         armGateRemoval();
         return {renewed: true, lease_seconds: 8};

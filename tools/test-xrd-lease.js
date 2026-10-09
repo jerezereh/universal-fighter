@@ -28,7 +28,7 @@ assert.throws(()=>api.start({transactions:1}),/invalid transaction/);
 assert.throws(()=>api.start({transactions:true,renewable:true,gate:{}}),/four consecutive/);
 vm.runInContext(fs.readFileSync('tools/xrd-sign-layer.js','utf8'),c);
 c.send=()=>{};
-const root={equals:()=>true,add:offset=>({readU32:()=>100,
+const root={equals:p=>p===root,add:offset=>({readU32:()=>100,
     readPointer:()=>({isNull:()=>false,toString:()=>`actor-${offset}`,add:()=>({readS32:()=>0})})})};
 c.Process={mainModule:{base:{add:()=>({readPointer:()=>root})}}};
 run(`config={input:true,transactions:true}; gate={renewable:true,resumed:false,pending:false,
@@ -66,6 +66,15 @@ run('config.state.ownership_age_field=13');assert.throws(()=>run('transactionSta
 run('config.state.ownership_age_field=12');
 run('gate.frameReady=100;gate.lastCounter=101');assert.throws(()=>api.step([0,0],100),/outside owned/);
 assert.equal(run('gate.resumed'),true);assert.equal(run('gate.frameReady'),null);
+run('gate.resumed=false;gate.lastCounter=100;gate.heldState=transactionState(gate.root)');
+assert.equal(api.heartbeat().renewed,true);
+run('gate.pending=true;gate.lastCounter=101'); // owned return not published yet
+assert.equal(api.heartbeat().renewed,true);
+const armedBeforeSceneChange=armed,deadlineBeforeSceneChange=run('gate.deadline');
+c.Process.mainModule.base.add=()=>({readPointer:()=>({equals:()=>false})});
+assert.throws(()=>api.heartbeat(),/scene changed/); // still checks root during a pending credit
+assert.equal(run('gate.resumed'),true);assert.equal(run('gate.credits'),0);
+assert.equal(run('gate.deadline'),deadlineBeforeSceneChange);assert.equal(armed,armedBeforeSceneChange);
 run('config.layer={};gate.credits=1;meshLayer={};armGateRemoval()');timer();
 assert.equal(run('gate.resumed'),true);assert.equal(run('gate.credits'),0);
 assert.equal(run('stopRequested && layerStopping'),true); // renderer thread owns COM teardown

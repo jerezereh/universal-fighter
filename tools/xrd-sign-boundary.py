@@ -527,6 +527,12 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                     states.append(observation['fighters'])
                     if native['executed']: completed+=1
         except Exception as error:
+            # RPC rejection can arrive before the loop reads its queued native diagnostic.
+            while True:
+                try: message,_,_=messages.get_nowait()
+                except queue.Empty: break
+                if message.get('type')=='send' and message.get('payload',{}).get('kind')=='error':
+                    errors.append(message)
             errors.append(dict(controller_error=repr(error),controller_phase=phase))
         finally:
             # A failed RPC must not prevent script/session teardown from removing the hook.

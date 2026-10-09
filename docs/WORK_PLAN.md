@@ -403,6 +403,13 @@ agreement and four settled state/image pairs. Exact plan counts and unsupported 
 reject. Continuous streaming/input coverage remain unverified. Next manual lifecycle
 check: leave and re-enter offline Sol/Ky training to validate scene invalidation and fresh
 state/render identity discovery before automatic rebind or live producer capabilities.
+Read-only exit/re-entry now proves battle absence at character selection and new root/
+fighter objects on returning to training. Heartbeat checks scene identity before renewal,
+including pending credits, and normal native recovery passes with fresh new-scene state.
+Empty-battle rendering avoids counter dereferences; queued RPC errors are retained.
+Active held-exit rejection/menu branches still need the prepared synchronized manual
+test. Re-derive render inventories before using new-scene assets; automatic rebind is
+not accepted by these read-only observations.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

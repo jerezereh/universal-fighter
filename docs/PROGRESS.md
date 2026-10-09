@@ -1,5 +1,42 @@
 # Progress record
 
+## 2026-10-09 — Scene absence/re-entry and heartbeat ownership
+
+- Initial held exit attempt `20261009-214454-210641/boundary-20261009-222934-663911`
+  does not leave training: 3,179 blocked updates, unchanged state, clean lease recovery
+  and restoration. Do not infer that the gate blocked menus: subsequent screenshots show
+  Close selected and keyboard confirmation/navigation needs clarification.
+- Read-only exact-window screenshots establish W/S selection, U confirm, O return,
+  Character Select above Main Menu/Close, and its Yes/No prompt. User follows these
+  controls, confirms character selection, then re-enters offline Sol/Ky training. No
+  foreground action or input is sent by tooling. Other same-named game is not targeted.
+- Ignored `scene-lifecycle-before.json`, `scene-lifecycle-character-select.json` and
+  `scene-lifecycle-after.json` show battle/fighter identity before, absent battle engine at
+  character selection, and different root/fighter objects on re-entry. Source code remains
+  restored; original menu clock is held as expected. This is read-only lifecycle evidence,
+  not active owned-exit invalidation or automatic producer rebind acceptance.
+- Heartbeat now reuses the step-ingress owner check before renewing. It always verifies
+  root identity, including pending/executing credits; it compares full held state only
+  between credits so owned mutations are allowed. Changed-root rejection releases native
+  execution, invalidates credits/readiness and does not extend deadlines. Authored checks
+  cover valid renewal, pending owned state and root loss during a pending credit.
+- Renderer observation skips counter reads when battle is absent, preserving offline
+  menu rendering. Controller failure records queued native errors before cleanup so an
+  RPC rejection does not lose its source diagnostic. Menu/null-root branches and active
+  scene-loss rejection still need a synchronized native negative test.
+- Fresh probe `20261009-224725-497463` derives state/profile anew: read-only observation
+  has 101 samples; original owner trace `boundary-20261009-224801-298718` has 181 clean
+  increments. Native heartbeat-owner regression `boundary-20261009-224835-752738`
+  passes 1,249 blocked updates and complete recovery/restoration. Final regression after
+  empty-battle/diagnostic handling `boundary-20261009-225353-958807` passes 1,261 blocked
+  updates, zero gaps/errors, unchanged held state, automatic resume/removal and clean
+  restoration. No old scene root/fighter bindings are reused; new render inventories
+  remain required before new-scene private rendering.
+- Authored ownership/reset checks and Python/JavaScript syntax pass. Next prepare the
+  Character Select row, close its menu to resume training, then synchronize exit during
+  the guarded hold. Menu control stays with the user. Source caps/live producer remain
+  disabled; continuous transactions/contact/result/automatic reset-rebind are pending.
+
 ## 2026-10-09 — Non-neutral counter-bound rendered input
 
 - Transaction mode now accepts an exact three-credit named positioning plan with the
