@@ -1,5 +1,38 @@
 # Progress record
 
+## 2026-10-09 — Confirmed age reset marker; ownership guard added
+
+- User confirms reset while `20261009-214454-210641/boundary-20261009-215951-218139`
+  is active. Both verified age fields change once from 2069 to zero at wall 13.325s;
+  fighter coordinates/facing remain default and the source counter stays 592668.
+  All 3,083 updates are blocked with zero credits/deltas/gaps/errors. Ordinary source
+  execution and hook removal recover automatically, with full restoration. Separate
+  ignored `age-reset-observation.json` records this trace-derived proof.
+- Extend held ownership stamps with age only when its offset is derived from the
+  validated native getter body via `--combat-candidate`. No field/address is hardcoded
+  or shipped. An age change outside an owned update invalidates state; normal owned
+  changes remain permitted. The same state guard is used for rendered transactions
+  and renewable scalar observation. Bounds/alignment and authored age-mismatch checks
+  pass; missing combat profile retains the earlier diagnostic guard behavior.
+- Native rendered positive regression `boundary-20261009-220144-227093` passes with
+  the derived age stamp: 3 exact updates, 299 blocked opportunities, four settled paired
+  counters and clean source/graphics restoration. Source capabilities remain disabled.
+- Two final rendered negative attempts time out in window preflight before installing
+  hooks. No-reset/private-render bypass: scalar guard trial
+  `boundary-20261009-220509-709711` captures unchanged age, but fails automatic recovery
+  witnesses; its normal cleanup restores all hooks/code. User confirms reset after the
+  cue, but timing/marker association is not established in that failed run. Native age-
+  guard reset rejection remains pending; do not count it as accepted lifecycle behavior.
+- Renewal-mode code verification now runs near the planned removal deadline instead of
+  repeatedly hashing the entire loaded text during the long manual hold. Watchdog limits,
+  queue limits and restoration criteria remain unchanged. Boundary/scalar/lease authored
+  regressions and syntax pass; this scheduling adjustment still needs a native recovery
+  rerun. Fresh read-only clock after cleanup advances [611903,611906,611910,611913,
+  611916,611919]. No instrumentation remains installed; no original files changed.
+- Remaining limits: age already zero may expose no change; this is not a universal reset
+  generation. Native negative age-guard proof, reset/rebind, continuous non-neutral
+  streaming and source contact/result ownership precede enabling a live producer.
+
 ## 2026-10-09 — Default-position reset observation and bounded telemetry
 
 - User clarified that positions were reset; SIGN's process remains PID 22700. Fresh

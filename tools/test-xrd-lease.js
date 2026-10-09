@@ -33,7 +33,7 @@ const root={equals:()=>true,add:offset=>({readU32:()=>100,
 c.Process={mainModule:{base:{add:()=>({readPointer:()=>root})}}};
 run(`config={input:true,transactions:true}; gate={renewable:true,resumed:false,pending:false,
     executing:false,credits:0,initialCounter:100,frameReady:null,deadline:40000,root:Process.mainModule.base.add(0).readPointer(),
-    lastCounter:null,heldState:null};
+    lastCounter:null,heldState:null,ownsState:true};
     config.state={engine_global_rva:0,fields:{slots:16,x:0,y:4,facing:8}};config.candidate={counter_field:0};
     equalPixels=()=>true;
     previousCandidate={layer:{metadata:{counter:100,presentation_index:3,replayed_draws:13,source_facing_left:false},data:null},scene:{metadata:{}}};
@@ -52,6 +52,11 @@ run('assertTransactionHeld(gate,100,transactionState(gate.root))');
 assert.throws(()=>run('assertTransactionHeld(gate,101,transactionState(gate.root))'),/outside owned/);
 assert.throws(()=>run('const moved=transactionState(gate.root);moved[0][1]=1;assertTransactionHeld(gate,100,moved)'),/outside owned/);
 assert.throws(()=>run('const replaced=transactionState(gate.root);replaced[0][0]="new-actor";assertTransactionHeld(gate,100,replaced)'),/outside owned/);
+run('config.state.ownership_age_field=12;gate.heldState=transactionState(gate.root)');
+assert.equal(run('gate.heldState[0].length'),5);
+assert.throws(()=>run('const reset=transactionState(gate.root);reset[0][4]=1;assertTransactionHeld(gate,100,reset)'),/outside owned/);
+run('config.state.ownership_age_field=13');assert.throws(()=>run('transactionState(gate.root)'),/invalid ownership age/);
+run('config.state.ownership_age_field=12');
 run('gate.frameReady=100;gate.lastCounter=101');assert.throws(()=>api.step([0,0],100),/outside owned/);
 assert.equal(run('gate.resumed'),true);assert.equal(run('gate.frameReady'),null);
 run('config.layer={};gate.credits=1;meshLayer={};armGateRemoval()');timer();

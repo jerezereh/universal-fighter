@@ -289,6 +289,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         local_combat=json.loads(combat_path.read_text())
         derived=combat_fields(code,state['code_rva'],local_combat)
         state.setdefault('scalar_fields',{}).update(derived)
+        state['ownership_age_field']=derived['age_candidate']
         combat_profile=dict(candidates=local_combat,fields=derived,validated_semantics=False)
     local=json.loads(candidate_path.read_text())
     objdump=ROOT/'local-cache/msys64/mingw64/bin/objdump.exe'
@@ -440,7 +441,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                     elif not plan and gate_options and not expire and requests<3 and requests==completed and image_ready and time.perf_counter()-started>=next_request and (not capture_passes or draws):
                         counter=records[-1]['after'] if transactions else None
                         bounded_call(frida,lambda:script.exports_sync.step([0,0],counter));requests+=1;next_request=time.perf_counter()-started+1
-                    if expire and time.perf_counter()-started>12.5 and not automatic_restore:
+                    if expire and elapsed>(seconds-1.5 if renewable else 12.5) and not automatic_restore:
                         automatic_restore=unchanged()
                     if controller_lost_at is not None and elapsed-controller_lost_at>12.5 and not automatic_restore:
                         automatic_restore=unchanged()

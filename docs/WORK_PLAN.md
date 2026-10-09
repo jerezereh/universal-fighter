@@ -379,6 +379,12 @@ An initial queue overflow is retained as failed evidence; suppressing only unnee
 render telemetry permits a clean 3,158-update hold and automatic recovery. Observed age/
 health/stop values stay unchanged. Retry reset confirmation remains pending; no default-
 position reset marker is accepted. Resolve that observation before extending reset guards.
+Later synchronized default-position reset confirms both native age fields fall from 2069
+to zero at a held counter with unchanged transforms and clean recovery. Derived age now
+joins ownership stamps when the combat profile is supplied; rendered positive regression
+passes. Final native negative age-guard reset proof remains pending after window-preflight
+timeouts and an inconclusive scalar run. Age-zero resets/full reset generations remain
+unsupported; revalidate long-hold code-verification scheduling before lifecycle acceptance.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

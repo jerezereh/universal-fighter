@@ -589,6 +589,7 @@ function installGate(target, p) {
         renewable: p.renewable === true,
         frameReady: null,
         lastCounter: null, heldState: null,
+        ownsState: p.transactions || p.renewable && p.state.ownership_age_field!==undefined,
         executing: false, inputs: [0, 0], initialCounter: null};
     const replacement = new NativeCallback(function(object) {
         const g = gate;
@@ -608,7 +609,7 @@ function installGate(target, p) {
             s = {root: g.root, before: object.add(p.candidate.counter_field).readU32(),
                 thread: this.threadId, depth: this.depth, return_address: this.returnAddress.toString(),
                 this_delta: 4, entered_ms: Date.now()};
-            if (config.transactions) assertTransactionHeld(g, s.before, transactionState(g.root));
+            if (g.ownsState) assertTransactionHeld(g, s.before, transactionState(g.root));
         } catch (error) {
             g.resumed = true;
             send({kind: 'error',phase: 'gate',message: String(error) + '; original execution resumed'});
@@ -622,7 +623,7 @@ function installGate(target, p) {
         }
         try {
             const after=object.add(p.candidate.counter_field).readU32();
-            if (config.transactions) {
+            if (g.ownsState) {
                 const state=transactionState(g.root);
                 if (after!==((s.before+(execute?1:0))>>>0) ||
                     g.heldState && state.some((v,i)=>v[0]!==g.heldState[i][0]))
@@ -648,7 +649,13 @@ function transactionState(root) {
     return [0,1].map(i=>{
         const actor=root.add(f.slots+4*i).readPointer();
         if(actor.isNull())throw new Error('transaction fighter absent');
-        return [actor.toString(),...['x','y','facing'].map(k=>actor.add(f[k]).readS32())];
+        const state=[actor.toString(),...['x','y','facing'].map(k=>actor.add(f[k]).readS32())];
+        const age=config.state.ownership_age_field;
+        if(age!==undefined) {
+            if(!Number.isInteger(age) || age<0 || age>0x25fc || age%4)throw new Error('invalid ownership age field');
+            state.push(actor.add(age).readS32());
+        }
+        return state;
     });
 }
 
@@ -763,7 +770,7 @@ rpc.exports = {
             gate.frameReady === null || expectedCounter !== gate.frameReady ||
             ((expectedCounter-gate.initialCounter)>>>0) >= 3))
             throw new Error('transaction frame not ready, stale or exhausted');
-        if (config.transactions) {
+        if (gate.ownsState) {
             try {
                 const root=Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
                 if(!root.equals(gate.root))throw new Error('transaction scene changed');
