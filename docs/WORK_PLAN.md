@@ -334,6 +334,12 @@ process and module address. A grounded positioning oracle now passes 24 source f
 steps through verified ingress with settled private images and restored state. Next run
 the shorter crossover from the current left-side setup; independent trials do not prove
 persistent transaction ownership and the incomplete 135-step evidence remains rejected.
+Action-specific scene checks now allow inactive pure retreat and use observed nonoverlapping
+hurtbox bounds for facing starts; motion/contact thresholds remain unchanged. A 32-step
+retreat and complete 97-step crossover pass with relative back/forward inputs, both native
+facings, landing, unclipped canonical private pixels and restored source/graphics. Original
+135-step postprocess evidence remains incomplete. Continue pivot/scale/silhouette image
+gates and persistent transaction/contact/result ownership before connecting the producer.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

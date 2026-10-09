@@ -15,7 +15,7 @@ import time
 
 from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
 from xrd_state import assembly_rows, boundary_candidate, observe, read_clock
-from xrd_input import input_candidate, input_mask, input_plan, input_check, oracle_passed
+from xrd_input import input_candidate, input_mask, input_plan, input_check, oracle_passed, input_scene_ready
 from xrd_combat import combat_fields, contact_check
 from xrd_render import render_pixels, save_render, render_check, draw_check, save_pass
 from xrd_shader import opaque_alpha_variant, screen_packet
@@ -413,8 +413,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         sum(m['request_index']==requests for m,_,_ in scene_packets)==per_step)
                     image_ready &= not capture_screen_stages or bool(scene_packets)
                     if plan and requests<len(plan) and requests==completed and image_ready and time.perf_counter()-started>=next_request:
-                        if requests==0 and (not states or any(s['y_raw'] or s['hit_count'] for s in states[0]) or not any(re.fullmatch(r'sol00[01]_[0-9]{2}',n['value']) for n in states[0][0]['pose_candidates']) or
-                            (abs(states[0][0]['x_raw']-states[0][1]['x_raw'])>350000 if oracle=='contact' else abs(states[0][0]['x_raw']-states[0][1]['x_raw'])<350000)):
+                        if requests==0 and (not states or not input_scene_ready(states[0],oracle,plan)):
                             raise ValueError('input oracle requires grounded idle Sol/opponent within its scene distance bounds')
                         packet=plan[requests];mask=input_mask(packet['input'],states[-1][0]['facing_left'],packet['accept_input'])
                         bounded_call(frida,lambda:script.exports_sync.step([mask,0]));request_log.append(dict(step=requests+1,mask=mask,**packet));requests+=1

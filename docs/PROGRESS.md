@@ -1,5 +1,37 @@
 # Progress record
 
+## 2026-10-09 — Scene-aware retreat and complete shorter crossover
+
+- The first fresh 97-step plan, starting at the old generic minimum separation, reaches
+  73 updates and lands without crossing Ky, then misses its settled pair/deadline. Source
+  motion shows pushbox interaction during landing; it remains rejected in ignored
+  `20261009-173227-222153/boundary-20261009-174132-856343`, with clean restoration.
+- Initial scene checks now reflect the tested action. Motion/attack distance thresholds
+  and the contact maximum remain unchanged. Grounded, inactive pure-back/neutral
+  positioning can retreat from close spacing. Facing starts require nonempty, correctly
+  scaled/unrotated native hurtboxes with separated horizontal bounds, rather than the
+  unrelated generic 350-unit motion minimum. Both retain the idle/ground/no-active-box
+  check; no native coordinate or reset field is written. This is an explicit scene-check
+  change, not a widening of the counter, pixel, presentation or lease checks.
+- Authored input checks cover measured facing clearance, overlapping boxes, retreat-only
+  inputs, and rejection of airborne/attacking starts. Existing named-input/layout and
+  layer/HDR/facing/unit tests pass. No receiving protocol or host boundary changes.
+- A 31-step back walk plus neutral release passes the positioning oracle in
+  `boundary-20261009-174843-487351`: 32 exact updates, 17 blocked opportunities, four
+  linked images, grounded native left/relative-back movement, neutral opponent inputs
+  and clean source/graphics restoration. Samples settle at [3,4] and [4,5]. The final
+  spacing is verified from the native records, not a guessed teleport.
+- The subsequent 97-step crossover passes completely in
+  `boundary-20261009-175128-416817`: 97 exact updates, 74 blocked opportunities, six
+  linked captures, jump/crossing/landing, both grounded facings, relative movement in
+  both directions, unclipped canonical-right private images and exact settled pairs.
+  Source/graphics state and all hooks restore with no trace errors. The earlier full
+  135-step postprocess proof remains incomplete; separate positioning/crossover trials
+  do not establish persistent source ownership or deterministic replay.
+- Next image gates are anatomical pivot/host scale and silhouette coverage; lifecycle
+  gates are persistent transactions, source contact suppression and universal results.
+  No SIGN producer capabilities or connected host match are claimed.
+
 ## 2026-10-09 — Fresh-session positioning oracle
 
 - SIGN restarted as PID22700 with a different module load address. Rebuilt the module

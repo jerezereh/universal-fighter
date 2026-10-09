@@ -1,7 +1,7 @@
 """Authored named-input, native-layout and source-step association checks."""
 import struct
 
-from xrd_input import input_mask, input_plan, input_candidate, input_check, oracle_passed
+from xrd_input import input_mask, input_plan, input_candidate, input_check, oracle_passed, input_scene_ready
 
 
 def reject(action):
@@ -21,6 +21,21 @@ def main():
     for named in ({'record':True},{'menu':True},{'punch':1},{'unknown':False}): reject(lambda:input_mask(named))
     reject(lambda:input_mask({},facing_left=1))
     assert len(input_plan([dict(frames=2,input={'punch':True})]))==2
+    fighter=lambda x,flip:dict(x_raw=x,y_raw=0,hit_count=0,facing_left=flip,rotation_raw=0,
+        scale_raw=[1000,1000],boxes=[[0,-50,-100,100,100]],pose_candidates=[dict(value='sol000_00')])
+    actors=[fighter(0,False),fighter(200000,True)]
+    retreat=input_plan([dict(frames=5,input={'back':True})]);forward=input_plan([dict(input={'forward':True})])
+    assert input_scene_ready(actors,'render-facing',forward)
+    assert not input_scene_ready(actors,'render-framing',forward)
+    assert input_scene_ready(actors,'render-position',retreat)
+    assert not input_scene_ready(actors,'render-position',forward)
+    actors[1]['x_raw']=90000
+    assert not input_scene_ready(actors,'render-facing',forward)
+    assert input_scene_ready(actors,'render-position',retreat)
+    actors[1]['hit_count']=1
+    assert not input_scene_ready(actors,'render-position',retreat)
+    actors[1]['hit_count']=0;actors[0]['y_raw']=1
+    assert not input_scene_ready(actors,'render-facing',forward)
     for plan in ([],[dict(frames=True)],[dict(frames=161)],[dict(frames=100),dict(frames=100)],[dict(extra=1)],[dict(accept_input=0)],[dict(hold_ms=501)],[dict(hold_ms=True)]):
         reject(lambda:input_plan(plan))
     # Invented fields/code locations; no source game bytes or layout profile in this test.
