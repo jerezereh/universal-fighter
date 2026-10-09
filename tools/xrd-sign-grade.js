@@ -189,14 +189,34 @@ function normalizedPostQuad(width,height,input,declaration) {
     });return quad;
 }
 
+function postProgram(device,kind,id,expected) {
+    const post=meshLayer.post;
+    if(!post.programs)post.programs=new Map();
+    const key=kind+':'+id;
+    if(!post.programs.has(key)) {
+        const program=shaderProgram(device,kind);
+        if(program.shader!==id || hex(program.code)!==expected)throw new Error('post-color native program drift');
+        // Native shader objects are immutable. Retain the verified object for this frame
+        // so an unbind/free cannot reuse its address before the next copy draw.
+        const out=Memory.alloc(4);out.writePointer(ptr(0));
+        succeeded(com(device,kind==='pixel'?108:93,'int',['pointer'])(device,out),'post retain shader');
+        const shader=out.readPointer();
+        if(shader.toString()!==id){if(!shader.isNull())com(shader,2,'uint',[])(shader);throw new Error('post-color retained binding drift');}
+        meshLayer.extra.push(shader);post.programs.set(key,{assembly:program.assembly,original_hex:expected});
+    }
+    const program=post.programs.get(key);
+    if(program.original_hex!==expected)throw new Error('post-color cached program drift');
+    return program;
+}
+
 function postColorLayer(device,d,draw,input=null) {
     const current=meshLayer,post=current.post,stage=config.layer.post_color[post.index];
     const root=Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
     if(gate.resumed || gate.executing || root.add(4+config.candidate.counter_field).readU32()!==current.counter)
         throw new Error('post-color source is not held');
-    if(hex(shaderProgram(device,'pixel').code)!==stage.original_hex || hex(shaderProgram(device,'vertex').code)!==stage.vertex_hex)
-        throw new Error('post-color native program drift');
-    const sources=screenTextureSources(device,shaderProgram(device,'pixel').assembly);
+    const program=postProgram(device,'pixel',stage.shader,stage.original_hex);
+    postProgram(device,'vertex',stage.vertex_shader,stage.vertex_hex);
+    const sources=screenTextureSources(device,program.assembly);
     if(JSON.stringify(sources)!==JSON.stringify(stage.sources))throw new Error('post-color native texture lineage drift');
     const vp=Memory.alloc(24),vs=Memory.alloc(4096),ps=Memory.alloc(224*16),out=Memory.alloc(4);
     const targets=[],refs=[],textures=[],samplerStates=[];let depth=ptr(0),block=ptr(0),failure=null;
@@ -222,6 +242,7 @@ function postColorLayer(device,d,draw,input=null) {
         for(const slot of [93,108]) {
             out.writePointer(ptr(0));succeeded(com(device,slot,'int',['pointer'])(device,out),'post source shader');
             const r=out.readPointer();refs.push(r);shaderStates.push([slot,r]);
+            if(r.toString()!==(slot===93?stage.vertex_shader:stage.shader))throw new Error('post-color current shader binding drift');
         }
         succeeded(com(device,90,'int',['pointer'])(device,out),'post source FVF');const sourceFvf=out.readU32();
         shaderStates.push([90,sourceFvf]);

@@ -320,6 +320,12 @@ private postprocessing, exact settled image pairs and restored source/graphics. 
 window. Reset offline Sol/Ky to default starting positions manually before the next facing/
 crossover check: current spacing is twice the verified crossover setup and menu reset is
 outside verified source ingress. Producer/contact ownership and visual acceptance remain.
+The user reset passed read-only verification. Full postprocessed crossover reaches 111
+exact updates and crosses/lands but misses the settled pair/deadline, so remains rejected.
+Clean opposite-facing neutral rendering passes separately and retains canonical-right
+private pixels. Frame-scoped retained shader reuse removes duplicate inspections while
+preserving per-draw binding/texture/state checks. Next test a shorter mirrored crossover
+from the current right-side position; no complete 135-step postprocess proof is claimed.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

@@ -17,7 +17,7 @@ for i in range(1,11):
     data[f'pass-{i:02}.json']=stage
     assembly='// SceneColorTexture s0 1\n// SourceTexture s1 1\n' if i==9 else '// SceneColorTexture s0 1\n'
     programs.append(dict(shader=surface,source_target=surface,assembly=assembly,file=f'screen-{i:02}.bin',
-        vertex_input=dict(stride=32),vertex_program=dict(code_hex='local-test')))
+        vertex_input=dict(stride=32),vertex_program=dict(code_hex='local-test',shader='0xeeee')))
 data['screen-shaders.json']=programs
 class File:
     def __init__(self,name):self.name=name
@@ -53,7 +53,7 @@ for i,names in [(11,'// SceneColorTexture s0 1\n// SMAAParamA c0 1\n'),
         stage['texture_sources']=[dict(slot=0,surface='0x000a'),dict(slot=1,surface='0x000c')]
     data[f'pass-{i:02}.json']=stage
     data['screen-shaders.json'].append(dict(shader=surface,source_target=surface,assembly=names,
-        file=f'screen-{i:02}.bin',vertex_input=dict(stride=32),vertex_program=dict(code_hex='local-test')))
+        file=f'screen-{i:02}.bin',vertex_input=dict(stride=32),vertex_program=dict(code_hex='local-test',shader='0xeeee')))
 result=boundary.post_color_programs(Folder(),{},grade,True)
 assert len(result)==12 and result[-2]['lookup_slots']==[1,2] and result[-1]['width']==12
 smaa_baseline=copy.deepcopy(data)

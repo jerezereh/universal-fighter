@@ -1,5 +1,37 @@
 # Progress record
 
+## 2026-10-08 — Opposite-facing rendering and retained postprocess programs
+
+- User reset verified read-only: same exact SIGN process/module, advancing clock, grounded
+  Sol left of grounded Ky, separation within the earlier crossover setup. An expanded
+  local copy of the 135-frame plan exceeded the existing 16-KiB input limit; compacting
+  consecutive identical frames preserves all 135 requests in nine segments (1,245 bytes).
+  The size rejection occurred before native instrumentation; limits were not widened.
+- Full private-postprocess crossover executes 111 exact updates, crosses Ky and lands
+  with both grounded source facings, but misses the step-111 settled pair before the
+  unchanged controller deadline and never sends the final 24 requests. It remains failed,
+  with source/graphics state and hooks restored. Evidence: ignored
+  `20261008-222305-484036/boundary-20261009-011740-803900`.
+- Separate clean left-facing neutral capture `boundary-20261009-011858-502349` passes
+  three exact updates, eight linked images and all four presentation [3,4] pairs. Viewed
+  native scene and private output: native Sol faces left; private Sol faces right at
+  640x768, with unclipped coverage [211,303,438,705]. Earlier right-facing neutral
+  evidence remains separate; this is not a completed full crossover oracle.
+- Postprocess program inspection now reuses verified immutable native shaders within
+  one private frame. Each shader's actual bytes/binding is verified before caching and
+  a separate native reference prevents address reuse. Current shader bindings, sampler
+  texture lineage and state restoration still verify on every draw; no constants or
+  mutable textures are cached. References release with the existing frame lifetime.
+- Authored checks verify one inspection per shader per frame, retained reference release
+  and changed expected-byte rejection. Focused grading/post-color checks, Node syntax,
+  Python compilation and 123 literal installed-header ABI calls pass. Native repeat
+  `boundary-20261009-012240-143908` passes three exact updates, eight linked left-facing
+  images and clean source/graphics restoration, with exact consecutive pixels. No
+  quantitative speed claim or producer capability follows from this neutral trial.
+- Next run a shorter crossover from the current right-side position using mirrored
+  jump inputs and relative back/forward checks. Full 135-step postprocess capture, final
+  silhouette alpha, foot/scale acceptance and persistent contacts/producer remain pending.
+
 ## 2026-10-08 — Normalized postprocess movement and Punch checks
 
 - The original 28-step walk/jump plan is not accepted with private postprocessing.

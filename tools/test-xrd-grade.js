@@ -21,7 +21,7 @@ function fixture(failure=null) {
             samplers:{SceneColorTexture:0,FilterColor1Texture:1,ColorGradingLUT:2,LowResPostProcessBuffer:3}}}},
         gate:{resumed:false,executing:false,initialCounter:10},renderCapture:{counter:10},
         Process:{mainModule:{base:{add:()=>({readPointer:()=>({add:()=>({readU32:()=>10})})})}}},
-        shaderProgram:()=>({shader:'source-shader',code:Uint8Array.from([1,2,3,4])}),
+        shaderProgram:(device,kind)=>({shader:kind==='vertex'?'source-vertex':'source-shader',code:Uint8Array.from([1,2,3,4])}),
         captureBackBuffer:()=>({metadata:{format:failure==='stage-format'?113:21},data:new Uint8Array(4)}),send:()=>{},
         bytes:(p,n)=>p.data.slice(0,n),hex:a=>Buffer.from(a).toString('hex'),
         succeeded:(hr,name)=>{if(hr<0)throw Error(name+' failed');}});
@@ -105,7 +105,7 @@ function postFixture(failure=null,final=false) {
     const f=fixture(failure),c=f.context;
     c.config.layer.projection=null;
     c.config.layer.source_color=true;
-    c.stage={shader:'source-shader',target:'post-target',original_hex:'01020304',vertex_hex:'01020304',
+    c.stage={shader:'source-shader',vertex_shader:'source-vertex',target:'post-target',original_hex:'01020304',vertex_hex:'01020304',
         width:4,height:4,format:21,sources:[{slot:0,surface:'prior'}]};
     c.config.layer.post_color=final?[c.stage]:[c.stage,c.stage];
     c.screenTextureSources=()=>c.stage.sources;
@@ -144,6 +144,12 @@ c.replay=q=>{assert.ok(q);const v=new DataView(q.data.buffer);assert.equal(v.get
     assert.equal(v.getFloat32(32+16,true),1);return 0;};
 vm.runInContext('postColorLayer(device,d,replay,input)',c);normalized.restore();normalized.release();
 assert.throws(()=>vm.runInContext('normalizedPostQuad(4,4,input,"changed")',c),/declaration drift/);
+const cached=postFixture();let inspections=0;const inspect=cached.context.shaderProgram;
+cached.context.shaderProgram=(...args)=>{inspections++;return inspect(...args);};
+cached.post();cached.post();cached.restore();cached.release();
+assert.equal(inspections,2);assert.ok(cached.releases.includes('source-shader') && cached.releases.includes('source-vertex'));
+const drift=postFixture();drift.post();drift.context.stage.vertex_hex='changed';
+assert.throws(drift.post,/cached program drift/);drift.restore();drift.release();
 for(const failure of ['block','texture','surface','post-draw','copy','mask-draw']) {
     const f=postFixture(failure,true);assert.throws(f.post,/failed/);f.restore();f.release();
 }

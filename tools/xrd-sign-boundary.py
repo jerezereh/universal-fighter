@@ -234,7 +234,8 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
             raise ValueError('SMAA lookup must be distinct from scene outputs')
         if i==9 and names!={'SceneColorTexture','SourceTexture'}:raise ValueError('missing native composite')
         result.append(dict(shader=s['shader'],target=stage['surface'],original_hex=(folder/s['file']).read_bytes().hex(),
-            vertex_hex=s['vertex_program']['code_hex'],width=stage['width'],height=stage['height'],format=stage['format'],
+            vertex_hex=s['vertex_program']['code_hex'],vertex_shader=s['vertex_program']['shader'],
+            width=stage['width'],height=stage['height'],format=stage['format'],
             sources=sources,lookup_slots=lookups))
         if projection:
             v=s['vertex_program'];q=s['vertex_input']
