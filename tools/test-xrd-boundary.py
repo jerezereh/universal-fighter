@@ -107,3 +107,6 @@ def main():
 
 
 if __name__=='__main__': main()
+for hold in (12,46,float('nan'),float('inf')):
+    reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,transaction_hold=hold))
+reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,transaction_hold=45))

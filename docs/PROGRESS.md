@@ -1,5 +1,32 @@
 # Progress record
 
+## 2026-10-09 — User reset invalidates held ownership
+
+- First synchronized attempt `boundary-20261009-213747-078842` completes its normal
+  three-credit/four-pair check, but the user reset occurs after capture. Read-only followup
+  shows different positions; this is not held-reset evidence.
+- Added a bounded `--transaction-hold-seconds` option (13..45, normal transaction checks
+  only) to give the user a practical reset window. Heartbeat deadlines stay eight/twelve
+  seconds; this changes the planned hold, not watchdog limits. Invalid/nonfinite bounds
+  and incompatible modes reject before attachment.
+- Prepared the scene using the existing forward24 oracle in
+  `boundary-20261009-213921-083038`: exact inputs/updates and paired canonical rendering
+  pass with clean restoration. User then resets during the 45-second initial hold in
+  `boundary-20261009-213946-130641`. The guard reports source changed outside owned
+  update and resumes original execution after 601 blocked updates, with zero credits
+  granted and clean source/graphics restoration. The user confirms reset completion.
+- Preserve the runner's failed four-frame receipt unchanged: interrupted sequence and
+  missing final pairs are expected in this negative test. Added a strict separate reset
+  classifier requiring the exact guard/error chain, unchanged held state, no credits,
+  changed post-reset transform, advancing source clock and full restoration. Native
+  classification passes and writes ignored `reset-invalidation.json`. Authored checks
+  reject unrelated errors, requested credits, unchanged transforms, stopped clocks and
+  failed cleanup. Python syntax and boundary/lease regressions pass.
+- This validates transform-changing reset invalidation, not automatic reset/rebind or
+  unchanged-observation resets. Next manually exercise a reset from the default scene
+  while observing verified native animation-age/stop fields, to establish a reset marker
+  beyond coordinates. SIGN source capabilities/live connection remain disabled.
+
 ## 2026-10-09 — Held transaction ownership guards; reset test pending
 
 - Transaction mode records the actual fighter pointers, X/Y/facing and expected uint32

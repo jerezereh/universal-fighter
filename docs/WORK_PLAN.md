@@ -368,6 +368,12 @@ changes, with authored negative checks and stable-scene native regression passin
 manually reset offline training during a synchronized held transaction to test actual
 invalidation/recovery. Same-observation resets and full reset-generation ownership remain
 unverified; keep menu control with the user and keep source capabilities disabled.
+User-triggered reset from a moved scene now natively invalidates the held transaction,
+grants no further credits, resumes source execution and restores hooks. Raw interrupted
+four-frame failure is preserved and classified separately with read-only recovery proof.
+Next synchronize a default-position reset while observing verified native age/stop fields:
+same-observation reset detection, automatic source reset/rebind and result ownership are
+still unverified. Manual reset control remains with the user.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a
