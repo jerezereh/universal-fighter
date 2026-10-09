@@ -363,6 +363,11 @@ and controller-loss automatic resume/removal after those pairs. Stale/duplicate 
 reject at the source. Readiness remains a consecutive-pixel candidate; outstanding-target
 teardown without future renderer callbacks, source scene/reset invalidation, non-neutral
 streaming and combat result ownership remain gates before a live producer.
+Held transaction guards now reject unexpected source-counter/fighter-object/X/Y/facing
+changes, with authored negative checks and stable-scene native regression passing. Next
+manually reset offline training during a synchronized held transaction to test actual
+invalidation/recovery. Same-observation resets and full reset-generation ownership remain
+unverified; keep menu control with the user and keep source capabilities disabled.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

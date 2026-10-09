@@ -588,6 +588,7 @@ function installGate(target, p) {
     gate = {target, root, credits: 0, pending: false, deadline: Date.now() + 8000, resumed: false, timer: null,
         renewable: p.renewable === true,
         frameReady: null,
+        lastCounter: null, heldState: null,
         executing: false, inputs: [0, 0], initialCounter: null};
     const replacement = new NativeCallback(function(object) {
         const g = gate;
@@ -607,6 +608,7 @@ function installGate(target, p) {
             s = {root: g.root, before: object.add(p.candidate.counter_field).readU32(),
                 thread: this.threadId, depth: this.depth, return_address: this.returnAddress.toString(),
                 this_delta: 4, entered_ms: Date.now()};
+            if (config.transactions) assertTransactionHeld(g, s.before, transactionState(g.root));
         } catch (error) {
             g.resumed = true;
             send({kind: 'error',phase: 'gate',message: String(error) + '; original execution resumed'});
@@ -619,7 +621,15 @@ function installGate(target, p) {
             try { original(object); } finally { g.executing = false; }
         }
         try {
-            publish(s, object.add(p.candidate.counter_field).readU32(), execute);
+            const after=object.add(p.candidate.counter_field).readU32();
+            if (config.transactions) {
+                const state=transactionState(g.root);
+                if (after!==((s.before+(execute?1:0))>>>0) ||
+                    g.heldState && state.some((v,i)=>v[0]!==g.heldState[i][0]))
+                    throw new Error('transaction counter or fighter object changed');
+                g.lastCounter=after;g.heldState=state;
+            }
+            publish(s, after, execute);
         } catch (error) {
             g.resumed = true;
             send({kind: 'error',phase: 'gate-snapshot',message: String(error)});
@@ -631,6 +641,21 @@ function installGate(target, p) {
     armGateRemoval();
     return {installed: true, thiscall_oracle: true, mutation: 'native update gate', renewable: gate.renewable,
         lifetime_seconds: gate.renewable ? null : 12, lease_seconds: 8, render};
+}
+
+function transactionState(root) {
+    const f=config.state.fields;
+    return [0,1].map(i=>{
+        const actor=root.add(f.slots+4*i).readPointer();
+        if(actor.isNull())throw new Error('transaction fighter absent');
+        return [actor.toString(),...['x','y','facing'].map(k=>actor.add(f[k]).readS32())];
+    });
+}
+
+function assertTransactionHeld(g, counter, state) {
+    if (g.lastCounter!==null && counter!==g.lastCounter ||
+        g.heldState!==null && JSON.stringify(state)!==JSON.stringify(g.heldState))
+        throw new Error('transaction source changed outside owned update');
 }
 
 function armGateRemoval() {
@@ -738,6 +763,17 @@ rpc.exports = {
             gate.frameReady === null || expectedCounter !== gate.frameReady ||
             ((expectedCounter-gate.initialCounter)>>>0) >= 3))
             throw new Error('transaction frame not ready, stale or exhausted');
+        if (config.transactions) {
+            try {
+                const root=Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
+                if(!root.equals(gate.root))throw new Error('transaction scene changed');
+                assertTransactionHeld(gate,root.add(4+config.candidate.counter_field).readU32(),transactionState(root));
+            } catch(error) {
+                gate.resumed=true;gate.credits=0;gate.frameReady=null;
+                send({kind:'error',phase:'gate',message:String(error)+'; original execution resumed'});
+                throw error;
+            }
+        }
         if (!gate.renewable) gate.deadline = Date.now() + 8000;
         gate.frameReady = null;
         gate.inputs = inputs.slice();

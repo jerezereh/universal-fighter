@@ -1,5 +1,25 @@
 # Progress record
 
+## 2026-10-09 — Held transaction ownership guards; reset test pending
+
+- Transaction mode records the actual fighter pointers, X/Y/facing and expected uint32
+  source counter at owned returns. Entry and step ingress reject unexpected held-state
+  changes; owned returns require exactly zero/one increments and stable fighter objects.
+  A mismatch releases native execution and invalidates the ready-frame credit. Addresses
+  come only from the existing fresh profile; no reset/position field is written.
+- Authored checks reject an external counter increment, moved fighter and replaced
+  actor. A stale real-owner read invalidates readiness and resumes ordinary execution.
+  Existing stale/duplicate/exhausted request and cleanup checks continue to pass.
+- Positive native regression `20261009-173227-222153/boundary-20261009-213400-843142`
+  passes with the guards: three exact credits, 451 blocked opportunities, unchanged held
+  observations, four consecutive settled state/image pairs, zero gaps/errors and clean
+  source/graphics restoration. This tests stable scene continuity, not a native reset.
+- Next manual gate: synchronize a user-controlled offline training reset with the initial
+  held transaction and inspect invalidation/recovery. Ordinary menu control stays with
+  the user. Same-position resets that leave the observed counter/objects/transforms
+  unchanged are not covered by these guards; reset generations/full lifecycle still
+  need evidence. No reset acceptance, persistent producer or source caps are claimed.
+
 ## 2026-10-09 — Counter-bound rendered transactions and controller loss
 
 - Added a bounded renewable transaction mode: four consecutive normalized settled

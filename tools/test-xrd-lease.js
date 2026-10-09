@@ -28,8 +28,13 @@ assert.throws(()=>api.start({transactions:1}),/invalid transaction/);
 assert.throws(()=>api.start({transactions:true,renewable:true,gate:{}}),/four consecutive/);
 vm.runInContext(fs.readFileSync('tools/xrd-sign-layer.js','utf8'),c);
 c.send=()=>{};
+const root={equals:()=>true,add:offset=>({readU32:()=>100,
+    readPointer:()=>({isNull:()=>false,toString:()=>`actor-${offset}`,add:()=>({readS32:()=>0})})})};
+c.Process={mainModule:{base:{add:()=>({readPointer:()=>root})}}};
 run(`config={input:true,transactions:true}; gate={renewable:true,resumed:false,pending:false,
-    executing:false,credits:0,initialCounter:100,frameReady:null,deadline:40000};
+    executing:false,credits:0,initialCounter:100,frameReady:null,deadline:40000,root:Process.mainModule.base.add(0).readPointer(),
+    lastCounter:null,heldState:null};
+    config.state={engine_global_rva:0,fields:{slots:16,x:0,y:4,facing:8}};config.candidate={counter_field:0};
     equalPixels=()=>true;
     previousCandidate={layer:{metadata:{counter:100,presentation_index:3,replayed_draws:13,source_facing_left:false},data:null},scene:{metadata:{}}};
     pendingLayer={metadata:{counter:100,presentation_index:4,replayed_draws:13,source_facing_left:false,request_index:0},data:null};`);
@@ -42,6 +47,13 @@ api.step([0,0],100);assert.equal(run('gate.frameReady'),null);
 run('gate.pending=false;gate.credits=0');
 assert.throws(()=>api.step([0,0],100),/not ready/); // completed credit cannot replay
 run('gate.frameReady=103');assert.throws(()=>api.step([0,0],103),/exhausted/);
+run('gate.lastCounter=100;gate.heldState=transactionState(gate.root)');
+run('assertTransactionHeld(gate,100,transactionState(gate.root))');
+assert.throws(()=>run('assertTransactionHeld(gate,101,transactionState(gate.root))'),/outside owned/);
+assert.throws(()=>run('const moved=transactionState(gate.root);moved[0][1]=1;assertTransactionHeld(gate,100,moved)'),/outside owned/);
+assert.throws(()=>run('const replaced=transactionState(gate.root);replaced[0][0]="new-actor";assertTransactionHeld(gate,100,replaced)'),/outside owned/);
+run('gate.frameReady=100;gate.lastCounter=101');assert.throws(()=>api.step([0,0],100),/outside owned/);
+assert.equal(run('gate.resumed'),true);assert.equal(run('gate.frameReady'),null);
 run('config.layer={};gate.credits=1;meshLayer={};armGateRemoval()');timer();
 assert.equal(run('gate.resumed'),true);assert.equal(run('gate.credits'),0);
 assert.equal(run('stopRequested && layerStopping'),true); // renderer thread owns COM teardown
