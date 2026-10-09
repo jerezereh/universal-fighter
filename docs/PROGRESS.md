@@ -1551,3 +1551,12 @@ the synthetic architecture gate allows the first real-game adapter.
   first queued task. The layer profile also prints IKEMEN's drawn FPS next to the guest tick rate.
 - Rev2 live after the fix (smoke): ~59 ticks/s, drawn 35-37 mean. The import's interop lock rose to
   ~3.2 ms before the draw (from ~1 ms after the swap); exchange ~11 ms. Still not playable.
+
+## 2026-10-09 — protocol tiers and match rules
+
+- `docs/PROTOCOL.md`: three tiers (host transport, host-defined game-neutral match rules, per-producer
+  adaptation) and four rules: arena authority over space and time, attacker/defender combat negotiation with
+  binding classification, native health pools with reference-pool damage transfer, and native-layout HUD layers.
+- User decisions recorded: native pools, attacker hitstun/blockstun frames, each guest draws its native HUD.
+- Includes a status table across this receiver, uf-arena and the Rev2 producer. Design only: nothing is
+  implemented or validated by this step. `PASSTHROUGH_V2.md` links to it.

@@ -5,7 +5,9 @@ designed, so items here describe needs observed in practice, not a frozen wire f
 item separates **evidence** (measured with the Rev2 producer,
 `jerezereh/xrd-rev2-producer`) from **proposal** (what the receiver should grow).
 
-The v1 receiver (`docs/PASSTHROUGH.md`) stays the baseline. Every v2 piece must be negotiated,
+The match rules every host and producer share (tiers, space/time authority, combat
+negotiation, native health, presentation) are in `docs/PROTOCOL.md`; this document covers
+transport-level extensions. The v1 receiver (`docs/PASSTHROUGH.md`) stays the baseline. Every v2 piece must be negotiated,
 so v1 guests keep working.
 
 ## Evidence summary (Rev2, D3D9On12, Intel Iris Xe, offline Training)
@@ -141,4 +143,4 @@ pipelining (image for tick N-1 delivered with state for tick N) as an explicit, 
    single slow frame. The first frame's import creation takes ~130–160 ms. A window capture does not
    affect the rate. Possible follow-ups, none required: create the import before the first drawn
    frame, and batch the interop lock for all guests.
-5. [ ] Hit/contact event properties (item 3) once the protocol design settles.
+5. [ ] Hit/contact event properties (item 3), following the combat and health rules in `docs/PROTOCOL.md`.
