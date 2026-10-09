@@ -393,6 +393,11 @@ Exact field-change diagnostics and strict two-fighter age-reset classification a
 implemented with authored rejection checks and a clean native no-reset regression. Next
 manual check: reset during the no-render age-guard hold and classify its actual failure
 fields/recovery. No native age-reset rejection or source generation is accepted yet.
+Synchronized reset now natively rejects same-position ownership via both age fields
+changing 29094 to zero. No credits are granted; the separate classifier verifies exact
+rejection and resumed clock/clean restoration. Positive-age reset rejection is accepted;
+age-zero/same-observation resets and automatic reset/rebind remain unsupported. Continue
+non-neutral counter-bound rendering and continuous transactions before contact/result work.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

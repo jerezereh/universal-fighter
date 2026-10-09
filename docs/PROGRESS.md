@@ -1,5 +1,24 @@
 # Progress record
 
+## 2026-10-09 — Native same-position age reset rejection accepted
+
+- User resets after the installed cue while
+  `20261009-214454-210641/boundary-20261009-221715-934701` is active. Exact native
+  ownership diagnostics identify both age fields changing from 29094 to zero. Fighter
+  coordinates/facing remain default; no source credits are granted. All 794 preceding
+  samples have zero deltas, unchanged held state and no continuity gaps.
+- The guard resumes original execution and the controller stops on the known rejection.
+  Preserve the interrupted-run failure receipt unchanged. Separate read-only classifier
+  passes exact rejection, matching prior age values, both zero-age changes, no credits,
+  clean source/graphics restoration and resumed clock. Ignored `reset-invalidation.json`
+  records `age_reset_diagnostic=true`; user confirms the action during the held capture.
+- Native same-position age-guard rejection is now accepted for this observed positive-
+  age reset. This clears that manual gate; automatic source reset/rebind and resets that
+  change none of the observed fields (including age already zero) remain unverified.
+- Reset-classifier and actual ownership/lease authored checks pass. No live SIGN producer
+  or source capability is enabled. Next add non-neutral counter-bound rendered requests,
+  then continuous transaction/resource lifecycle and source contact/result ownership.
+
 ## 2026-10-09 — Exact ownership-change diagnostics and reset classification
 
 - Held ownership errors now carry bounded field changes with fighter identity, field
