@@ -1,5 +1,31 @@
 # Progress record
 
+## 2026-10-08 — Normalized private postprocessing
+
+- Private blur/composite/SMAA replay now accepts the existing normalized mesh projection.
+  Observed float4 clip-position/float2 UV declarations are retained; private quads cover
+  the private target with D3D9 half-pixel coordinates and full private UVs. Current native
+  color attributes and other declared inputs are preserved. Clip depth/order/declaration
+  drift rejects. Native copy transforms must remain identity.
+- Named native blur and SMAA texel-size uniforms adapt to private dimensions while other
+  constants remain native. Original observed quarter-resolution plus two-pixel buffer
+  dimensions are required before using 162x194 private intermediates for a 640x768 target.
+  Unknown vertex uniforms, changed declaration and unsupported buffer dimensions reject.
+  The existing source-view diagnostic retains its native dimensions and inputs.
+- Focused authored checks cover normalized private dimensions/uniform declarations,
+  quad replacement/crop geometry and restoration/resource failures. Node syntax, Python
+  checks and installed-header validation of 123 literal calls pass; dynamic constant-bank
+  dispatch and CPU draw replay rely on separate native restoration checks.
+- One pre-start attachment timeout is rejected. Native repeat evidence in ignored
+  `20261008-222305-484036/boundary-20261009-005643-315390` passes three exact updates,
+  65 blocked opportunities, eight linked layer/scene captures and clean source/graphics
+  restoration. All four selected held counters have identical pixels at presentations
+  3/4. Viewed the normalized output: 640x768, unclipped coverage [210,303,438,705],
+  configured pivot [320,700], private SMAA and binary mesh alpha. This proves bounded
+  neutral replay/settling, not anatomical foot placement, scale or silhouette fidelity.
+- Next run the movement/Punch/facing oracles with postprocessing. Persistent source
+  transactions, universal results/contacts and producer capabilities remain pending.
+
 ## 2026-10-08 — Private native SMAA replay
 
 - Added opt-in `--smaa-layer` after private post-color replay. Native edge detection,

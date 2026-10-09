@@ -144,10 +144,11 @@ function installDrawTrace(device) {
                     const expected=config.layer.post_color[meshLayer.post.index];
                     if(d.pixelShader===expected.shader && d.currentTarget===expected.target) {
                         if(method!=='DrawIndexedPrimitiveUP')throw new Error('post-color replay requires indexed CPU quad');
-                        inspectScreenInput(args[0],args);
+                        const input=inspectScreenInput(args[0],args);
                         const dev=args[0],signature=types.map(t=>t==='p'?'pointer':t==='i'?'int':'uint');
                         const values=types.map((t,i)=>t==='p'?args[i+1]:t==='i'?args[i+1].toInt32():args[i+1].toUInt32());
-                        this.postReplay={device:dev,draw:()=>com(dev,slot,'int',signature)(dev,...values)};
+                        this.postReplay={device:dev,input,draw:vertices=>com(dev,slot,'int',signature)(dev,
+                            ...values.map((v,i)=>i===6 && vertices?vertices:v))};
                     }
                 }
                 if(config.inspect_screen_shaders && config.layer && twoTriangleDraw(method,args)) {
@@ -230,7 +231,7 @@ function installDrawTrace(device) {
                         send({kind:'error',phase:'native-private-grading',message:String(error)});}
                 }
                 if(this.postReplay && result.toInt32()===0) {
-                    try {postColorLayer(this.postReplay.device,drawTrace,this.postReplay.draw);}
+                    try {postColorLayer(this.postReplay.device,drawTrace,this.postReplay.draw,this.postReplay.input);}
                     catch(error){layerFailed=true;if(meshLayer!==null)meshLayer.state_verified=false;
                         send({kind:'error',phase:'private-post-color',message:String(error)});}
                 }

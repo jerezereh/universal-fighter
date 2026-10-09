@@ -174,7 +174,22 @@ function gradeLayer(device,d,replaySource=null) {
 }
 
 // Source-view diagnostic only: replay each current CPU quad with private input lineage.
-function postColorLayer(device,d,draw) {
+function normalizedPostQuad(width,height,input,declaration) {
+    if(input.declaration_hex!==declaration || ![32,48].includes(input.stride))throw new Error('normalized post-color declaration drift');
+    const raw=input.vertices_hex.match(/../g).map(x=>parseInt(x,16)),view=new DataView(Uint8Array.from(raw).buffer);
+    const quad=Memory.alloc(raw.length);quad.writeByteArray(raw);
+    [[-1-1/width,1+1/height,0,0],[1-1/width,1+1/height,1,0],
+        [-1-1/width,-1+1/height,0,1],[1-1/width,-1+1/height,1,1]].forEach(([x,y,u,v],i)=>{
+        if(view.getFloat32(i*input.stride+8,true)!==0 || view.getFloat32(i*input.stride+12,true)!==1)
+            throw new Error('normalized post-color clip depth drift');
+        const oldU=view.getFloat32(i*input.stride+16,true),oldV=view.getFloat32(i*input.stride+20,true);
+        if(!Number.isFinite(oldU+oldV) || (i%2===0?oldU!==0:oldU<=0) || (i<2?oldV!==0:oldV<=0))
+            throw new Error('normalized post-color quad corner order drift');
+        [x,y,0,1,u,v].forEach((value,j)=>quad.add(i*input.stride+j*4).writeFloat(value));
+    });return quad;
+}
+
+function postColorLayer(device,d,draw,input=null) {
     const current=meshLayer,post=current.post,stage=config.layer.post_color[post.index];
     const root=Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
     if(gate.resumed || gate.executing || root.add(4+config.candidate.counter_field).readU32()!==current.counter)
@@ -186,6 +201,7 @@ function postColorLayer(device,d,draw) {
     const vp=Memory.alloc(24),vs=Memory.alloc(4096),ps=Memory.alloc(224*16),out=Memory.alloc(4);
     const targets=[],refs=[],textures=[],samplerStates=[];let depth=ptr(0),block=ptr(0),failure=null;
     const final=post.index===config.layer.post_color.length-1;
+    const width=stage.private_width??stage.width,height=stage.private_height??stage.height;
     const renderStates=gradingBlendStates(true).map(([id])=>[id,renderState(device,id)]),shaderStates=[];
     // Snapshot every sampler we can modify, including the terminal coverage pass.
     const slots=new Set(sources.map(s=>s.slot));if(final)slots.add(config.layer.grade.copy_sampler);
@@ -219,12 +235,27 @@ function postColorLayer(device,d,draw) {
         }
         out.writePointer(ptr(0));succeeded(com(device,59,'int',['uint','pointer'])(device,1,out),'post state block');
         block=out.readPointer();refs.push(block);
-        const target=textureTarget(device,stage.width,stage.height,stage.format);
+        const target=textureTarget(device,width,height,stage.format);
         current.extra.push(target.texture,target.surface);
         succeeded(com(device,39,'int',['pointer'])(device,ptr(0)),'post disable depth');
         for(const [slot] of targets)if(slot!==0)succeeded(com(device,37,'int',['uint','pointer'])(device,slot,ptr(0)),'post disable MRT');
         succeeded(com(device,37,'int',['uint','pointer'])(device,0,target.surface),'post private target');
-        succeeded(com(device,47,'int',['pointer'])(device,vp),'post original viewport');
+        const replayVp=Memory.alloc(24);replayVp.writeByteArray(bytes(vp,24));
+        if(config.layer.projection) {
+            replayVp.writeU32(0);replayVp.add(4).writeU32(0);replayVp.add(8).writeU32(width);replayVp.add(12).writeU32(height);
+            const uniforms=stage.vertex_uniforms;
+            if(uniforms.Transform!==undefined)for(let i=0;i<16;++i)
+                if(vs.add(uniforms.Transform*16+i*4).readFloat()!==(i%5===0?1:0))throw new Error('normalized copy transform is not identity');
+            const write=(slot,register,values)=>{
+                const data=Memory.alloc(16);values.forEach((v,i)=>data.add(i*4).writeFloat(v));
+                succeeded(com(device,slot,'int',['uint','pointer','uint'])(device,register,data,1),'normalized post texel size');
+            };
+            if(uniforms.RenderTargetSizeRCP!==undefined)write(94,uniforms.RenderTargetSizeRCP,[1/width,1/height,1-1/width,1-1/height]);
+            for(const [slot,register,bank] of [[94,uniforms.SMAAParamA,vs],[109,stage.pixel_smaa,ps]])
+                if(register!==undefined && register!==null)write(slot,register,[1/current.width,1/current.height,
+                    bank.add(register*16+8).readFloat(),bank.add(register*16+12).readFloat()]);
+        }
+        succeeded(com(device,47,'int',['pointer'])(device,replayVp),'post replay viewport');
         succeeded(com(device,43,'int',['uint','pointer','uint','uint','float','uint'])(device,0,ptr(0),1,0,1,0),'post clear');
         for(const source of sources) {
             if(stage.lookup_slots?.includes(source.slot))continue; // Observed static native SMAA lookup, never a scene input.
@@ -232,7 +263,7 @@ function postColorLayer(device,d,draw) {
             if(!input)throw new Error('missing private post-color input');
             succeeded(com(device,65,'int',['uint','pointer'])(device,source.slot,input.texture),'post private texture');
         }
-        succeeded(draw(),'private native post-color draw');
+        succeeded(draw(config.layer.projection?normalizedPostQuad(width,height,input,stage.declaration_hex):null),'private native post-color draw');
         if(final) {
             const p=config.layer.grade,code=Memory.alloc(p.copy_hex.length/2);
             code.writeByteArray(p.copy_hex.match(/../g).map(x=>parseInt(x,16)));
@@ -242,7 +273,7 @@ function postColorLayer(device,d,draw) {
             succeeded(com(device,92,'int',['pointer'])(device,ptr(0)),'post coverage fixed vertex');
             succeeded(com(device,89,'int',['uint'])(device,0xa0204),'post coverage FVF');
             const privateVp=Memory.alloc(24);privateVp.writeByteArray(bytes(vp,24));
-            privateVp.writeU32(0);privateVp.add(4).writeU32(0);privateVp.add(8).writeU32(stage.width);privateVp.add(12).writeU32(stage.height);
+            privateVp.writeU32(0);privateVp.add(4).writeU32(0);privateVp.add(8).writeU32(width);privateVp.add(12).writeU32(height);
             succeeded(com(device,47,'int',['pointer'])(device,privateVp),'post coverage viewport');
             const selector=Memory.alloc(16);[0,0,0,1].forEach((v,i)=>selector.add(i*4).writeFloat(v));
             succeeded(com(device,109,'int',['uint','pointer','uint'])(device,p.copy_constant,selector,1),'post coverage alpha');
@@ -252,7 +283,7 @@ function postColorLayer(device,d,draw) {
             for(const [state,value] of gradingBlendStates(true))succeeded(com(device,57,'int',['uint','uint'])(device,state,value),'post coverage blend');
             // Original-camera crop: final backbuffer covers only part of the HDR allocation.
             succeeded(com(device,83,'int',['uint','uint','pointer','uint'])(device,5,2,
-                gradingQuad(stage.width,stage.height,true,stage.width/current.width,stage.height/current.height),48),'post coverage draw');
+                gradingQuad(width,height,true,width/current.width,height/current.height),48),'post coverage draw');
         }
         post.outputs.set(stage.target,target);post.index++;
         if(final){post.complete=true;current.graded=target.surface;}

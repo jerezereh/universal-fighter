@@ -103,6 +103,7 @@ assert.equal(vm.runInContext('meshLayer.post.index',unmasked.context),0);
 assert.equal(vm.runInContext('meshLayer.post.outputs.size',unmasked.context),1);
 function postFixture(failure=null,final=false) {
     const f=fixture(failure),c=f.context;
+    c.config.layer.projection=null;
     c.config.layer.source_color=true;
     c.stage={shader:'source-shader',target:'post-target',original_hex:'01020304',vertex_hex:'01020304',
         width:4,height:4,format:21,sources:[{slot:0,surface:'prior'}]};
@@ -131,6 +132,18 @@ const crop=vm.runInContext('gradingQuad(2,3,true,.5,.75)',lookup.context);
 const uv=new DataView(crop.data.buffer);
 assert.equal(uv.getFloat32(48+16,true),.5);assert.equal(uv.getFloat32(96+20,true),.75);
 assert.equal(uv.getFloat32(48+32,true),1); // Mask multiplier stays white.
+const normalized=postFixture(null,true),c=normalized.context;
+c.config.layer.projection={width:4,height:4};
+c.stage.private_width=4;c.stage.private_height=4;c.stage.vertex_uniforms={};c.stage.pixel_smaa=null;
+c.stage.declaration_hex='observed';
+const vertices=new Uint8Array(4*32),vertexView=new DataView(vertices.buffer);
+for(let i=0;i<4;++i){vertexView.setFloat32(i*32+12,1,true);
+    vertexView.setFloat32(i*32+16,i%2,true);vertexView.setFloat32(i*32+20,i<2?0:1,true);}
+c.input={stride:32,declaration_hex:'observed',vertices_hex:Buffer.from(vertices).toString('hex')};
+c.replay=q=>{assert.ok(q);const v=new DataView(q.data.buffer);assert.equal(v.getFloat32(0,true),-1.25);
+    assert.equal(v.getFloat32(32+16,true),1);return 0;};
+vm.runInContext('postColorLayer(device,d,replay,input)',c);normalized.restore();normalized.release();
+assert.throws(()=>vm.runInContext('normalizedPostQuad(4,4,input,"changed")',c),/declaration drift/);
 for(const failure of ['block','texture','surface','post-draw','copy','mask-draw']) {
     const f=postFixture(failure,true);assert.throws(f.post,/failed/);f.restore();f.release();
 }

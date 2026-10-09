@@ -310,6 +310,10 @@ dimensions; binary coverage crops the HDR allocation without claiming silhouette
 fidelity. Limited HUD-excluded interior RGB error is about 0.752/255 and source/graphics
 restoration passes. Next normalize postprocess dimensions/UVs and repeat movement/normal/
 facing checks; source producer, anatomical pivot/scale and persistent contacts remain.
+Normalized 640x768 private blur/composite/SMAA now passes neutral held-counter settling
+with matching presentation 3/4 pixels, native input/constant adaptation and restored
+source/graphics state. Private intermediates retain the observed quarter-size padding.
+Next repeat movement/Punch/facing oracles before foot/scale and silhouette review.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

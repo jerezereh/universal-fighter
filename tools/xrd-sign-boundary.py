@@ -194,7 +194,7 @@ def grading_programs(folder,state):
         copy_hex=copy_code.hex(),copy_sampler=copy_table['InTexture'][1],copy_constant=copy_table['TextureComponentReplicateAlpha'][1])
 
 
-def post_color_programs(folder,state,grade,smaa=False):
+def post_color_programs(folder,state,grade,smaa=False,projection=None):
     # Reuse the validated inventory; native shader bytes stay in the ignored capture.
     grading_programs(folder,state)
     inventory=json.loads((folder/'screen-shaders.json').read_text())
@@ -236,6 +236,24 @@ def post_color_programs(folder,state,grade,smaa=False):
         result.append(dict(shader=s['shader'],target=stage['surface'],original_hex=(folder/s['file']).read_bytes().hex(),
             vertex_hex=s['vertex_program']['code_hex'],width=stage['width'],height=stage['height'],format=stage['format'],
             sources=sources,lookup_slots=lookups))
+        if projection:
+            v=s['vertex_program'];q=s['vertex_input']
+            declaration=bytes.fromhex(q['declaration_hex'])
+            if (q['stride'] not in (32,48) or declaration[:16]!=bytes.fromhex('00000000030000000000100001000500')):
+                raise ValueError('normalized post-color requires observed float4 position/float2 UV declaration')
+            vb={name:(int(r),int(count)) for name,r,count in re.findall(r'^//\s+(\w+)\s+c(\d+)\s+(\d+)\s*$',v['assembly'],re.M)}
+            pb={name:(int(r),int(count)) for name,r,count in re.findall(r'^//\s+(\w+)\s+c(\d+)\s+(\d+)\s*$',s['assembly'],re.M)}
+            if not set(vb)<={'Transform','PSParam1','RenderTargetSizeRCP','SMAAParamA'}:
+                raise ValueError('unknown normalized vertex uniforms')
+            if any(count!=(4 if name=='Transform' else 1) for name,(_,count) in vb.items()):
+                raise ValueError('unsupported normalized vertex uniform size')
+            small=stage['format']==36
+            if small and (stage['width']!=first['width']//4+2 or stage['height']!=first['height']//4+2):
+                raise ValueError('unverified normalized downsample dimensions')
+            result[-1].update(private_width=projection['width']//4+2 if small else projection['width'],
+                private_height=projection['height']//4+2 if small else projection['height'],
+                declaration_hex=q['declaration_hex'],vertex_uniforms={n:r for n,(r,_) in vb.items()},
+                pixel_smaa=pb.get('SMAAParamA',(None,))[0])
         outputs.add(stage['surface'])
     if (not smaa and (result[-1]['width']!=first['width'] or result[-1]['height']!=first['height']) or
             smaa and (result[-1]['width']>first['width'] or result[-1]['height']>first['height'])):
@@ -288,7 +306,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if source_view and (not grade_path or normalize or settle or plan_path or inspect_transforms or hdr or layer_presentations or layer_steps):
         raise ValueError('source-view comparison requires exclusive neutral graded capture without normalization/readiness claims')
     if source_color and not source_view:raise ValueError('full source color diagnostic requires original-camera comparison')
-    if post_color_path and (not source_view or source_color):raise ValueError('private post-color replay requires exclusive original-camera private grading')
+    if post_color_path and (not (source_view or normalize) or source_color):raise ValueError('private post-color replay requires private original-camera or normalized grading')
     if smaa and not post_color_path:raise ValueError('SMAA requires private post-color replay')
     if grade_path and (not layer_path or not (normalize or source_view) or hdr):raise ValueError('native grading requires normalized or diagnostic source-view A8 output')
     if inspect_screen and (not trace_draws or not capture or suppress_path and not layer_path or plan_path):
@@ -314,7 +332,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         layer['source_view']=source_view
         layer['source_color']=source_color
         if grade_path:layer['grade']=grading_programs(grade_path,state)
-        if post_color_path:layer['post_color']=post_color_programs(post_color_path,state,layer['grade'],smaa)
+        if post_color_path:layer['post_color']=post_color_programs(post_color_path,state,layer['grade'],smaa,layer.get('projection'))
         layer['smaa']=smaa
         if source_color and (not layer['grade']['vertex_original_hex'] or not layer['grade']['source_quad_observed']):
             raise ValueError('source color replay requires inspected native vertex/quad inputs')

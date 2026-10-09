@@ -68,3 +68,22 @@ for change in ('scene-as-lookup','unknown-blend-input','missing-lookup','wrong-e
     except ValueError:pass
     else:raise AssertionError(change+' accepted')
 print('SMAA ordering, private scene dependencies, distinct native lookups and cropped output guards passed.')
+data=copy.deepcopy(smaa_baseline)
+for i,program in enumerate(data['screen-shaders.json'],1):
+    program['vertex_input']['declaration_hex']='00000000030000000000100001000500ff00000011000000'
+    program['vertex_program']['assembly']='// SMAAParamA c6 1\n' if i>=11 else '// Transform c9 4\n'
+for i in range(3,9):data[f'pass-{i:02}.json'].update(format=36,width=6,height=6)
+result=boundary.post_color_programs(Folder(),{},grade,True,dict(width=640,height=768))
+assert result[1]['private_width']==162 and result[1]['private_height']==194
+assert result[-1]['private_width']==640 and result[-1]['pixel_smaa']==0
+normalized_baseline=copy.deepcopy(data)
+for change in ('wrong-declaration','wrong-downsample','unknown-uniform','wrong-uniform-size'):
+    data=copy.deepcopy(normalized_baseline)
+    if change=='wrong-declaration':data['screen-shaders.json'][3]['vertex_input']['declaration_hex']='00'*24
+    if change=='wrong-downsample':data['pass-04.json']['width']=7
+    if change=='unknown-uniform':data['screen-shaders.json'][3]['vertex_program']['assembly']='// Unknown c9 4\n'
+    if change=='wrong-uniform-size':data['screen-shaders.json'][3]['vertex_program']['assembly']='// Transform c9 1\n'
+    try:boundary.post_color_programs(Folder(),{},grade,True,dict(width=640,height=768))
+    except ValueError:pass
+    else:raise AssertionError(change+' accepted')
+print('Normalized declaration/uniform guards and quarter-resolution padded private dimensions passed.')
