@@ -326,6 +326,9 @@ Clean opposite-facing neutral rendering passes separately and retains canonical-
 private pixels. Frame-scoped retained shader reuse removes duplicate inspections while
 preserving per-draw binding/texture/state checks. Next test a shorter mirrored crossover
 from the current right-side position; no complete 135-step postprocess proof is claimed.
+The 97-request mirrored plan is ready but its first run is blocked before any input by
+the existing minimum non-contact separation guard. Move Sol farther right of Ky manually,
+with approximately default starting separation and both idle, before that next check.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

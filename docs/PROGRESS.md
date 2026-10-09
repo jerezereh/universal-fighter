@@ -1,5 +1,23 @@
 # Progress record
 
+## 2026-10-08 — Mirrored crossover scene gate
+
+- The shorter mirrored crossover compiles to 97 requests, using ten approach frames
+  from the closer right-side position, left-directed jump/travel and relative back/
+  forward after crossing. It is not accepted native evidence: the existing non-contact
+  scene guard rejects before the first input request because current fighter separation
+  is below its minimum. Grounding/hit/idle observations are otherwise valid.
+- Failed local receipt: ignored `20261008-222305-484036/boundary-20261009-012508-569545`.
+  Zero updates, four blocked opportunities, one initial presentation [3,4] image pair,
+  then clean source/graphics restoration and restored hooks. No scene bound or lease
+  was widened, and no native coordinates/reset fields were guessed or written.
+- Next manual action: move Sol farther to Ky's right, to approximately the default
+  starting separation, with both grounded and idle. The verified neutral samples already
+  establish separate original facings with canonical-right private rendering, but the
+  mirrored crossover/relative-input sequence still needs its clean complete run. UI
+  control stays with the user. Full 135-step postprocess capture, anatomical foot/scale,
+  silhouette alpha and persistent producer/contact ownership remain pending.
+
 ## 2026-10-08 — Opposite-facing rendering and retained postprocess programs
 
 - User reset verified read-only: same exact SIGN process/module, advancing clock, grounded
