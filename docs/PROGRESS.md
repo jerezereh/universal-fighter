@@ -1,5 +1,40 @@
 # Progress record
 
+## 2026-10-08 — Post-color composite and SMAA contributions localized
+
+- Added exclusive neutral `--capture-screen-stages` with pass/screen inspection. It
+  captures each two-triangle output from the native LUT consumer through SMAA neighborhood
+  blending during one held presentation, under existing 24-stage/128-MiB bounds. The
+  matching final backbuffer is captured at that first presentation; update credits wait
+  for its packet. First-presentation diagnostics explicitly reject settled-frame claims.
+- Screen inspection and each captured draw now associate active 2D sampler textures with
+  their actual level-zero surfaces. Per-draw observations matter when a shader/target
+  pair is reused. The initial unique-pair capture omits repeated copy writes; its inferred
+  content dependencies are superseded by the final non-deduplicated capture. Associations
+  identify resources/latest retained writes, not complete unobserved write history.
+- The final native repeat passes three exact updates, 156 blocked opportunities, 13
+  stage readbacks (~60.5 MB including state), four linked final frames and source/render
+  hook restoration. One preceding attempt times out before attachment/native start; its
+  retry succeeds. No private replay or host boundary change is part of this inspection.
+- Added hash/state/viewport-linked pipeline analysis with an explicitly observed region
+  and evidence note. Auxiliary edges/weights and small blur images are not treated as
+  color-fidelity references. In the observed Sol rectangle (including background, omitting
+  the foot/HUD band), the initial full-resolution copy is byte-identical to color grading.
+  Two-axis blur feeds a color-compositing pass which first changes that region (mean
+  RGB difference 3.227/255); SMAA neighborhood output differs from grading by 5.573/255.
+  Its difference against the matching final image is 0.177/255, so additional later changes
+  are not ruled out. These are stage/region diagnostics, not additive error attribution or
+  isolated fighter fidelity. Retail programs/constants/pixels remain ignored.
+- Authored role/region, first-presentation/readiness, sampler association, shader/getter
+  and readback tests pass, plus syntax/compile checks. Next retain/replay the isolated
+  post-color blur/composite and SMAA path with correct texture lineage and defer coverage
+  masking appropriately. Final alpha edges, pivot/scale, source result/contact ownership
+  and connected producer remain pending.
+- Evidence: probe `20261008-222305-484036`; final capture
+  `boundary-20261009-000653-237066/pipeline-analysis.json`; superseded unique-pair captures
+  `boundary-20261008-234811-955093` and `boundary-20261008-235734-461743`; pre-start timeout
+  `boundary-20261009-000344-620654`. UTC artifact dates differ from the local work date.
+
 ## 2026-10-08 — Same-presentation color target resolves the base-color uncertainty
 
 - Original-camera grading now reads the original color target immediately after its

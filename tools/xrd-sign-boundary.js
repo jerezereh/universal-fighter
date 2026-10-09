@@ -90,7 +90,9 @@ function twoTriangleDraw(method,args) {
 function installDrawTrace(device) {
     drawTrace = {device, active: false, frames: 0, events: [], counter: null, surfaces: new Map(),
         currentTarget: null, passSeen: new Set(), passBytes: 0, passIndex: 0,screenShaders:new Set(),
-        lutShaders:new Set(),colorBoundarySteps:new Set()};
+        lutShaders:new Set(),colorBoundarySteps:new Set(),screenPrograms:new Map()};
+    drawTrace.screenStagesStarted=false;
+    drawTrace.screenStagesDone=false;
     // D3D9 interface slots, not source-game offsets. Capture two complete Present intervals.
     const methods = [[37, 'SetRenderTarget', ['u', 'p']], [43, 'Clear', ['u', 'p', 'u', 'u', 'u', 'u']],
         [65, 'SetTexture', ['u', 'p']], [81, 'DrawPrimitive', ['u', 'u', 'u']],
@@ -117,6 +119,7 @@ function installDrawTrace(device) {
                 this.targetBinding = null;
                 this.gradeDevice=null;
                 this.gradeReplay=null;
+                this.screenStage=null;
                 if (config.layer && layerDrawing) return;
                 const d = drawTrace;
                 if (d === null || !args[0].equals(d.device)) return;
@@ -146,6 +149,14 @@ function installDrawTrace(device) {
                     try { inspectScreenShader(device,d,method,args); }
                     catch(error) {send({kind:'error',phase:'screen-shader',message:String(error)});}
                 }
+                if(config.capture_screen_stages && d.frames===0 && !d.screenStagesDone && twoTriangleDraw(method,args)) {
+                    if(d.lutShaders.has(d.pixelShader))d.screenStagesStarted=true;
+                    if(d.screenStagesStarted) {
+                        if(d.passIndex>=24)throw new Error('screen-stage count limit');
+                        this.screenStage={shader:d.pixelShader,event:d.events.length,device:args[0]};
+                        if(/^\/\/\s+blendTex\s+s\d+\s+1\s*$/m.test(d.screenPrograms.get(d.pixelShader)??''))d.screenStagesDone=true;
+                    }
+                }
                 if (d.events.length >= 8192) {
                     d.active = false;
                     send({kind: 'error',phase: 'draw-trace',message: 'draw interval overflow'}); return;
@@ -169,7 +180,7 @@ function installDrawTrace(device) {
                         this.event.surface = d.surfaces.get(id);
                     } catch (error) { send({kind: 'error',phase: 'draw-surface',message: String(error)}); }
                 }
-                if (config.capture_passes && method === 'SetRenderTarget' && args[1].toUInt32() === 0 &&
+                if (config.capture_passes && !config.capture_screen_stages && method === 'SetRenderTarget' && args[1].toUInt32() === 0 &&
                     d.frames === 0 && d.passSeen.size < 24 && d.passBytes < 128 * 1024 * 1024 &&
                     !d.passSeen.has(d.currentTarget) && gate !== null && !gate.executing && !gate.resumed) {
                     try {
@@ -189,6 +200,19 @@ function installDrawTrace(device) {
                 }
             },
             onLeave(result) {
+                if(this.screenStage && result.toInt32()===0) {
+                    try {
+                        const d=drawTrace,s=this.screenStage;
+                        const root=Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
+                        const captured=captureBackBuffer(s.device,root,d.counter,true);
+                        const textureSources=screenTextureSources(s.device,d.screenPrograms.get(s.shader));
+                        if(d.passBytes+captured.data.byteLength>128*1024*1024)throw new Error('screen-stage byte limit');
+                        d.passBytes+=captured.data.byteLength;
+                        send({...captured.metadata,pass_index:++d.passIndex,trace_event:s.event,
+                            presentation_index:1,screen_shader:s.shader,capture_boundary:'after-screen-draw',
+                            texture_sources:textureSources,diagnostic_pipeline:true,hresult:0},captured.data);
+                    }catch(error){send({kind:'error',phase:'screen-stage',message:String(error)});}
+                }
                 if(this.gradeDevice!==null && result.toInt32()===0) {
                     try {gradeLayer(this.gradeDevice,drawTrace,this.gradeReplay);}
                     catch(error){layerFailed=true;if(meshLayer!==null)meshLayer.state_verified=false;
@@ -422,10 +446,11 @@ function observePresent() {
                                 this.capture=captureBackBuffer(args[0],root,this.counter);
                                 this.capture.metadata.request_index=(this.counter-gate.initialCounter)>>>0;
                             }
-                        } else if ((config.layer ? config.layer.presentations.includes(renderCapture.presentations) : renderCapture.presentations === 3) && renderCapture.attempts < 8 &&
+                        } else if ((config.layer ? config.layer.presentations.includes(renderCapture.presentations) : renderCapture.presentations === (config.capture_screen_stages?1:3)) && renderCapture.attempts < 8 &&
                             (!config.layer || (gate.initialCounter !== null && config.layer.capture_steps.includes((this.counter - gate.initialCounter) >>> 0)))) {
                             ++renderCapture.attempts;
                             this.capture = captureBackBuffer(args[0], root, this.counter);
+                            if(config.capture_screen_stages)this.capture.metadata.diagnostic_pipeline=true;
                             if (config.layer) this.capture.metadata.diagnostic_settling = config.layer.presentations.length > 1;
                             if (config.layer) this.capture.metadata.request_index = (this.counter - gate.initialCounter) >>> 0;
                         }

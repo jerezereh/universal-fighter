@@ -287,6 +287,12 @@ of unexcluded interior pixels (max channel error 1/255), including sampled foot 
 The final-backbuffer error remains about 5.95/255, localizing it after the color draw.
 Identify the later presentation pass next; this does not establish independent alpha,
 anatomical pivot/host scale, normalized color across inputs or producer capabilities.
+Held-presentation post-color capture now retains repeated copy writes and texture/surface
+associations through SMAA. The initial color copy is identical; two-axis blur feeds a
+color composite which changes the observed region before SMAA adds further changes.
+These regional/background-inclusive diagnostics do not establish isolated fidelity.
+Next duplicate that private post-color chain with native texture lineage and correct
+coverage/luminance handling; final edges, pivot/scale and producer/contact gates remain.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

@@ -9,8 +9,10 @@ import zlib
 
 def render_pixels(metadata, data):
     settling=metadata.get('diagnostic_settling') is True
+    pipeline=metadata.get('diagnostic_pipeline') is True
+    if pipeline and settling:raise ValueError('first-presentation pipeline is not settled evidence')
     for key, low, high in (('width', 1, 2048), ('height', 1, 2048), ('state_size', 1, 0x80000),
-                          ('counter', 0, 0xffffffff), ('presentation_index', 3, 24 if settling else 3)):
+                          ('counter', 0, 0xffffffff), ('presentation_index', 1 if pipeline else 3, 1 if pipeline else 24 if settling else 3)):
         if type(metadata.get(key)) != int or not low <= metadata[key] <= high:
             raise ValueError('invalid render ' + key)
     width, height, size = metadata['width'], metadata['height'], metadata['state_size']
@@ -75,10 +77,14 @@ def pass_pixels(metadata,data):
                          ('counter',0,0xffffffff),('pass_index',1,24),('trace_event',0,8192)):
         if type(metadata.get(key))!=int or not low<=metadata[key]<=high: raise ValueError('invalid pass '+key)
     if (type(metadata.get('format'))!=int or metadata['format'] not in formats or
-        metadata.get('capture_boundary') not in ('before-target-switch','after-original-color-draw') or metadata.get('hresult')!=0 or
+        metadata.get('capture_boundary') not in ('before-target-switch','after-original-color-draw','after-screen-draw') or metadata.get('hresult')!=0 or
         metadata.get('multisample')!=0 or any(metadata.get(k) is not False for k in
             ('atomic_native_frame','isolated_rgba','native_render_latency_verified'))):
         raise ValueError('unsupported/promoted intermediate readback')
+    if metadata['capture_boundary']=='after-screen-draw' and (
+            metadata.get('diagnostic_pipeline') is not True or metadata.get('presentation_index')!=1 or
+            not re.fullmatch('0x[0-9a-f]{1,8}',metadata.get('screen_shader','')) or metadata['screen_shader']=='0x0'):
+        raise ValueError('invalid screen-stage observation')
     if metadata['capture_boundary']=='after-original-color-draw' and (
             metadata.get('original_color_stage') is not True or metadata['format'] not in (21,22) or
             metadata.get('presentation_index')!=3 or type(metadata.get('request_index'))!=int or

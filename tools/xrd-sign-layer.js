@@ -282,6 +282,7 @@ function inspectScreenShader(device,d,method,args) {
     if (d.screenShaders.has(key)) return;
     if (d.screenShaders.size>=32) throw new Error('screen shader observation limit');
     const program=shaderProgram(device,'pixel'), constants=Memory.alloc(224*16);
+    if(d.screenPrograms)d.screenPrograms.set(program.shader,program.assembly);
     if (program.shader!==d.pixelShader) throw new Error('screen shader binding drift');
     succeeded(com(device,110,'int',['uint','pointer','uint'])(device,0,constants,224),'GetPixelShaderConstantF');
     const srgb=Memory.alloc(4),samplers=[];
@@ -297,12 +298,29 @@ function inspectScreenShader(device,d,method,args) {
     const lut=lutBindings.length?textureSurface(device,Number(lutBindings[0][1])):null;
     const vertex=lut!==null?inspectScreenVertex(device):null;
     const input=lut!==null && method==='DrawIndexedPrimitiveUP'?inspectScreenInput(device,args):null;
+    const textures=config.capture_screen_stages && (lut!==null || d.screenStagesStarted)?[]:null;
+    if(textures!==null)for(const slot of new Set([...program.assembly.matchAll(/^\/\/\s+\w+\s+s(\d+)\s+1\s*$/gm)].map(m=>Number(m[1])))) {
+        if(slot>=16)throw new Error('screen texture slot outside bounds');
+        const source=textureSurface(device,slot);
+        if(samplers[slot].texture!==null && samplers[slot].texture!==source.texture)throw new Error('screen texture binding drift');
+        samplers[slot].texture=source.texture;textures.push(source);
+    }
     if(lut!==null && samplers[lut.slot].texture!==lut.texture) throw new Error('LUT texture binding drift');
     if(lut!==null)d.lutShaders.add(program.shader);
     d.screenShaders.add(key);
     send({kind:'screen-shader',shader:program.shader,code_size:program.code.length,assembly:program.assembly,
         source_target:d.currentTarget,constants_hex:hex(bytes(constants,224*16)),srgb_write:srgb.readU32(),
-        samplers,lut_source:lut,vertex_program:vertex,vertex_input:input,counter:d.counter,trace_frame:d.frames+1,trace_event:d.events.length,read_only:true},program.code.buffer);
+        samplers,lut_source:lut,texture_sources:textures,vertex_program:vertex,vertex_input:input,counter:d.counter,trace_frame:d.frames+1,trace_event:d.events.length,read_only:true},program.code.buffer);
+}
+
+function screenTextureSources(device,assembly) {
+    if(typeof assembly!=='string')throw new Error('screen stage lacks observed program');
+    const sources=[];
+    for(const slot of new Set([...assembly.matchAll(/^\/\/\s+\w+\s+s(\d+)\s+1\s*$/gm)].map(m=>Number(m[1])))) {
+        if(slot>=16)throw new Error('screen texture slot outside bounds');
+        sources.push(textureSurface(device,slot));
+    }
+    return sources;
 }
 
 function inspectScreenInput(device,args) {

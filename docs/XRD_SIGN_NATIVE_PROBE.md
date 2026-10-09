@@ -754,6 +754,16 @@ control matches interior RGB exactly; the sampled private-input path differs by 
 one byte in 0.0272% of unexcluded interior pixels. This is base graded RGB evidence only;
 silhouette borders, independent source alpha, final postprocessing and host pivot/scale
 remain separate gates. Native stage readback failures reject the diagnostic.
+`--capture-screen-stages` requires exclusive neutral pass/screen inspection. It retains
+every qualifying output from grading through observed SMAA blending, including repeated
+copy writes, and captures the matching first-presentation final backbuffer before issuing
+more update credits. These warm-up-frame diagnostics cannot claim settled readiness.
+Per-draw active texture/surface associations avoid stale associations from shader-key
+deduplication. Run `xrd_pipeline.py <trace> --region x0,y0,x1,y1 --note "observation"`
+for a hash/state-linked regional report; it explicitly includes background and excludes
+auxiliary edge/weight buffers from RGB comparisons. Resource links identify latest retained
+writes, not complete write history. The measured sequence first changes color at the
+blur-fed composite, with further changes at SMAA and a smaller final-image residual.
 
 `--settle-layer` requires normalization, up to four selected requests, no fixed
 `--layer-presentations` and no per-sample transform inspection. It starts candidates at

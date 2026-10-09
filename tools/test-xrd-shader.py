@@ -29,6 +29,12 @@ def main():
         constants_hex='00'*(224*16),assembly='ps_3_0\n',srgb_write=0,
         samplers=[dict(slot=i,texture=None,srgb=0) for i in range(16)])
     result=screen_packet(metadata,pack(words))
+    associated=metadata|dict(samplers=[dict(slot=i,texture='0x3000' if i==0 else None,srgb=0) for i in range(16)],
+        texture_sources=[dict(slot=0,texture='0x3000',surface='0x4000',format=21,width=1920,height=1080)])
+    assert screen_packet(associated,pack(words))['texture_sources'][0]['width']==1920
+    try:screen_packet(associated|dict(texture_sources=associated['texture_sources']*2),pack(words))
+    except ValueError:pass
+    else:raise AssertionError('duplicate texture association accepted')
     assert not result['color_verified'] and not result['replay_verified']
     vertex=dict(shader='0x3000',code_hex=pack([0xfffe0300]+words[1:]).hex(),
         constants_hex='00'*4096,assembly='vs_3_0\n')

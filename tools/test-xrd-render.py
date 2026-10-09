@@ -102,6 +102,13 @@ def main():
                     dict(original_color_shader='0x0'),dict(format=113)]:
         reject(lambda:pass_pixels(stage|changes,b'abcd'+bytes([1,2,3,255])))
     print('Original color-stage role, presentation/step, format and shader bounds passed.')
+    pipeline=stage|dict(capture_boundary='after-screen-draw',diagnostic_pipeline=True,
+        screen_shader='0x1234',presentation_index=1)
+    pass_pixels(pipeline,b'abcd'+bytes([1,2,3,255]))
+    reject(lambda:pass_pixels(pipeline|dict(presentation_index=3),b'abcd'+bytes([1,2,3,255])))
+    first=metadata|dict(diagnostic_pipeline=True,presentation_index=1)
+    render_pixels(first,data)
+    reject(lambda:render_pixels(first|dict(diagnostic_settling=True),data))
 
 
 if __name__ == '__main__': main()

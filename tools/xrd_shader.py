@@ -25,6 +25,15 @@ def screen_packet(metadata,data):
     for key,low,high in [('counter',0,0xffffffff),('trace_frame',1,2),('trace_event',0,8191)]:
         if type(metadata.get(key))!=int or not low<=metadata[key]<=high: raise ValueError('invalid screen frame identity')
     lut=metadata.get('lut_source')
+    sources=metadata.get('texture_sources')
+    if sources is not None and (type(sources)!=list or len(sources)>16 or
+            len({s.get('slot') for s in sources})!=len(sources) or any(
+                type(s.get('slot'))!=int or not 0<=s['slot']<16 or
+                s.get('texture')!=samplers[s['slot']]['texture'] or
+                not re.fullmatch('0x[0-9a-f]{1,8}',s.get('surface','')) or s['surface']=='0x0' or
+                type(s.get('format'))!=int or not 0<=s['format']<=0xffffffff or
+                any(type(s.get(k))!=int or not 1<=s[k]<=2048 for k in ('width','height')) for s in sources)):
+        raise ValueError('invalid screen texture/surface association')
     if lut is not None and (type(lut.get('slot'))!=int or not 0<=lut['slot']<16 or
             lut.get('texture')!=samplers[lut['slot']]['texture'] or
             not re.fullmatch('0x[0-9a-f]{1,8}',lut.get('surface','')) or lut['surface']=='0x0' or
