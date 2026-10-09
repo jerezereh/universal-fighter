@@ -1,5 +1,39 @@
 # Progress record
 
+## 2026-10-09 — Counter-bound rendered transactions and controller loss
+
+- Added a bounded renewable transaction mode: four consecutive normalized settled
+  frames, three neutral source credits, with the initial frame held beyond twelve seconds.
+  Each credit names the ready uint32 source counter. Missing/stale/exhausted counters
+  reject without consuming readiness; pending or already-consumed credits cannot replay.
+  Native readiness follows the existing consecutive-pixel candidate, not atomic rendering.
+- Renewable private rendering now supports watchdog cleanup. Ordinary execution resumes
+  on expiry. With no live private target, hooks detach immediately; an outstanding private
+  COM target defers teardown to the original renderer's EndScene/Present callbacks.
+  If those callbacks stop entirely, deferred renderer teardown is not yet validated.
+- Initial run `boundary-20261009-212500-189227` produced no private mesh and is rejected
+  with clean restoration. Fresh inventories show changed render-target pointers, while
+  mesh buffers/device remain the same; window capture dimensions also changed. Refresh
+  the actual inventories rather than inferring pointers from old receipts. Fresh clean
+  draw proof `boundary-20261009-212639-537482`, mesh inspection
+  `boundary-20261009-212718-266982`, and thirteen-stage screen/postprocess inspection
+  `boundary-20261009-212752-457331` all pass. These folders share ignored probe
+  `artifacts/xrd-sign-native/20261009-173227-222153`.
+- `boundary-20261009-212825-014944` passes: 3 exact credits, 457 blocked opportunities,
+  unchanged held state, four pairs at consecutive counters, identical private pixels at
+  presentations 3/4, unclipped canonical projection, verified graphics/source restoration.
+- `--transaction-loss-check` ceases heartbeats after all four pairs. Native evidence
+  `boundary-20261009-213008-097944` passes the same transaction checks plus automatic
+  resume and hook removal: 3 exact credits, 728 blocked opportunities, zero gaps/errors,
+  eight linked image/state captures, original source/graphics code restored. Renderer
+  recovery with no outstanding private target is native-verified; the outstanding-target
+  deferral branch has authored coverage only.
+- Authored checks exercise actual readiness/step exports, stale/duplicate/exhausted
+  rejection, watchdog resource deferral and direct cleanup. Existing input, boundary,
+  layer and grade checks plus Python/JS syntax pass. No host/runtime protocol changes,
+  source caps or live connection. Next protect transactions from unexpected counter/
+  fighter-object changes, then non-neutral streaming and contact/result/lifecycle work.
+
 ## 2026-10-09 — Accepted cached appearance and renewable source ownership
 
 - User accepts cached Sol appearance and correct facing at the `.23` host review.

@@ -587,6 +587,7 @@ function installGate(target, p) {
     const original = new NativeFunction(target, 'void', ['pointer'], {abi: 'thiscall', exceptions: 'propagate'});
     gate = {target, root, credits: 0, pending: false, deadline: Date.now() + 8000, resumed: false, timer: null,
         renewable: p.renewable === true,
+        frameReady: null,
         executing: false, inputs: [0, 0], initialCounter: null};
     const replacement = new NativeCallback(function(object) {
         const g = gate;
@@ -636,8 +637,15 @@ function armGateRemoval() {
     clearTimeout(gate.timer);
     gate.timer = setTimeout(() => {
         if (gate !== null) {
-            // Renewable mode excludes private rendering, so cleanup needs no renderer callback.
-            if (gate.renewable) stopReceipt = finishStop();
+            if (gate.renewable) {
+                gate.resumed = true; gate.credits = 0;
+                if (config.layer && meshLayer !== null) {
+                    // COM resources belong to the render thread. Ordinary updates resume now;
+                    // resource/hook teardown completes at the next EndScene/Present callback.
+                    stopRequested = true; layerStopping = true;
+                    send({kind:'error',phase:'watchdog',message:'gate cleanup deferred to renderer'});
+                } else stopReceipt = finishStop();
+            }
             else {
                 Interceptor.revert(gate.target); removeInputHooks(); removeDrawFilter(); Interceptor.flush(); gate = null;
             }
@@ -670,7 +678,11 @@ rpc.exports = {
     start(p) {
         if (listener || gate) throw new Error('already observing');
         if (p.renewable !== undefined && typeof p.renewable !== 'boolean') throw new Error('invalid renewable mode');
-        if (p.renewable && (!p.gate || p.capture || p.trace_draws || p.layer || p.suppress_draws))
+        if (p.transactions !== undefined && typeof p.transactions !== 'boolean') throw new Error('invalid transaction mode');
+        if (p.transactions && (!p.renewable || !p.gate || !p.capture || !p.trace_draws || !p.suppress_draws ||
+            !p.layer?.settle || !p.layer.projection || p.layer.capture_steps.join(',') !== '0,1,2,3'))
+            throw new Error('transaction experiment requires four consecutive normalized settled frames');
+        if (p.renewable && !p.transactions && (!p.gate || p.capture || p.trace_draws || p.layer || p.suppress_draws))
             throw new Error('renewable control requires a gate without private rendering');
         if (p.capture && !p.gate) throw new Error('render capture requires a controlled source gate');
         if (p.trace_draws && !p.gate) throw new Error('draw trace requires a controlled source gate');
@@ -715,14 +727,19 @@ rpc.exports = {
         });
         return {installed: true, mutation: 'temporary Frida entry interception; original routine runs unchanged'};
     },
-    step(inputs) {
+    step(inputs, expectedCounter) {
         if (gate === null || gate.resumed || gate.pending || gate.credits !== 0)
             throw new Error('gate unavailable or step already pending');
         if (!Array.isArray(inputs) || inputs.length !== 2 || inputs.some(x => !Number.isInteger(x) || x < 0 || x > 0x3ff))
             throw new Error('invalid core input masks');
         if (!config.input && inputs.some(x => x !== 0)) throw new Error('native input ingress is not installed');
         if (Date.now() > gate.deadline) throw new Error('gate lease expired');
+        if (config.transactions && (!Number.isInteger(expectedCounter) || expectedCounter < 0 || expectedCounter > 0xffffffff ||
+            gate.frameReady === null || expectedCounter !== gate.frameReady ||
+            ((expectedCounter-gate.initialCounter)>>>0) >= 3))
+            throw new Error('transaction frame not ready, stale or exhausted');
         if (!gate.renewable) gate.deadline = Date.now() + 8000;
+        gate.frameReady = null;
         gate.inputs = inputs.slice();
         gate.pending = true; gate.credits = 1;
         return {accepted: true};

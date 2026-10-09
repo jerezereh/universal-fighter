@@ -57,6 +57,9 @@ function finishSettledPair(scene) {
         presentation_index:layer.metadata.presentation_index,pixels_equal:pixelsMatch,
         source_render_origin:layer.metadata.source_render_origin,ready});
     if (ready) {
+        if (config.transactions && (gate === null || gate.resumed || gate.executing || gate.pending ||
+            Date.now()>gate.deadline || gate.frameReady !== null))
+            throw new Error('transaction owner changed during frame readiness');
         const pair=[prior.layer.metadata.presentation_index,layer.metadata.presentation_index];
         for(const candidate of [prior,{layer,scene}]) {
             const proof={settled_pair:pair,identical_native_pixels:true,frame_readiness_candidate:true,diagnostic_settling:true};
@@ -64,6 +67,9 @@ function finishSettledPair(scene) {
             send({...candidate.scene.metadata,...proof},candidate.scene.data);
         }
         layerCaptures+=2;layerCapturedSteps.add(layer.metadata.request_index+':settled');previousCandidate=null;
+        if (config.transactions) {
+            gate.frameReady=layer.metadata.counter;
+        }
     } else {
         previousCandidate={layer,scene};
         if(layer.metadata.presentation_index>=24) {

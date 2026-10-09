@@ -358,6 +358,11 @@ resume/hook-removal check. This mode excludes private rendering; heartbeat owner
 separate from step credits. Extend it to state/image transactions and safe renderer
 teardown next, then source contact suppression/result application and lifecycle. No live
 producer capability is enabled by the static review or renewable clock experiment.
+Bounded renewable rendering now passes four consecutive counter-bound state/image pairs
+and controller-loss automatic resume/removal after those pairs. Stale/duplicate credits
+reject at the source. Readiness remains a consecutive-pixel candidate; outstanding-target
+teardown without future renderer callbacks, source scene/reset invalidation, non-neutral
+streaming and combat result ownership remain gates before a live producer.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a
