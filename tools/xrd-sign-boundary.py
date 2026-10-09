@@ -265,8 +265,10 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
 def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False):
     if renewable and (not expire or not gate_receipt or plan_path or capture or trace_draws or layer_path):
         raise ValueError('renewable trace requires an exclusive gate recovery experiment')
-    if transactions and (renewable or expire or plan_path or not gate_receipt or not layer_path or not normalize or not settle or layer_steps not in (None,'0,1,2,3')):
-        raise ValueError('transaction trace requires four consecutive neutral normalized settled frames')
+    if transactions and (renewable or expire or not gate_receipt or not layer_path or not normalize or not settle or layer_steps not in (None,'0,1,2,3')):
+        raise ValueError('transaction trace requires four consecutive normalized settled frames')
+    if transactions and plan_path and (oracle!='render-position' or not combat_path):
+        raise ValueError('non-neutral transactions require age ownership and the positioning oracle')
     if transaction_loss and not transactions: raise ValueError('transaction loss requires transaction control')
     if not 13<=transaction_hold<=45 or transaction_hold!=13 and (not transactions or transaction_loss):
         raise ValueError('extended hold requires a normal transaction check; hold must be 13..45 seconds')
@@ -371,7 +373,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if plan_path:
         if not gate_options or not input_profile or expire or plan_path.stat().st_size>16384:
             raise ValueError('bounded input plan requires a native gate and validated input ingress')
-        plan=input_plan(json.loads(plan_path.read_text()))
+        plan=input_plan(json.loads(plan_path.read_text()),3 if transactions else None)
         if layer and (not oracle.startswith('render-') or layer['capture_steps'][-1]!=len(plan)):
             raise ValueError('private render plan must use a render oracle and capture its final requested step')
     sys.path.insert(0,str(ROOT/'local-cache/xrd-tools/frida/python'))
@@ -436,7 +438,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         if requests==0 and (not states or not input_scene_ready(states[0],oracle,plan)):
                             raise ValueError('input oracle requires grounded idle Sol/opponent within its scene distance bounds')
                         packet=plan[requests];mask=input_mask(packet['input'],states[-1][0]['facing_left'],packet['accept_input'])
-                        bounded_call(frida,lambda:script.exports_sync.step([mask,0]));request_log.append(dict(step=requests+1,mask=mask,**packet));requests+=1
+                        counter=records[-1]['after'] if transactions else None
+                        bounded_call(frida,lambda:script.exports_sync.step([mask,0],counter));request_log.append(dict(step=requests+1,mask=mask,**packet));requests+=1
                         next_request=time.perf_counter()-started+.03+packet['hold_ms']/1000
                     elif not plan and gate_options and not expire and requests<3 and requests==completed and image_ready and time.perf_counter()-started>=next_request and (not capture_passes or draws):
                         counter=records[-1]['after'] if transactions else None
@@ -723,7 +726,7 @@ if __name__=='__main__':
     p.add_argument('--lease-check',action='store_true',help='with --gate: omit steps and verify automatic resume/removal over 13 seconds')
     p.add_argument('--renewable-check',action='store_true',help='with --gate: renew without steps for 14 seconds, then verify controller-loss recovery; no private rendering')
     p.add_argument('--reset-observation',action='store_true',help='with --gate and --combat-candidate: 46-second no-credit renewable hold for a manual reset, followed by recovery; no private rendering')
-    p.add_argument('--transaction-check',action='store_true',help='renew ownership across a thirteen-second initial hold, then three counter-bound neutral steps with settled frames; requires normalized settled layer')
+    p.add_argument('--transaction-check',action='store_true',help='renew ownership across an initial hold, then three counter-bound steps with settled frames; optional three-frame positioning plan requires combat profile')
     p.add_argument('--transaction-loss-check',action='store_true',help='run transaction check, then cease renewal and verify automatic source/renderer-hook recovery')
     p.add_argument('--transaction-hold-seconds',type=float,default=13,help='13..45 seconds for the initial normal transaction hold, allowing a synchronized manual reset test')
     p.add_argument('--input-candidate',type=Path,help='ignored local sampler/writer/ingress discovery JSON')

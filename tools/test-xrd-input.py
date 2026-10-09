@@ -21,6 +21,8 @@ def main():
     for named in ({'record':True},{'menu':True},{'punch':1},{'unknown':False}): reject(lambda:input_mask(named))
     reject(lambda:input_mask({},facing_left=1))
     assert len(input_plan([dict(frames=2,input={'punch':True})]))==2
+    assert len(input_plan([dict(frames=3,input={'forward':True})],3))==3
+    for count in (2,4,0,True,161): reject(lambda:input_plan([dict(frames=3,input={'forward':True})],count))
     fighter=lambda x,flip:dict(x_raw=x,y_raw=0,hit_count=0,facing_left=flip,rotation_raw=0,
         scale_raw=[1000,1000],boxes=[[0,-50,-100,100,100]],pose_candidates=[dict(value='sol000_00')])
     actors=[fighter(0,False),fighter(200000,True)]

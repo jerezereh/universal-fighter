@@ -24,7 +24,7 @@ def input_mask(named,facing_left=False,accept_input=True):
     return sum(bit for name,bit in INPUT_BITS.items() if values.get(name))
 
 
-def input_plan(data):
+def input_plan(data,expected_frames=None):
     if type(data)!=list or not 1<=len(data)<=32: raise ValueError('input plan must have 1..32 segments')
     frames=[]
     for segment in data:
@@ -39,6 +39,8 @@ def input_plan(data):
         input_mask(named,False,accept)
         frames.extend(dict(input=dict(named),label=label,accept_input=accept,hold_ms=hold) for _ in range(count))
         if len(frames)>160: raise ValueError('input plan exceeds bounded gate capacity')
+    if expected_frames is not None and (type(expected_frames)!=int or not 1<=expected_frames<=160 or len(frames)!=expected_frames):
+        raise ValueError('input plan does not match expected source credit count')
     return frames
 
 

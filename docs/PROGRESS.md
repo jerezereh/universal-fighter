@@ -1,5 +1,30 @@
 # Progress record
 
+## 2026-10-09 — Non-neutral counter-bound rendered input
+
+- Transaction mode now accepts an exact three-credit named positioning plan with the
+  verified input ingress and combat/age profile. Each input request supplies the ready
+  source counter; the next request still waits for its preceding settled state/image pair.
+  Other plan lengths and unsupported transaction oracles reject before instrumentation.
+  Existing diagnostic plan limits, credit/image bounds and default neutral behavior stay.
+- `input_plan` can enforce its caller's exact expected credit count. Authored checks accept
+  three named forward frames and reject mismatched/invalid expected counts. Existing
+  input name/facing/SOCD/layout/history checks and Python syntax pass.
+- First native attempt `20261009-214454-210641/boundary-20261009-222053-939555`
+  times out attaching before hooks and remains rejected. Direct read-only window status
+  takes 2.76 seconds, confirms exact SIGN PID/path, responsive visible window, no focus
+  change or keys; another same-named game process is not targeted.
+- Retry `boundary-20261009-222159-456274` passes: three exact native input/update credits,
+  303 blocked opportunities, matching source history, right/relative-forward grounded
+  motion with neutral opponent, four counter-bound settled pairs, unchanged held state,
+  zero gaps/errors and clean source/graphics restoration. Positioning/render/transaction
+  oracles pass. This is a three-frame movement proof, not continuous real-time streaming
+  or complete input/attack coverage; readiness remains the native-pixel candidate.
+- Next manual lifecycle gate: leave offline training and re-enter Sol/Ky during a
+  synchronized owned session, inspect invalidation and fresh state/render identities.
+  Automatic reset/rebind and stale-resource generation handling remain unverified. Menu
+  control stays with the user. Source capabilities/live connection remain disabled.
+
 ## 2026-10-09 — Native same-position age reset rejection accepted
 
 - User resets after the installed cue while

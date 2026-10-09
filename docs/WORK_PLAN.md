@@ -398,6 +398,11 @@ changing 29094 to zero. No credits are granted; the separate classifier verifies
 rejection and resumed clock/clean restoration. Positive-age reset rejection is accepted;
 age-zero/same-observation resets and automatic reset/rebind remain unsupported. Continue
 non-neutral counter-bound rendering and continuous transactions before contact/result work.
+Three named forward credits now pass with age/counter ownership, actual source-history
+agreement and four settled state/image pairs. Exact plan counts and unsupported oracles
+reject. Continuous streaming/input coverage remain unverified. Next manual lifecycle
+check: leave and re-enter offline Sol/Ky training to validate scene invalidation and fresh
+state/render identity discovery before automatic rebind or live producer capabilities.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a
