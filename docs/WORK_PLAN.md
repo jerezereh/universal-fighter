@@ -293,6 +293,10 @@ color composite which changes the observed region before SMAA adds further chang
 These regional/background-inclusive diagnostics do not establish isolated fidelity.
 Next duplicate that private post-color chain with native texture lineage and correct
 coverage/luminance handling; final edges, pivot/scale and producer/contact gates remain.
+The bounded inspector now captures post-color vertex programs, constant banks and CPU
+quad inputs with three exact native updates and clean restoration. Shader/target dedup
+does not prove repeated draws share vertex inputs; preserve synchronous current inputs
+when replaying reused copy writes. Retail programs and native input data remain local.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

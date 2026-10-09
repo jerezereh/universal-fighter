@@ -296,9 +296,10 @@ function inspectScreenShader(device,d,method,args) {
     if(lutBindings.length>1 || lutBindings.some(m=>Number(m[1])>=16 || Number(m[2])!==1))
         throw new Error('ambiguous LUT sampler binding');
     const lut=lutBindings.length?textureSurface(device,Number(lutBindings[0][1])):null;
-    const vertex=lut!==null?inspectScreenVertex(device):null;
-    const input=lut!==null && method==='DrawIndexedPrimitiveUP'?inspectScreenInput(device,args):null;
-    const textures=config.capture_screen_stages && (lut!==null || d.screenStagesStarted)?[]:null;
+    const pipelineInput=lut!==null || (config.capture_screen_stages && d.screenStagesStarted);
+    const vertex=pipelineInput?inspectScreenVertex(device):null;
+    const input=pipelineInput && method==='DrawIndexedPrimitiveUP'?inspectScreenInput(device,args):null;
+    const textures=config.capture_screen_stages && pipelineInput?[]:null;
     if(textures!==null)for(const slot of new Set([...program.assembly.matchAll(/^\/\/\s+\w+\s+s(\d+)\s+1\s*$/gm)].map(m=>Number(m[1])))) {
         if(slot>=16)throw new Error('screen texture slot outside bounds');
         const source=textureSurface(device,slot);

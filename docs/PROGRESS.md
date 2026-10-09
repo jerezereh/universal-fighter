@@ -1,5 +1,24 @@
 # Progress record
 
+## 2026-10-08 — Post-color vertex inputs captured
+
+- Extended the existing bounded screen inspector to retain native vertex programs,
+  constant banks and indexed CPU quad declarations/vertices/indices for post-color
+  stages, rather than only the LUT consumer. Existing shader/target deduplication
+  remains; repeated writes still receive separate texture lineage/readbacks, but this
+  inventory does not establish that repeated draws have identical vertex inputs.
+- Authored checks verify post-color capture without a LUT binding and preserve the
+  pre-color inspection scope. Node syntax, transform/resource checks and all 87 literal
+  D3D calls against the installed header pass.
+- Native evidence: ignored `20261008-222305-484036/boundary-20261009-001859-252982`.
+  Three exact updates, 185 blocked opportunities, 13 stage outputs, four linked scene
+  captures, no trace errors and restored source/render hooks. Blur, composite and SMAA
+  programs include vertex constants and 32-byte indexed quad inputs; the copy uses a
+  48-byte quad. Native programs/data remain local and unshipped.
+- Next replay the private chain, retaining grading luminance alpha separately from
+  actor coverage. Final edges/color, normalized geometry/pivot/scale and persistent
+  producer/contact ownership remain pending; no SIGN capability is enabled.
+
 ## 2026-10-08 — Post-color composite and SMAA contributions localized
 
 - Added exclusive neutral `--capture-screen-stages` with pass/screen inspection. It

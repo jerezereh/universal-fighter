@@ -78,6 +78,14 @@ assert.equal(screen.messages.length,1);assert.equal(screen.messages[0].kind,'scr
 assert.equal(screen.messages[0].constants_hex.length,224*16*2);
 assert.equal(screen.messages[0].samplers.length,16);assert.equal(screen.messages[0].samplers[0].texture,null);
 assert.deepEqual(screen.calls,['assembly','shader']);
+const post=fixture();quadInput(post);
+vm.runInContext('config.capture_screen_stages=true;d.screenStagesStarted=true;inspectScreenShader(device,d,"DrawIndexedPrimitiveUP",quadArgs)',post.context);
+assert.ok(post.messages[0].vertex_program);
+assert.equal(post.messages[0].vertex_input.stride,32);
+assert.equal(post.messages[0].lut_source,null);
+const beforePost=fixture();
+vm.runInContext('config.capture_screen_stages=true;inspectScreenShader(device,d)',beforePost.context);
+assert.equal(beforePost.messages[0].vertex_program,null);
 for(const failure of ['shader','program','constants','disassemble','text-size','release-assembly','state','sampler']) {
     const f=fixture(failure);assert.throws(f.screen,/failed|unbounded/);
     if(failure!=='shader')assert.ok(f.calls.includes('shader'));
