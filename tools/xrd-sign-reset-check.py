@@ -1,4 +1,4 @@
-"""Classify an interrupted transaction as reset invalidation; preserve the raw failure."""
+"""Classify reset or scene-exit invalidation; preserve the raw interrupted capture."""
 import argparse
 import copy
 import hashlib
@@ -47,9 +47,25 @@ def reset_check(receipt, observations, recovered):
         same_observation_reset_verified=False)
 
 
+def scene_exit_check(receipt, observations, root):
+    errors=receipt.get('errors',[])
+    expected=dict(type='send',payload=dict(kind='error',phase='gate',
+        message='Error: transaction scene changed; original execution resumed'))
+    rejection=len(errors)==2 and errors[0]==expected and errors[1].get('controller_phase')=='observe' and errors[1].get(
+        'controller_error','').startswith("RPCException('transaction scene changed', 'Error', ")
+    checks=dict(expected_scene_rejection=rejection,
+        no_credits_granted=bool(observations) and all(v['boundary']['executed'] is False and v['boundary']['counter_delta']==0 for v in observations),
+        held_state_unchanged=receipt.get('gate_check',{}).get('frozen_observed_state') is True,
+        battle_absent=type(root)==int and root==0,
+        clean_restoration=all(receipt.get(k) is True for k in ('detached','loaded_code_restored','source_unchanged')) and
+            receipt.get('render_cleanup',{}).get('render_code_restored') is True)
+    return dict(checks=checks,passed=all(checks.values()),source_capabilities_enabled=False,automatic_rebind_verified=False)
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('trace',type=Path)
-    folder=p.parse_args().trace.resolve()
+    p.add_argument('--scene-exit',action='store_true',help='require absent battle engine instead of a resumed battle clock')
+    args=p.parse_args();folder=args.trace.resolve()
     if not folder.is_relative_to(ROOT/'artifacts/xrd-sign-native'): raise ValueError('requires ignored local SIGN evidence')
     paths=[folder/'inspection.json',folder/'state.jsonl',folder.parent/'state-profile.json',folder/'candidate.json']
     if any(v.stat().st_size>16<<20 for v in paths): raise ValueError('unbounded reset evidence')
@@ -60,9 +76,11 @@ def main():
         base,size=process.module_base()
         if base!=state['module_base'] or hashlib.sha256(process.read(base+state['code_rva'],state['code_size'])).hexdigest()!=state['code_sha256']:
             raise ValueError('source session or loaded code changed')
-        recovered=observe(process,state)|dict(clock=read_clock(process,state,candidate))
-    result=reset_check(receipt,observations,recovered)|dict(recovered=recovered,raw_trace=folder.name)
-    (folder/'reset-invalidation.json').write_text(json.dumps(result,indent=2))
+        if args.scene_exit:
+            recovered=dict(battle_root=int.from_bytes(process.read(base+state['engine_global_rva'],4),'little'))
+        else: recovered=observe(process,state)|dict(clock=read_clock(process,state,candidate))
+    result=(scene_exit_check(receipt,observations,recovered['battle_root']) if args.scene_exit else reset_check(receipt,observations,recovered))|dict(recovered=recovered,raw_trace=folder.name)
+    (folder/('scene-exit-invalidation.json' if args.scene_exit else 'reset-invalidation.json')).write_text(json.dumps(result,indent=2))
     print(json.dumps(result['checks'],indent=2))
     if not result['passed']: raise ValueError('reset invalidation not verified; raw failure remains unchanged')
 

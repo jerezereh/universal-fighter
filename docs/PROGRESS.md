@@ -1,5 +1,30 @@
 # Progress record
 
+## 2026-10-09 — Active owned scene exit rejected and restored
+
+- User prepares Character Select, resumes training, then confirms exit after the installed
+  cue in `20261009-224725-497463/boundary-20261009-225758-208098`. Heartbeat's owner
+  check rejects with `transaction scene changed` when battle disappears. The queued native
+  gate diagnostic and RPC exception are both retained. No source credits are granted;
+  all 1,479 preceding samples have zero deltas, unchanged held state and zero gaps.
+- Renderer/menu handling produces no null-counter access error, and normal controller
+  cleanup restores source and graphics code and detaches the session. User confirms
+  character selection. No further source update or native battle clock is required there:
+  the expected postcondition is absent battle engine and working original menu.
+- Added strict `--scene-exit` classification to the existing interrupted-capture checker.
+  It requires exact native scene diagnostic/RPC rejection, no credits, unchanged held
+  state, absent battle root verified read-only after code/session checks, and full clean
+  restoration. It preserves raw interrupted-run failure and writes a separate ignored
+  `scene-exit-invalidation.json`; all checks pass for the native exit.
+- Authored checks reject a present/noninteger battle root, missing samples, executed
+  credits, failed restoration, unrelated/reset errors and extra errors. Existing reset/
+  ownership checks pass, as do Python syntax and whitespace. Source capability flags and
+  automatic-rebind acceptance remain false.
+- This clears active held-exit invalidation for the observed offline scene transition.
+  Next re-enter Sol/Ky, derive fresh state/owner and renderer identities and verify fresh
+  rendering rather than reusing the invalid scene's resources. Automatic rebind, continuous
+  transactions and source contact/result ownership remain pending; menus stay with user.
+
 ## 2026-10-09 — Scene absence/re-entry and heartbeat ownership
 
 - Initial held exit attempt `20261009-214454-210641/boundary-20261009-222934-663911`

@@ -410,6 +410,11 @@ Empty-battle rendering avoids counter dereferences; queued RPC errors are retain
 Active held-exit rejection/menu branches still need the prepared synchronized manual
 test. Re-derive render inventories before using new-scene assets; automatic rebind is
 not accepted by these read-only observations.
+Prepared exit during an active guarded hold now triggers heartbeat scene rejection with
+zero credits, no null-render-counter errors and full code/hook restoration. Separate
+strict scene-exit classification verifies an absent battle root after the user reaches
+character selection. This accepts invalidation, not automatic rebind. Next re-enter
+Sol/Ky and derive fresh state/owner/render inventories for new-scene rendering proof.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

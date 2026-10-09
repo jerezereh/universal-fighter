@@ -38,3 +38,14 @@ for changes in ([dict(fighter=0,field='age',before=10,after=0)],
     wrong=copy.deepcopy(age_receipt);wrong['errors'][0]['payload']['ownership_changes']=changes
     assert not check(wrong,aged,same)['passed']
 print('Reset classification requires guard rejection, zero credits, changed transform or matched shared age reset, resumed clock and clean restoration.')
+scene=module['scene_exit_check'];scene_receipt=copy.deepcopy(receipt)
+scene_receipt['errors']=[dict(type='send',payload=dict(kind='error',phase='gate',message='Error: transaction scene changed; original execution resumed')),
+    dict(controller_phase='observe',controller_error="RPCException('transaction scene changed', 'Error', 'authored stack')")]
+assert scene(scene_receipt,observations,0)['passed']
+for root in (1,False,None): assert not scene(scene_receipt,observations,root)['passed']
+assert not scene(scene_receipt,[],0)['passed']
+assert not scene(scene_receipt,bad,0)['passed']
+assert not scene(scene_receipt|dict(loaded_code_restored=False),observations,0)['passed']
+assert not scene(scene_receipt|dict(errors=scene_receipt['errors']+[dict(unexpected=True)]),observations,0)['passed']
+assert not scene(receipt,observations,0)['passed']
+print('Scene-exit classification requires exact root-loss RPC rejection, zero credits, absent battle and restoration.')
