@@ -1,5 +1,24 @@
 # Progress record
 
+## 2026-10-09 — Host review opened at provisional comparable scale
+
+- Opened static Sol-image review against the existing KOF XIII slice, with both AIs
+  disabled and real source simulation unconnected. Read-only capture of the exact owned
+  host window shows `.4` makes Sol substantially taller than Kyo. This trial is retained
+  at ignored `passthrough-two-guests-20261009-205645-369650/review.png`.
+- Closed only that verified owned host process to change the proposal; its launcher
+  records the intentional terminated exit and cleans its guest processes. No SIGN process,
+  source file or runtime boundary was changed. Reopened review at `.23` shell scale.
+- Revised read-only capture in ignored
+  `artifacts/host-baseline/passthrough-two-guests-20261009-210138-737343/review.png`
+  shows comparable idle silhouette heights, appropriate opposing facing and similar
+  visible ground alignment. Source-frame pixels/pivot are unchanged. Host trace confirms
+  the cropped 227x402 RGBA upload and active authored request/clock flow without panic.
+- The review window is left open for the user's appearance/size/foot assessment. `.23`
+  is a visual proposal, not accepted source-unit conversion or anatomical bone evidence.
+  Static-image controls/contact behavior remain authored; live SIGN remains unconnected.
+  Close the review window after assessing it to clean up its owned guest processes.
+
 ## 2026-10-09 — Static image review through the generic host
 
 - Added an optional local `GuestImage` DTO to the authored guest and generic launcher.

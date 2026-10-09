@@ -345,6 +345,10 @@ producer. Clean normalized image export preserves original pixels/pivot through 
 channel conversion; custom-image authored host smoke passes. Review provisional scale/
 ground alignment against the existing KOF slice next. This is separate from live source
 controls, animation, alpha/fidelity and persistent contact/result/clock acceptance.
+Actual host capture shows the initial `.4` review is oversized; a `.23` proposal is open
+beside KOF XIII with comparable idle heights and similar ground alignment. User appearance/
+foot/size review is now the manual gate. It does not accept source units or live SIGN
+simulation; the cached image and all behavior in that guest remain a static authored fixture.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.
