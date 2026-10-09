@@ -314,6 +314,12 @@ Normalized 640x768 private blur/composite/SMAA now passes neutral held-counter s
 with matching presentation 3/4 pixels, native input/constant adaptation and restored
 source/graphics state. Private intermediates retain the observed quarter-size padding.
 Next repeat movement/Punch/facing oracles before foot/scale and silhouette review.
+The shorter 10-step movement/jump and 20-step standing Punch oracles pass with normalized
+private postprocessing, exact settled image pairs and restored source/graphics. The longer
+28-step motion capture remains rejected for incomplete pairs inside the unchanged time
+window. Reset offline Sol/Ky to default starting positions manually before the next facing/
+crossover check: current spacing is twice the verified crossover setup and menu reset is
+outside verified source ingress. Producer/contact ownership and visual acceptance remain.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

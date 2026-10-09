@@ -1,5 +1,38 @@
 # Progress record
 
+## 2026-10-08 — Normalized postprocess movement and Punch checks
+
+- The original 28-step walk/jump plan is not accepted with private postprocessing.
+  First run executes all 28 updates but the final update arrives at 9.83 seconds of
+  the unchanged 10-second controller window, leaving no settled image pair. Removing
+  2.45 seconds of redundant diagnostic holds retains readiness-based credit gating;
+  the next run waits on the airborne step 20 and misses complete pairs. A three-sample
+  repeat executes all 28 updates but again lacks the last pair. All started trials
+  restore source/graphics hooks and state; missing pairs remain failed evidence.
+- Readiness metadata shows the native render origin catching up across presentations
+  after walking. This is a bounded capture/performance limitation, not proof of wrong
+  normalized geometry or permission to publish an unsettled image. Neither the native
+  lease, attachment timeout, presentation cap nor exact-pixel check was widened.
+- A separate shorter 10-step left/right/jump oracle passes: ignored
+  `20261008-222305-484036/boundary-20261009-010655-122119`. Ten exact updates, 20 blocked
+  opportunities, six linked layer/scene captures, native left/right/rise and unclipped
+  camera-independent private images. Selected steps [0,2,10] settle at [3,4], [6,7],
+  [6,7]. Exact consecutive pixels, input history and source/graphics restoration pass.
+  This verifies the shorter sequence only; it ends airborne and does not prove landing.
+- Standing Punch repeat passes in `boundary-20261009-010808-624403`: 20 exact updates,
+  16 blocked opportunities, one normal activation, four active native frames and six
+  linked image pairs at selected steps [0,7,20]. The active normal is rendered, images
+  change, no clipping occurs and each sample settles at [3,4]. Source/graphics state and
+  hooks restore, with no trace errors. No host/source contact ownership claim is added.
+- Pre-start attachment timeouts for these trials remain rejected in their local receipts.
+  Experimental plans and all native pixels/code/layouts remain ignored local evidence.
+- Next manual gate: reset offline SIGN Sol/Ky to default starting positions, Sol left of
+  Ky and both idle. Current separation is about twice that used by the verified 135-step
+  crossover, so reusing it here would not establish its facing oracle. Menu/reset input
+  is outside the verified ten-button ingress; UI control remains with the user. After
+  reset, repeat facing/crossover with normalized postprocessing, then foot/scale and
+  silhouette review. Source producer and universal result/contact capabilities stay false.
+
 ## 2026-10-08 — Normalized private postprocessing
 
 - Private blur/composite/SMAA replay now accepts the existing normalized mesh projection.
