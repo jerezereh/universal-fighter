@@ -14,6 +14,18 @@ LIMIT = 8 << 20
 CAPABILITIES = ['host-step', 'isolated-rgba', 'universal-contact']
 
 
+def load_image(path):
+    if path.stat().st_size>LIMIT:raise ValueError('image fixture exceeds message bound')
+    image=json.loads(path.read_text())
+    if set(image)!={'Width','Height','Pivot','RGBA'} or any(type(image[k])!=int or not 1<=image[k]<=1024 for k in ('Width','Height')):
+        raise ValueError('invalid image fixture dimensions/schema')
+    if type(image['Pivot'])!=list or len(image['Pivot'])!=2 or any(type(v)!=int or not -32768<=v<=32767 for v in image['Pivot']):
+        raise ValueError('invalid image fixture pivot')
+    pixels=base64.b64decode(image['RGBA'],validate=True)
+    if len(pixels)!=image['Width']*image['Height']*4:raise ValueError('invalid image fixture pixels')
+    return image
+
+
 def read_exact(conn, size):
     parts = bytearray()
     while len(parts) < size:
@@ -25,8 +37,9 @@ def read_exact(conn, size):
 
 
 class Fighter:
-    def __init__(self, game, variant):
+    def __init__(self, game, variant, image=None):
         self.game, self.variant = game, variant
+        self.static_image=image
         self.reset()
 
     def reset(self):
@@ -123,6 +136,7 @@ class Fighter:
                     hurtboxes=[[-15, top, 15, 0]], image=image)
 
     def image(self, top, active):
+        if self.static_image is not None:return self.static_image
         width, height, px, py = 96, 96, 24, 88
         rgba = bytearray(width * height * 4)
         color = (235, 162, 40, 255) if self.variant == 'amber' else (35, 185, 225, 255)
@@ -150,7 +164,9 @@ def main():
     p.add_argument('--variant', choices=('amber', 'cyan'), required=True)
     p.add_argument('--ready', type=Path, required=True)
     p.add_argument('--log', type=Path, required=True)
+    p.add_argument('--image',type=Path,help='local static RGBA DTO for visual review; behavior remains authored')
     args = p.parse_args()
+    image=load_image(args.image) if args.image else None
     with socket.socket() as listener, args.log.open('w', encoding='utf-8') as log:
         listener.bind(('127.0.0.1', 0))
         listener.listen(1)
@@ -160,7 +176,7 @@ def main():
         ready_tmp.replace(args.ready)
         while True:
             conn, _ = listener.accept()
-            f = Fighter(args.game, args.variant)
+            f = Fighter(args.game, args.variant,image)
             with conn:
                 conn.settimeout(30)
                 try:

@@ -34,6 +34,26 @@ reset and rollback-rejection scenes. It checks request clocks, contact callbacks
 completed match statistics and duplicate outgoing contacts. This does not automate
 the keyboard or verify physical user controls. Captures are separate read-only checks.
 
+## Review a local static image
+
+The authored P1 guest can display a local `GuestImage` JSON DTO with `--image`.
+It retains authored simulation/contacts and is named **Static image review** in the
+host. A cached retail image does not turn this fixture into a live game adapter.
+The optional shell scale defaults to `.4`; `--opponent` selects an existing staged
+character only for manual review, for example `kof13/kof13.def`.
+
+```powershell
+python tools/xrd-preview-image.py <clean-normalized-trace> --capture 6
+python tools/play-passthrough.py --no-debug --image <trace>/static-review-image.json --image-scale .4 --opponent kof13/kof13.def
+```
+
+The exporter verifies native restoration/pixel hashes and settled canonical framing,
+crops transparent borders, swaps BGRA to RGBA and translates the original pivot.
+The image/receipt remain local ignored artifacts. Foot placement, relative size and
+appearance require review in the host; behavioral, source-contact and persistent clock
+acceptance are separate. Source producer capabilities remain disabled. Arrows move
+the authored fixture and Z triggers its synthetic normal; the reference image is static.
+
 ## Bind a source adapter
 
 Use `runtime = passthrough` in the character definition's `[Info]`. Beside the `.def`,

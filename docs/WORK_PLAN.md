@@ -340,6 +340,11 @@ retreat and complete 97-step crossover pass with relative back/forward inputs, b
 facings, landing, unclipped canonical private pixels and restored source/graphics. Original
 135-step postprocess evidence remains incomplete. Continue pivot/scale/silhouette image
 gates and persistent transaction/contact/result ownership before connecting the producer.
+A generic static-image fixture now supports actual host review without enabling SIGN's
+producer. Clean normalized image export preserves original pixels/pivot through crop and
+channel conversion; custom-image authored host smoke passes. Review provisional scale/
+ground alignment against the existing KOF slice next. This is separate from live source
+controls, animation, alpha/fidelity and persistent contact/result/clock acceptance.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

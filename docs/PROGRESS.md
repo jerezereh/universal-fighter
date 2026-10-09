@@ -1,5 +1,31 @@
 # Progress record
 
+## 2026-10-09 — Static image review through the generic host
+
+- Added an optional local `GuestImage` DTO to the authored guest and generic launcher.
+  Dimensions/base64/pivot/message bounds are validated before opening the host. Review
+  scale uses the existing shell metadata; an existing staged opponent can be selected
+  for manual comparison. No source-name branches, receiver changes or live SIGN binding.
+- Read the pinned host renderer and existing image-upload path before this presentation
+  work. The renderer applies normal character scale and facing to image pixels/pivot;
+  premultiplication stays in the existing host path. Authored simulation/contacts remain
+  unchanged, and the host label explicitly says Static image review.
+- `xrd-preview-image.py` verifies clean native restoration, settled canonical metadata,
+  actual image hash and unclipped coverage, then crops transparent borders, converts
+  BGRA to RGBA and translates the existing pivot. Original capture and separate review
+  receipt stay ignored. No image, extracted asset or source bytecode is committed.
+- Authored tests cover fixture bounds, static image persistence over authored reset,
+  crop/channel/pivot fidelity and changed native hash rejection. Python syntax checks
+  pass. Offline custom-image guest/guest smoke completes with 26 authored commits,
+  synchronized clocks/sequences, contact callbacks, no duplicate outgoing contacts and
+  normal guest cleanup. Evidence: ignored
+  `artifacts/host-baseline/passthrough-two-guests-20261009-204953-562681`.
+- Next manual gate is actual host review against the existing KOF XIII slice, using
+  the cached canonical Sol frame and provisional `.4` shell scale/body-origin pivot.
+  The reference image stays static; arrows/Z operate authored fixture behavior. This
+  preview cannot establish live SIGN controls, animation, source contact suppression,
+  persistent transactions or producer readiness. Source capabilities remain disabled.
+
 ## 2026-10-09 — Scene-aware retreat and complete shorter crossover
 
 - The first fresh 97-step plan, starting at the old generic minimum separation, reaches

@@ -7,9 +7,11 @@ import argparse
 from contextlib import ExitStack
 import datetime
 import json
+import math
 import os
 from pathlib import Path
 import re
+import runpy
 import subprocess
 import sys
 import time
@@ -29,13 +31,14 @@ def stop_process(p):
             p.wait(timeout=5)
 
 
-def start_guest(stack, folder, game, variant):
+def start_guest(stack, folder, game, variant,image=None,scale=1):
     ready = folder / (variant + '-ready.json')
     log = folder / (variant + '-requests.jsonl')
     stderr = stack.enter_context((folder / (variant + '-stderr.txt')).open('w'))
-    p = subprocess.Popen([sys.executable, '-X', 'utf8', str(ROOT / 'tools/passthrough-demo.py'),
-                          '--game', game, '--variant', variant, '--ready', str(ready),
-                          '--log', str(log)], stderr=stderr, creationflags=HIDDEN)
+    command=[sys.executable,'-X','utf8',str(ROOT/'tools/passthrough-demo.py'),'--game',game,
+        '--variant',variant,'--ready',str(ready),'--log',str(log)]
+    if image:command+=['--image',str(image)]
+    p = subprocess.Popen(command,stderr=stderr,creationflags=HIDDEN)
     stack.callback(stop_process, p)
     deadline = time.monotonic() + 10
     while not ready.exists():
@@ -46,15 +49,19 @@ def start_guest(stack, folder, game, variant):
     fixture = HOST / 'chars' / folder.name
     fixture.mkdir(exist_ok=True)
     name = fixture / (variant + '.def')
+    if image:
+        cns=(HOST/'chars/kfm/kfm.cns').read_text()
+        cns=re.sub(r'(?m)^(xscale|yscale)\s*=.*$',lambda m:f'{m[1]} = {scale:g}',cns)
+        (fixture/'shell.cns').write_text(cns)
     name.write_text(f'''[Info]
 name = "UF {game}"
-displayname = "{variant} passthrough"
+displayname = "{'Static image review' if image else variant+' passthrough'}"
 runtime = passthrough
 mugenversion = 1.1
 localcoord = 320,240
 [Files]
 cmd = shell.cmd
-cns = ../kfm/kfm.cns
+cns = {'shell.cns' if image else '../kfm/kfm.cns'}
 sprite = ../kfm/kfm.sff
 anim = shell.air
 ''')
@@ -67,7 +74,7 @@ anim = shell.air
     return folder.name + '/' + name.name, log
 
 
-def run_scene(scene, smoke=False, reject=False, debug=True):
+def run_scene(scene, smoke=False, reject=False, debug=True,image=None,scale=1,opponent=None):
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H%M%S-%f')
     folder = HOST / f'passthrough-{scene}-{stamp}'
     folder.mkdir()
@@ -76,13 +83,14 @@ def run_scene(scene, smoke=False, reject=False, debug=True):
     config = re.sub(r'(?m)^Rollback.DesyncTestFrames\s*=.*$', 'Rollback.DesyncTestFrames = ' + ('8' if reject else '0'), config)
     (folder / 'config.ini').write_text(config)
     with ExitStack() as stack:
-        amber, amber_log = start_guest(stack, folder, 'authored-amber', 'amber')
+        amber, amber_log = start_guest(stack, folder, 'authored-amber', 'amber',image,scale)
         cyan, cyan_log = start_guest(stack, folder, 'authored-cyan', 'cyan')
         p1, p2 = amber, cyan
         if scene == 'native-in':
             p1 = 'uf-probe/high.def'
         elif scene == 'native-out':
             p2 = 'uf-probe/idle.def'
+        if opponent:p2=opponent
         env = dict(os.environ, UF_FOREIGN_TRACE='1', UF_FOREIGN_DEBUG=str(int(debug)),
                    UF_FOREIGN_INPUT_PROBE='melee' if smoke else '', UF_SYNTHETIC_PROBE='',
                    UF_MIXED_DIAGNOSTICS='')
@@ -157,12 +165,22 @@ def main():
     p.add_argument('--smoke', action='store_true', help='automated matches; no keyboard UI automation')
     p.add_argument('--no-debug', action='store_true', help='hide diagnostic collision overlays')
     p.add_argument('--scene', choices=('two-guests', 'native-in', 'native-out', 'reset', 'rollback-rejection'))
+    p.add_argument('--image',type=Path,help='static local image review on authored P1; no live source connection')
+    p.add_argument('--image-scale',type=float,default=.4,help='review shell scale, default .4; source units remain unaccepted')
+    p.add_argument('--opponent',help='existing host character path for manual review, e.g. kof13/kof13.def')
     args = p.parse_args()
     if not (HOST / 'Ikemen_GO.exe').exists():
         p.error('Build the runtime first.')
+    if not math.isfinite(args.image_scale) or not .05<=args.image_scale<=2:p.error('image scale must be .05..2')
+    if args.opponent and (args.smoke or not args.image or Path(args.opponent).is_absolute() or '..' in Path(args.opponent).parts or
+            not (HOST/'chars'/args.opponent).resolve().is_relative_to((HOST/'chars').resolve()) or not (HOST/'chars'/args.opponent).is_file()):
+        p.error('opponent requires manual image review and an existing character inside host chars')
+    if args.image:
+        runpy.run_path(str(ROOT/'tools/passthrough-demo.py'))['load_image'](args.image)
     scenes = [args.scene] if args.scene else ['two-guests', 'native-in', 'native-out', 'reset', 'rollback-rejection'] if args.smoke else ['two-guests']
     for scene in scenes:
-        run_scene(scene, args.smoke, scene == 'rollback-rejection', not args.no_debug)
+        run_scene(scene,args.smoke,scene=='rollback-rejection',not args.no_debug,
+            args.image.resolve() if args.image else None,args.image_scale,args.opponent)
 
 
 if __name__ == '__main__':
