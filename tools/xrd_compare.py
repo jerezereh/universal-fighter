@@ -102,6 +102,8 @@ def compare_trace(folder, exclusions=(), exclusion_note='', color_stage=False):
         results.append(dict(counter=layer['counter'], capture=file.name,
             full_source_color_replayed=layer.get('full_source_color_replayed') is True,
             native_post_color_replayed=layer.get('native_post_color_replayed') is True,
+            native_smaa_replayed=layer.get('native_smaa_replayed') is True,
+            coverage_policy=layer.get('coverage_policy','binary-native-mesh'),
             private_dimensions=[layer['width'], layer['height']],
             source_dimensions=[scene['width'], scene['height']],
             reference_scope='original-color-stage' if color_stage else 'final-backbuffer',

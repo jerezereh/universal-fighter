@@ -20,10 +20,10 @@ function gradingBlendStates(mask) {
         [171,1],[174,0],[194,0],[206,1],[207,2],[208,1],[209,1]];
 }
 
-function gradingQuad(width,height,mask) {
+function gradingQuad(width,height,mask,uScale=1,vScale=1) {
     const data=Memory.alloc(4*48);
     [[-.5,-.5,0,0],[width-.5,-.5,1,0],[-.5,height-.5,0,1],[width-.5,height-.5,1,1]].forEach(([x,y,u,v],i)=>{
-        const vertex=[x,y,.5,1,u,v,u,v,...(mask?[1,1,1,1]:[u,v,0,0])];
+        const vertex=[x,y,.5,1,u*uScale,v*vScale,u,v,...(mask?[1,1,1,1]:[u,v,0,0])];
         vertex.forEach((n,j)=>data.add(i*48+j*4).writeFloat(n));
     });return data;
 }
@@ -227,6 +227,7 @@ function postColorLayer(device,d,draw) {
         succeeded(com(device,47,'int',['pointer'])(device,vp),'post original viewport');
         succeeded(com(device,43,'int',['uint','pointer','uint','uint','float','uint'])(device,0,ptr(0),1,0,1,0),'post clear');
         for(const source of sources) {
+            if(stage.lookup_slots?.includes(source.slot))continue; // Observed static native SMAA lookup, never a scene input.
             const input=post.outputs.get(source.surface);
             if(!input)throw new Error('missing private post-color input');
             succeeded(com(device,65,'int',['uint','pointer'])(device,source.slot,input.texture),'post private texture');
@@ -241,7 +242,7 @@ function postColorLayer(device,d,draw) {
             succeeded(com(device,92,'int',['pointer'])(device,ptr(0)),'post coverage fixed vertex');
             succeeded(com(device,89,'int',['uint'])(device,0xa0204),'post coverage FVF');
             const privateVp=Memory.alloc(24);privateVp.writeByteArray(bytes(vp,24));
-            privateVp.writeU32(0);privateVp.add(4).writeU32(0);privateVp.add(8).writeU32(current.width);privateVp.add(12).writeU32(current.height);
+            privateVp.writeU32(0);privateVp.add(4).writeU32(0);privateVp.add(8).writeU32(stage.width);privateVp.add(12).writeU32(stage.height);
             succeeded(com(device,47,'int',['pointer'])(device,privateVp),'post coverage viewport');
             const selector=Memory.alloc(16);[0,0,0,1].forEach((v,i)=>selector.add(i*4).writeFloat(v));
             succeeded(com(device,109,'int',['uint','pointer','uint'])(device,p.copy_constant,selector,1),'post coverage alpha');
@@ -249,7 +250,9 @@ function postColorLayer(device,d,draw) {
             for(const [state,value] of [[1,3],[2,3],[5,1],[6,1],[7,0],[11,0]])
                 succeeded(com(device,69,'int',['uint','uint','uint'])(device,p.copy_sampler,state,value),'post coverage sampler');
             for(const [state,value] of gradingBlendStates(true))succeeded(com(device,57,'int',['uint','uint'])(device,state,value),'post coverage blend');
-            succeeded(com(device,83,'int',['uint','uint','pointer','uint'])(device,5,2,gradingQuad(current.width,current.height,true),48),'post coverage draw');
+            // Original-camera crop: final backbuffer covers only part of the HDR allocation.
+            succeeded(com(device,83,'int',['uint','uint','pointer','uint'])(device,5,2,
+                gradingQuad(stage.width,stage.height,true,stage.width/current.width,stage.height/current.height),48),'post coverage draw');
         }
         post.outputs.set(stage.target,target);post.index++;
         if(final){post.complete=true;current.graded=target.surface;}

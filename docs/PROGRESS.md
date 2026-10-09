@@ -1,5 +1,40 @@
 # Progress record
 
+## 2026-10-08 — Private native SMAA replay
+
+- Added opt-in `--smaa-layer` after private post-color replay. Native edge detection,
+  weight calculation and neighborhood blending extend the ordered chain to 12 private
+  draws after grading. Scene/edge/weight inputs must resolve to earlier private outputs;
+  only the named area/search samplers retain their observed native lookup resources.
+  Scene surfaces masquerading as lookups, absent/unknown dependencies, unexpected SMAA
+  programs/formats and oversized final output reject. Retail shaders/lookups stay local.
+- The terminal 1366x768 target retains the original backbuffer coordinates. Coverage
+  uses a point-sampled crop of the 1920x1080 native private HDR mask, rather than shrinking
+  the full allocation. Explicit `binary-native-mesh-after-smaa` metadata keeps silhouette
+  antialiasing unverified; native color/postprocess alpha is not actor coverage.
+- Two attempts time out during attachment before native instrumentation starts; their
+  failed receipts remain ignored local evidence. Exact elevated process inspection
+  confirms SIGN PID36644 is responsive and separate Rev2 instrumentation is untouched.
+  The third bounded attempt succeeds without widening the attachment timeout/native lease.
+- Native evidence: ignored `20261008-222305-484036/boundary-20261009-004932-304855`.
+  Three exact updates, 63 blocked opportunities, four linked private/full-scene captures,
+  no trace errors, verified source/graphics restoration and restored render/update hooks.
+  Viewed the private output. Alpha contains only 0/255, with 53,093 covered pixels in
+  the sampled first image and zero uncovered RGB. This is still an unaccepted diagnostic
+  layer, larger than the receiver image limit, not a connected producer.
+- Explicit bottom-HUD exclusion and two-pixel interior erosion retain 45,616 pixels per
+  sample. Final-backbuffer RGB mean error is about 0.752/255, p95 channel error 4/255,
+  maximum 79/255 and about 75.36% exact interior RGB. The earlier composite-only capture
+  is a different held state, so these are not controlled before/after measurements.
+  Feet, silhouette alpha, normalized poses/scale/pivot and final fidelity remain pending.
+- Authored tests cover ordered SMAA dependencies, distinct lookups, lookup preservation
+  during private replay and cropped mask UVs. Focused grading/post-color/comparison tests,
+  Node syntax/Python compilation and all 123 literal D3D calls against the installed
+  header pass. No host runtime boundary or source capability changed.
+- Next adapt native postprocess dimensions/UVs to the normalized private projection,
+  repeat movement/normal/facing checks and decide silhouette coverage from native evidence.
+  Persistent source transactions, universal contact/result ownership and producer remain.
+
 ## 2026-10-08 — Private native blur and color composite replay
 
 - Added opt-in `--post-color-layer` for the neutral original-camera private HDR/LUT

@@ -40,3 +40,31 @@ for change in ('foreign-input','missing-vertex','changed-state','oversized','dup
     except ValueError:pass
     else:raise AssertionError(change+' accepted')
 print('Ordered private dependency, vertex/state/dimension/sampler and composite guards passed.')
+data=copy.deepcopy(baseline)
+for i,names in [(11,'// SceneColorTexture s0 1\n// SMAAParamA c0 1\n'),
+        (12,'// edgesTex s0 1\n// areaTex s1 1\n// searchTex s2 1\n// SMAAParamA c0 1\n'),
+        (13,'// SceneColorTexture s0 1\n// blendTex s1 1\n// SMAAParamA c0 1\n')]:
+    surface=f'0x{i:04x}'
+    stage=copy.deepcopy(data['pass-10.json']);stage.update(screen_shader=surface,surface=surface)
+    stage['texture_sources']=[dict(slot=0,surface=f'0x{i-1:04x}')]
+    if i==12:stage['texture_sources']+=[dict(slot=1,surface='0xaaaa'),dict(slot=2,surface='0xbbbb')]
+    if i==13:
+        stage.update(width=12,height=12)
+        stage['texture_sources']=[dict(slot=0,surface='0x000a'),dict(slot=1,surface='0x000c')]
+    data[f'pass-{i:02}.json']=stage
+    data['screen-shaders.json'].append(dict(shader=surface,source_target=surface,assembly=names,
+        file=f'screen-{i:02}.bin',vertex_input=dict(stride=32),vertex_program=dict(code_hex='local-test')))
+result=boundary.post_color_programs(Folder(),{},grade,True)
+assert len(result)==12 and result[-2]['lookup_slots']==[1,2] and result[-1]['width']==12
+smaa_baseline=copy.deepcopy(data)
+for change in ('scene-as-lookup','unknown-blend-input','missing-lookup','wrong-edges','oversized-output'):
+    data=copy.deepcopy(smaa_baseline)
+    if change=='scene-as-lookup':data['pass-12.json']['texture_sources'][1]['surface']='0x000a'
+    if change=='unknown-blend-input':data['pass-13.json']['texture_sources'][0]['surface']='0xffff'
+    if change=='missing-lookup':data['pass-12.json']['texture_sources'].pop()
+    if change=='wrong-edges':data['screen-shaders.json'][10]['assembly']='// SceneColorTexture s0 1\n'
+    if change=='oversized-output':data['pass-13.json']['width']=17
+    try:boundary.post_color_programs(Folder(),{},grade,True)
+    except ValueError:pass
+    else:raise AssertionError(change+' accepted')
+print('SMAA ordering, private scene dependencies, distinct native lookups and cropped output guards passed.')

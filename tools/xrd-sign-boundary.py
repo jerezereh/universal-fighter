@@ -194,12 +194,12 @@ def grading_programs(folder,state):
         copy_hex=copy_code.hex(),copy_sampler=copy_table['InTexture'][1],copy_constant=copy_table['TextureComponentReplicateAlpha'][1])
 
 
-def post_color_programs(folder,state,grade):
+def post_color_programs(folder,state,grade,smaa=False):
     # Reuse the validated inventory; native shader bytes stay in the ignored capture.
     grading_programs(folder,state)
     inventory=json.loads((folder/'screen-shaders.json').read_text())
     programs={(s['shader'],s['source_target']):s for s in inventory}
-    stages=[json.loads((folder/f'pass-{i:02}.json').read_text()) for i in range(1,11)]
+    stages=[json.loads((folder/f'pass-{i:02}.json').read_text()) for i in range(1,14 if smaa else 11)]
     first=stages[0]
     if first['screen_shader']!=grade['shader'] or first['surface']!=grade['target']:
         raise ValueError('post-color grading boundary changed')
@@ -213,26 +213,37 @@ def post_color_programs(folder,state,grade):
                 stage['format'] not in (21,22,36) or not s.get('vertex_input') or not s.get('vertex_program')):
             raise ValueError('unsupported post-color stage evidence')
         sources=stage.get('texture_sources',[])
-        if not isinstance(sources,list) or not 1<=len(sources)<=16 or any(x['surface'] not in outputs for x in sources):
+        bindings={name:int(slot) for name,slot in re.findall(r'^//\s+(\w+)\s+s(\d+)\s+1\s*$',s['assembly'],re.M)}
+        lookups=[bindings[name] for name in ('areaTex','searchTex') if i==12 and name in bindings]
+        if not isinstance(sources,list) or not 1<=len(sources)<=16 or any(
+                x['surface'] not in outputs and x['slot'] not in lookups for x in sources):
             raise ValueError('post-color dependency is not a prior private output')
         slots=[x['slot'] for x in sources]
         if len(set(slots))!=len(slots) or any(type(x)!=int or not 0<=x<16 for x in slots):
             raise ValueError('invalid post-color sampler slots')
         names=set(re.findall(r'^//\s+(\w+)\s+[cs]\d+\s+\d+\s*$',s['assembly'],re.M))
-        if names not in ({'InTexture','TextureComponentReplicateAlpha'},{'SceneColorTexture'},
-                {'SourceTexture'},{'SceneColorTexture','SourceTexture'}):
+        allowed=({'InTexture','TextureComponentReplicateAlpha'},{'SceneColorTexture'},
+                {'SourceTexture'},{'SceneColorTexture','SourceTexture'})
+        smaa_names={11:{'SceneColorTexture','SMAAParamA'},12:{'edgesTex','areaTex','searchTex','SMAAParamA'},
+            13:{'SceneColorTexture','blendTex','SMAAParamA'}}
+        if names not in allowed and not (smaa and i in smaa_names and names==smaa_names[i]):
             raise ValueError('unexpected post-color program')
+        if i>=11 and (names!=smaa_names[i] or stage['format']!=21):raise ValueError('unsupported SMAA stage')
+        if i==12 and (len(lookups)!=2 or set(slots)!=set(bindings.values()) or any(
+                x['surface'] in outputs for x in sources if x['slot'] in lookups)):
+            raise ValueError('SMAA lookup must be distinct from scene outputs')
         if i==9 and names!={'SceneColorTexture','SourceTexture'}:raise ValueError('missing native composite')
         result.append(dict(shader=s['shader'],target=stage['surface'],original_hex=(folder/s['file']).read_bytes().hex(),
             vertex_hex=s['vertex_program']['code_hex'],width=stage['width'],height=stage['height'],format=stage['format'],
-            sources=sources))
+            sources=sources,lookup_slots=lookups))
         outputs.add(stage['surface'])
-    if result[-1]['width']!=first['width'] or result[-1]['height']!=first['height']:
+    if (not smaa and (result[-1]['width']!=first['width'] or result[-1]['height']!=first['height']) or
+            smaa and (result[-1]['width']>first['width'] or result[-1]['height']>first['height'])):
         raise ValueError('post-color output dimensions changed')
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False):
     receipt=json.loads((probe/'inspection.json').read_text())
     state=json.loads((probe/'state-profile.json').read_text())
     if scalar_path:
@@ -278,6 +289,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         raise ValueError('source-view comparison requires exclusive neutral graded capture without normalization/readiness claims')
     if source_color and not source_view:raise ValueError('full source color diagnostic requires original-camera comparison')
     if post_color_path and (not source_view or source_color):raise ValueError('private post-color replay requires exclusive original-camera private grading')
+    if smaa and not post_color_path:raise ValueError('SMAA requires private post-color replay')
     if grade_path and (not layer_path or not (normalize or source_view) or hdr):raise ValueError('native grading requires normalized or diagnostic source-view A8 output')
     if inspect_screen and (not trace_draws or not capture or suppress_path and not layer_path or plan_path):
         raise ValueError('screen shader observation requires exclusive neutral capture/draw trace')
@@ -302,7 +314,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         layer['source_view']=source_view
         layer['source_color']=source_color
         if grade_path:layer['grade']=grading_programs(grade_path,state)
-        if post_color_path:layer['post_color']=post_color_programs(post_color_path,state,layer['grade'])
+        if post_color_path:layer['post_color']=post_color_programs(post_color_path,state,layer['grade'],smaa)
+        layer['smaa']=smaa
         if source_color and (not layer['grade']['vertex_original_hex'] or not layer['grade']['source_quad_observed']):
             raise ValueError('source color replay requires inspected native vertex/quad inputs')
         layer['capture_steps']=capture_steps(layer_steps or '0,1,2,3')
@@ -671,7 +684,8 @@ if __name__=='__main__':
     p.add_argument('--grade-layer',type=Path,help='clean same-session screen program inspection: native private HDR grading and coverage into A8 output')
     p.add_argument('--source-view-layer',action='store_true',help='neutral grading diagnostic: retain original camera/pixel coordinates for source comparison; no readiness claim')
     p.add_argument('--source-color-layer',action='store_true',help='with source-view: repeat original full-scene color draw into private target, masked by Sol coverage; never an isolated color layer')
-    p.add_argument('--post-color-layer',type=Path,help='with private source-view grading: clean stage inventory for private blur/composite replay; SMAA remains pending')
+    p.add_argument('--post-color-layer',type=Path,help='with private source-view grading: clean stage inventory for private blur/composite replay; --smaa-layer extends it through SMAA')
+    p.add_argument('--smaa-layer',action='store_true',help='extend private post-color replay through native SMAA; terminal alpha retains binary mesh coverage')
     a=p.parse_args()
     if not 0<a.seconds<=120: p.error('seconds must be 0..120')
     if a.lease_check and not a.gate: p.error('--lease-check requires --gate')
@@ -679,4 +693,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer)

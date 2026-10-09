@@ -304,6 +304,12 @@ HUD-excluded interior error is about 3.47/255, without final fidelity acceptance
 phase-specific inventory handles copies also seen before grading and stops before UI.
 Next add private SMAA/lookup inputs with a coverage policy, then normalize dimensions and
 repeat movement/normal/facing checks. No source producer capability is enabled.
+Private SMAA now passes the native edges/weights/neighborhood draws with private scene
+inputs and observed area/search lookups. Four original-camera captures match backbuffer
+dimensions; binary coverage crops the HDR allocation without claiming silhouette alpha
+fidelity. Limited HUD-excluded interior RGB error is about 0.752/255 and source/graphics
+restoration passes. Next normalize postprocess dimensions/UVs and repeat movement/normal/
+facing checks; source producer, anatomical pivot/scale and persistent contacts remain.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

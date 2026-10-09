@@ -117,6 +117,20 @@ for(const final of [false,true]) {
     assert.equal(vm.runInContext('meshLayer.post.index',f.context),1);
     assert.equal(vm.runInContext('meshLayer.post.complete',f.context),final);
 }
+const lookup=postFixture();lookup.context.stage.sources.push({slot:1,surface:'static-lookup'});
+lookup.context.stage.lookup_slots=[1];
+lookup.context.replay=()=>{
+    const out=lookup.context.Memory.alloc(4);
+    lookup.context.com(lookup.context.device,64)(lookup.context.device,1,out);
+    assert.equal(out.readPointer().name,'bloom'); // Authored static resource remains bound.
+    lookup.context.com(lookup.context.device,64)(lookup.context.device,0,out);
+    assert.equal(out.readPointer().name,'hdr');return 0;
+};
+lookup.post();lookup.restore();lookup.release();
+const crop=vm.runInContext('gradingQuad(2,3,true,.5,.75)',lookup.context);
+const uv=new DataView(crop.data.buffer);
+assert.equal(uv.getFloat32(48+16,true),.5);assert.equal(uv.getFloat32(96+20,true),.75);
+assert.equal(uv.getFloat32(48+32,true),1); // Mask multiplier stays white.
 for(const failure of ['block','texture','surface','post-draw','copy','mask-draw']) {
     const f=postFixture(failure,true);assert.throws(f.post,/failed/);f.restore();f.release();
 }
