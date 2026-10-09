@@ -1,5 +1,34 @@
 # Progress record
 
+## 2026-10-09 — Accepted cached appearance and renewable source ownership
+
+- User accepts cached Sol appearance and correct facing at the `.23` host review.
+  This accepts the static presentation proposal; anatomical pivot/source units, dynamic
+  silhouettes, live inputs and animation remain separate. The review launcher has exited.
+- Added an explicit renewable native gate mode with heartbeat RPC. Heartbeats refresh
+  the existing eight-second execution lease and twelve-second removal deadline; steps
+  cannot extend renewable ownership. Expired/resumed ownership cannot be revived.
+  Default diagnostic gates retain their original hard lifetime. No receiver/host change.
+- Renewable mode currently rejects private rendering. Its removal timer runs complete
+  input/update/presentation cleanup without waiting for a private renderer callback.
+  The existing caller/root/thread/code guards remain active. No native reset is written.
+- Added `--renewable-check`: hold without credits, renew for fourteen seconds, then
+  deliberately cease renewal and verify normal execution and automatic hook removal.
+  Native evidence `20261009-173227-222153/boundary-20261009-211420-242091` has
+  1,261 blocked updates, zero counter deltas/gaps/errors, unchanged observed state,
+  1,500 successful presentations, held samples beyond thirteen seconds, lease recovery,
+  automatic restoration and clean final source/graphics code checks. The earlier
+  `boundary-20261009-211355-860825` timed out attaching before installing hooks and is
+  retained as failed evidence, not counted as a successful experiment.
+- Authored lease/step validation checks, existing boundary and grade checks, Python/JS
+  syntax and whitespace pass. Boundary tempfile tests first failed sandbox permissions;
+  the escalated rerun passes. No retail pixels/code/layouts are committed.
+- This is renewable clock-control groundwork, not a persistent live SIGN producer.
+  Private-frame lifetime/readiness, per-tick transaction identity, scene/reset/disconnect
+  handling and universal source contact/result ownership remain gates. SIGN capabilities
+  remain disabled. Next extend ownership to repeatable state/image transactions while
+  preserving the verified controller-loss release and renderer-resource cleanup.
+
 ## 2026-10-09 — Host review opened at provisional comparable scale
 
 - Opened static Sol-image review against the existing KOF XIII slice, with both AIs

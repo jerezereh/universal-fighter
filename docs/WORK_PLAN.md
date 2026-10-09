@@ -352,6 +352,12 @@ simulation; the cached image and all behavior in that guest remain a static auth
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.
+User accepts the cached Sol appearance and facing at `.23`. Renewable control now passes
+a native no-credit hold beyond the original twelve-second lifetime and controller-loss
+resume/hook-removal check. This mode excludes private rendering; heartbeat ownership is
+separate from step credits. Extend it to state/image transactions and safe renderer
+teardown next, then source contact suppression/result application and lifecycle. No live
+producer capability is enabled by the static review or renewable clock experiment.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

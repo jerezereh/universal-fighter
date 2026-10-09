@@ -586,6 +586,7 @@ function installGate(target, p) {
     const root = Process.mainModule.base.add(p.state.engine_global_rva).readPointer();
     const original = new NativeFunction(target, 'void', ['pointer'], {abi: 'thiscall', exceptions: 'propagate'});
     gate = {target, root, credits: 0, pending: false, deadline: Date.now() + 8000, resumed: false, timer: null,
+        renewable: p.renewable === true,
         executing: false, inputs: [0, 0], initialCounter: null};
     const replacement = new NativeCallback(function(object) {
         const g = gate;
@@ -626,13 +627,23 @@ function installGate(target, p) {
     gate.replacement = replacement;
     Interceptor.replace(target, replacement);
     // A disconnected controller cannot leave this development gate installed indefinitely.
+    armGateRemoval();
+    return {installed: true, thiscall_oracle: true, mutation: 'native update gate', renewable: gate.renewable,
+        lifetime_seconds: gate.renewable ? null : 12, lease_seconds: 8, render};
+}
+
+function armGateRemoval() {
+    clearTimeout(gate.timer);
     gate.timer = setTimeout(() => {
         if (gate !== null) {
-            Interceptor.revert(target); removeInputHooks(); removeDrawFilter(); Interceptor.flush(); gate = null;
+            // Renewable mode excludes private rendering, so cleanup needs no renderer callback.
+            if (gate.renewable) stopReceipt = finishStop();
+            else {
+                Interceptor.revert(gate.target); removeInputHooks(); removeDrawFilter(); Interceptor.flush(); gate = null;
+            }
             send({kind: 'error',phase: 'watchdog',message: 'hard gate lifetime expired; hook removed'});
         }
     }, 12000);
-    return {installed: true, thiscall_oracle: true, mutation: 'bounded native update gate', lifetime_seconds: 12, render};
 }
 
 function finishStop() {
@@ -658,6 +669,9 @@ function finishStop() {
 rpc.exports = {
     start(p) {
         if (listener || gate) throw new Error('already observing');
+        if (p.renewable !== undefined && typeof p.renewable !== 'boolean') throw new Error('invalid renewable mode');
+        if (p.renewable && (!p.gate || p.capture || p.trace_draws || p.layer || p.suppress_draws))
+            throw new Error('renewable control requires a gate without private rendering');
         if (p.capture && !p.gate) throw new Error('render capture requires a controlled source gate');
         if (p.trace_draws && !p.gate) throw new Error('draw trace requires a controlled source gate');
         if (p.capture_passes && !p.trace_draws) throw new Error('render-pass capture requires a draw trace');
@@ -707,10 +721,18 @@ rpc.exports = {
         if (!Array.isArray(inputs) || inputs.length !== 2 || inputs.some(x => !Number.isInteger(x) || x < 0 || x > 0x3ff))
             throw new Error('invalid core input masks');
         if (!config.input && inputs.some(x => x !== 0)) throw new Error('native input ingress is not installed');
-        gate.deadline = Date.now() + 8000;
+        if (Date.now() > gate.deadline) throw new Error('gate lease expired');
+        if (!gate.renewable) gate.deadline = Date.now() + 8000;
         gate.inputs = inputs.slice();
         gate.pending = true; gate.credits = 1;
         return {accepted: true};
+    },
+    heartbeat() {
+        if (gate === null || !gate.renewable || gate.resumed || Date.now() > gate.deadline)
+            throw new Error('renewable gate unavailable or expired');
+        gate.deadline = Date.now() + 8000;
+        armGateRemoval();
+        return {renewed: true, lease_seconds: 8};
     },
     stop() {
         if (stopReceipt !== null) return stopReceipt;
