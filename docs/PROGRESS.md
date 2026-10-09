@@ -1,5 +1,27 @@
 # Progress record
 
+## 2026-10-09 — Fresh rendering after guarded scene exit/re-entry
+
+- User re-enters offline Sol/Ky following the accepted active scene-exit rejection.
+  New read-only probe `20261009-230952-969636` derives fresh source state. Observation
+  `observe-20261009-231015-972815` has 78 samples; original owner trace
+  `boundary-20261009-231017-789516` has 178 clean increments and restored code.
+- Fresh bounded draw proof `boundary-20261009-231113-355105` verifies three exact
+  updates and derives complete body/head/weapon signatures from current buffers. Mesh
+  shader/vertex inspection `boundary-20261009-231154-931097` and thirteen-stage screen/
+  grading/postprocess/SMAA inventory `boundary-20261009-231248-923259` pass with clean
+  restoration. No old scene's root, fighter or render-resource bindings are reused.
+- New-scene private rendering `boundary-20261009-231523-750804` passes: three exact
+  credits, 185 blocked opportunities, unchanged held state, four consecutive counter-
+  bound settled image/state pairs, zero gaps/errors, native grading/postprocess/SMAA,
+  canonical unclipped projection and full source/graphics restoration. Existing owner/
+  transaction/render checks pass; readiness remains the consecutive-pixel candidate.
+- This verifies manual fresh binding and rendering after exit/re-entry. It does not
+  establish automatic live rebind or continuous streaming. Next consolidate the existing
+  preparation steps into repeatable development tooling with scene identity validation,
+  then continue continuous transactions and source contact/result ownership. No producer
+  capabilities are enabled and no retail evidence/assets are committed.
+
 ## 2026-10-09 — Active owned scene exit rejected and restored
 
 - User prepares Character Select, resumes training, then confirms exit after the installed

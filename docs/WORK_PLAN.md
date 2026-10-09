@@ -415,6 +415,11 @@ zero credits, no null-render-counter errors and full code/hook restoration. Sepa
 strict scene-exit classification verifies an absent battle root after the user reaches
 character selection. This accepts invalidation, not automatic rebind. Next re-enter
 Sol/Ky and derive fresh state/owner/render inventories for new-scene rendering proof.
+Fresh post-exit/reentry state, owner, draw/mesh and thirteen-stage screen inventories now
+pass, followed by three exact private-render credits and four settled state/image pairs
+with complete restoration. This verifies manual fresh binding. Consolidate preparation
+as repeatable development tooling with scene checks; automatic live rebind, continuous
+streaming and source contact/result ownership remain gates before capabilities.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a
