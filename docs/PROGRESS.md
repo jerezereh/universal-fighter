@@ -1,5 +1,32 @@
 # Progress record
 
+## 2026-10-09 — Repeatable source render preparation
+
+- Added `prepare-xrd-sign-render.py`, composing existing probe/state/owner/draw/mesh/
+  screen/private-render checks without new dependencies, address constants or duplicated
+  native hooks. It accepts exact SIGN PID and ignored candidate/mesh paths. Battle/root/
+  fighter identities and Sol/Ky pose families are checked around every bounded stage;
+  within an identity read, root and slot references are rechecked for consistency.
+- Each run produces a fresh ignored probe and `render-preparation.json`. `prepared=true`
+  requires all stages and stable scene identity; failures record an error and stop without
+  hidden retries. Source capabilities and automatic-live-rebind flags stay false. Existing
+  per-stage cleanup/watchdog limits and render-readiness candidate semantics stay intact.
+- Authored orchestration checks verify all stage wiring, correct fresh mesh/screen inputs
+  to final verification, capability flags, failure reporting and no subsequent stages
+  after an exception or scene change. Python syntax and whitespace pass.
+- End-to-end native command succeeds in ignored `20261009-232415-934921`: 101 read-only
+  state samples; clean owner `boundary-20261009-232418-100993` with 175 increments;
+  draw identity `boundary-20261009-232429-467566`; mesh shader inventory
+  `boundary-20261009-232439-711414`; thirteen-stage screen inventory
+  `boundary-20261009-232450-200306`; final verification
+  `boundary-20261009-232506-924400` with three exact credits, 309 blocked updates, four
+  settled counter/state/image pairs, zero gaps/errors and complete source/graphics
+  restoration. Scene identity stays unchanged throughout. Receipt reports prepared true
+  with capabilities disabled. No game data, shader programs or toolchain is committed.
+- This automates preparation of bounded development evidence, not a live producer's
+  reconnect path. Continuous transaction/image lifetime, full input coverage and source
+  contact/result ownership remain next. Menus and dynamic visual acceptance stay separate.
+
 ## 2026-10-09 — Fresh rendering after guarded scene exit/re-entry
 
 - User re-enters offline Sol/Ky following the accepted active scene-exit rejection.

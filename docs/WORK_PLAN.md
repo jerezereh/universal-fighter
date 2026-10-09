@@ -420,6 +420,11 @@ pass, followed by three exact private-render credits and four settled state/imag
 with complete restoration. This verifies manual fresh binding. Consolidate preparation
 as repeatable development tooling with scene checks; automatic live rebind, continuous
 streaming and source contact/result ownership remain gates before capabilities.
+Repeatable development preparation now composes fresh probing, owner/draw/mesh/screen
+inventory and bounded private-render verification with scene identity checks. Authored
+failure/scene-change tests and a full native command pass. Its prepared receipt keeps
+capabilities and automatic-live-rebind false. Continue continuous transaction/image
+lifetime and contact/result ownership; do not equate preparation with a live producer.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

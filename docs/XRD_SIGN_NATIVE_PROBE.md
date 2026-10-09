@@ -822,3 +822,25 @@ A unique signature is only a candidate. Before building a producer around it:
 
 Neither the generic receiver's authored guests nor a successful memory scan establishes
 these native stepping/render/contact gates. SIGN is not yet a playable passthrough guest.
+
+## Repeatable render preparation
+
+With offline Sol versus Ky running and both fighters idle, use the development command:
+
+```powershell
+python tools/prepare-xrd-sign-render.py --pid $signPid `
+  --candidate $updateCandidatePath --combat-candidate $combatCandidatePath `
+  --meshes $localSolMeshDirectory
+```
+
+Set the variables to the exact SIGN PID and ignored local candidate/mesh paths. The tool
+derives a new module/state probe, update-owner trace, draw identity, mesh shader inventory
+and screen/postprocess inventory, then verifies four settled counter-bound source frames.
+It checks the battle/fighter identity before and after every bounded stage. It never sends
+desktop menu input; an unminimized render window is restored without activation if needed.
+
+The ignored probe folder contains `render-preparation.json`, including stage paths and
+`prepared` status. Errors preserve a failed report and existing native receipts; the tool
+does not retry failures or enable source capabilities. Scene changes require fresh
+preparation. This command prepares evidence for bounded experiments; it is not automatic
+live producer rebind, full input/combat acceptance or a distributable retail asset package.
