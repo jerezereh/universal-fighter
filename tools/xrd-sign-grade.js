@@ -112,6 +112,9 @@ function gradeLayer(device,d,replaySource=null) {
         succeeded(com(device,89,'int',['uint'])(device,0xa0204),'grading XYZRHW/TEX2 float4 FVF');
         const quad=gradingQuad(current.width,current.height,false);
         if(!config.layer.source_color)succeeded(com(device,83,'int',['uint','uint','pointer','uint'])(device,5,2,quad,48),'native private grading draw');
+        if(config.layer.post_color) {
+            current.post={index:0,outputs:new Map([[p.target,colored]]),complete:false};
+        } else {
         const copy=Memory.alloc(p.copy_hex.length/2);copy.writeByteArray(p.copy_hex.match(/../g).map(x=>parseInt(x,16)));
         output.writePointer(ptr(0));succeeded(com(device,106,'int',['pointer','pointer'])(device,copy,output),'coverage copy shader');
         const copyShader=output.readPointer();current.extra.push(copyShader);
@@ -124,6 +127,7 @@ function gradeLayer(device,d,replaySource=null) {
         for(const [id,value] of gradingBlendStates(true))succeeded(com(device,57,'int',['uint','uint'])(device,id,value),'coverage blend state');
         const mask=gradingQuad(current.width,current.height,true);
         succeeded(com(device,83,'int',['uint','uint','pointer','uint'])(device,5,2,mask,48),'native coverage draw');
+        }
         current.graded=colored.surface;
     } finally {
         try {succeeded(com(device,39,'int',['pointer'])(device,ptr(0)),'grading detach private depth');}catch(error){failure=error;}
@@ -167,4 +171,131 @@ function gradeLayer(device,d,replaySource=null) {
             if(output.readU32()!==value)throw new Error('source sampler state did not restore');}
     }
     if(root.add(4+config.candidate.counter_field).readU32()!==current.counter)throw new Error('source advanced during private grading');
+}
+
+// Source-view diagnostic only: replay each current CPU quad with private input lineage.
+function postColorLayer(device,d,draw) {
+    const current=meshLayer,post=current.post,stage=config.layer.post_color[post.index];
+    const root=Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
+    if(gate.resumed || gate.executing || root.add(4+config.candidate.counter_field).readU32()!==current.counter)
+        throw new Error('post-color source is not held');
+    if(hex(shaderProgram(device,'pixel').code)!==stage.original_hex || hex(shaderProgram(device,'vertex').code)!==stage.vertex_hex)
+        throw new Error('post-color native program drift');
+    const sources=screenTextureSources(device,shaderProgram(device,'pixel').assembly);
+    if(JSON.stringify(sources)!==JSON.stringify(stage.sources))throw new Error('post-color native texture lineage drift');
+    const vp=Memory.alloc(24),vs=Memory.alloc(4096),ps=Memory.alloc(224*16),out=Memory.alloc(4);
+    const targets=[],refs=[],textures=[],samplerStates=[];let depth=ptr(0),block=ptr(0),failure=null;
+    const final=post.index===config.layer.post_color.length-1;
+    const renderStates=gradingBlendStates(true).map(([id])=>[id,renderState(device,id)]),shaderStates=[];
+    // Snapshot every sampler we can modify, including the terminal coverage pass.
+    const slots=new Set(sources.map(s=>s.slot));if(final)slots.add(config.layer.grade.copy_sampler);
+    layerDrawing=true;
+    try {
+        for(let slot=0;slot<4;++slot) {
+            out.writePointer(ptr(0));const hr=com(device,38,'int',['uint','pointer'])(device,slot,out);
+            if(hr===0){const r=out.readPointer();targets.push([slot,r]);refs.push(r);}
+            else if(hr===(0x88760866|0))targets.push([slot,ptr(0)]);
+            else if(slot===0 || hr!==(0x8876086c|0))succeeded(hr,'post GetRenderTarget');
+        }
+        out.writePointer(ptr(0));const hr=com(device,40,'int',['pointer'])(device,out);
+        if(hr===0){depth=out.readPointer();refs.push(depth);}
+        else if(hr!==(0x88760866|0))succeeded(hr,'post GetDepthStencilSurface');
+        succeeded(com(device,48,'int',['pointer'])(device,vp),'post GetViewport');
+        succeeded(com(device,95,'int',['uint','pointer','uint'])(device,0,vs,256),'post vertex constants');
+        succeeded(com(device,110,'int',['uint','pointer','uint'])(device,0,ps,224),'post pixel constants');
+        for(const slot of [93,108]) {
+            out.writePointer(ptr(0));succeeded(com(device,slot,'int',['pointer'])(device,out),'post source shader');
+            const r=out.readPointer();refs.push(r);shaderStates.push([slot,r]);
+        }
+        succeeded(com(device,90,'int',['pointer'])(device,out),'post source FVF');const sourceFvf=out.readU32();
+        shaderStates.push([90,sourceFvf]);
+        for(const slot of slots) {
+            out.writePointer(ptr(0));succeeded(com(device,64,'int',['uint','pointer'])(device,slot,out),'post source texture');
+            const texture=out.readPointer();refs.push(texture);textures.push([slot,texture]);
+            for(const state of [1,2,5,6,7,11]) {
+                succeeded(com(device,68,'int',['uint','uint','pointer'])(device,slot,state,out),'post source sampler');
+                samplerStates.push([slot,state,out.readU32()]);
+            }
+        }
+        out.writePointer(ptr(0));succeeded(com(device,59,'int',['uint','pointer'])(device,1,out),'post state block');
+        block=out.readPointer();refs.push(block);
+        const target=textureTarget(device,stage.width,stage.height,stage.format);
+        current.extra.push(target.texture,target.surface);
+        succeeded(com(device,39,'int',['pointer'])(device,ptr(0)),'post disable depth');
+        for(const [slot] of targets)if(slot!==0)succeeded(com(device,37,'int',['uint','pointer'])(device,slot,ptr(0)),'post disable MRT');
+        succeeded(com(device,37,'int',['uint','pointer'])(device,0,target.surface),'post private target');
+        succeeded(com(device,47,'int',['pointer'])(device,vp),'post original viewport');
+        succeeded(com(device,43,'int',['uint','pointer','uint','uint','float','uint'])(device,0,ptr(0),1,0,1,0),'post clear');
+        for(const source of sources) {
+            const input=post.outputs.get(source.surface);
+            if(!input)throw new Error('missing private post-color input');
+            succeeded(com(device,65,'int',['uint','pointer'])(device,source.slot,input.texture),'post private texture');
+        }
+        succeeded(draw(),'private native post-color draw');
+        if(final) {
+            const p=config.layer.grade,code=Memory.alloc(p.copy_hex.length/2);
+            code.writeByteArray(p.copy_hex.match(/../g).map(x=>parseInt(x,16)));
+            out.writePointer(ptr(0));succeeded(com(device,106,'int',['pointer','pointer'])(device,code,out),'post coverage shader');
+            const shader=out.readPointer();current.extra.push(shader);
+            succeeded(com(device,107,'int',['pointer'])(device,shader),'post coverage pixel shader');
+            succeeded(com(device,92,'int',['pointer'])(device,ptr(0)),'post coverage fixed vertex');
+            succeeded(com(device,89,'int',['uint'])(device,0xa0204),'post coverage FVF');
+            const privateVp=Memory.alloc(24);privateVp.writeByteArray(bytes(vp,24));
+            privateVp.writeU32(0);privateVp.add(4).writeU32(0);privateVp.add(8).writeU32(current.width);privateVp.add(12).writeU32(current.height);
+            succeeded(com(device,47,'int',['pointer'])(device,privateVp),'post coverage viewport');
+            const selector=Memory.alloc(16);[0,0,0,1].forEach((v,i)=>selector.add(i*4).writeFloat(v));
+            succeeded(com(device,109,'int',['uint','pointer','uint'])(device,p.copy_constant,selector,1),'post coverage alpha');
+            succeeded(com(device,65,'int',['uint','pointer'])(device,p.copy_sampler,current.texture),'post coverage texture');
+            for(const [state,value] of [[1,3],[2,3],[5,1],[6,1],[7,0],[11,0]])
+                succeeded(com(device,69,'int',['uint','uint','uint'])(device,p.copy_sampler,state,value),'post coverage sampler');
+            for(const [state,value] of gradingBlendStates(true))succeeded(com(device,57,'int',['uint','uint'])(device,state,value),'post coverage blend');
+            succeeded(com(device,83,'int',['uint','uint','pointer','uint'])(device,5,2,gradingQuad(current.width,current.height,true),48),'post coverage draw');
+        }
+        post.outputs.set(stage.target,target);post.index++;
+        if(final){post.complete=true;current.graded=target.surface;}
+    } finally {
+        for(const [slot,target] of targets)try{succeeded(com(device,37,'int',['uint','pointer'])(device,slot,target),'post restore target');}catch(e){failure=e;}
+        try{succeeded(com(device,39,'int',['pointer'])(device,depth),'post restore depth');}catch(e){failure=e;}
+        if(!block.isNull()) {
+            try{succeeded(com(block,5,'int',[])(block),'post restore state');}catch(e){failure=e;}
+            try{succeeded(com(device,94,'int',['uint','pointer','uint'])(device,0,vs,256),'post restore vertex constants');}catch(e){failure=e;}
+            try{succeeded(com(device,109,'int',['uint','pointer','uint'])(device,0,ps,224),'post restore pixel constants');}catch(e){failure=e;}
+        }
+        for(const r of refs)try{if(!r.isNull())com(r,2,'uint',[])(r);}catch(e){failure=e;}
+        layerDrawing=false;if(failure)throw failure;
+    }
+    const verifyVp=Memory.alloc(24),verifyVs=Memory.alloc(4096),verifyPs=Memory.alloc(224*16);
+    succeeded(com(device,48,'int',['pointer'])(device,verifyVp),'post verify viewport');
+    succeeded(com(device,95,'int',['uint','pointer','uint'])(device,0,verifyVs,256),'post verify vertex constants');
+    succeeded(com(device,110,'int',['uint','pointer','uint'])(device,0,verifyPs,224),'post verify pixel constants');
+    if(hex(bytes(vp,24))!==hex(bytes(verifyVp,24)) || hex(bytes(vs,4096))!==hex(bytes(verifyVs,4096)) ||
+            hex(bytes(ps,224*16))!==hex(bytes(verifyPs,224*16)))throw new Error('post-color state did not restore');
+    for(const [slot,expected] of textures) {
+        out.writePointer(ptr(0));succeeded(com(device,64,'int',['uint','pointer'])(device,slot,out),'post verify texture');
+        const r=out.readPointer();try{if(!r.equals(expected))throw new Error('post-color texture did not restore');}
+        finally{if(!r.isNull())com(r,2,'uint',[])(r);}
+    }
+    for(const [id,value] of renderStates)if(renderState(device,id)!==value)throw new Error('post-color render state did not restore');
+    for(const [slot,state,value] of samplerStates) {
+        succeeded(com(device,68,'int',['uint','uint','pointer'])(device,slot,state,out),'post verify sampler');
+        if(out.readU32()!==value)throw new Error('post-color sampler did not restore');
+    }
+    for(const [slot,expected] of shaderStates) {
+        out.writePointer(ptr(0));succeeded(com(device,slot,'int',['pointer'])(device,out),'post verify shader/FVF');
+        if(slot===90){if(out.readU32()!==expected)throw new Error('post-color FVF did not restore');continue;}
+        const r=out.readPointer();try{if(!r.equals(expected))throw new Error('post-color shader did not restore');}
+        finally{if(!r.isNull())com(r,2,'uint',[])(r);}
+    }
+    for(const [slot,expected] of targets) {
+        out.writePointer(ptr(0));const hr=com(device,38,'int',['uint','pointer'])(device,slot,out);
+        if(expected.isNull() && hr===(0x88760866|0))continue;
+        succeeded(hr,'post verify target');const r=out.readPointer();
+        try{if(!r.equals(expected))throw new Error('post-color target did not restore');}finally{if(!r.isNull())com(r,2,'uint',[])(r);}
+    }
+    out.writePointer(ptr(0));const hr=com(device,40,'int',['pointer'])(device,out);
+    if(!(depth.isNull() && hr===(0x88760866|0))) {
+        succeeded(hr,'post verify depth');const r=out.readPointer();
+        try{if(!r.equals(depth))throw new Error('post-color depth did not restore');}finally{if(!r.isNull())com(r,2,'uint',[])(r);}
+    }
+    if(root.add(4+config.candidate.counter_field).readU32()!==current.counter)throw new Error('source advanced during post-color replay');
 }

@@ -86,6 +86,11 @@ assert.equal(post.messages[0].lut_source,null);
 const beforePost=fixture();
 vm.runInContext('config.capture_screen_stages=true;inspectScreenShader(device,d)',beforePost.context);
 assert.equal(beforePost.messages[0].vertex_program,null);
+const reused=fixture();reused.screen();
+vm.runInContext('config.capture_screen_stages=true;d.screenStagesStarted=true;inspectScreenShader(device,d)',reused.context);
+assert.equal(reused.messages.length,2);assert.ok(reused.messages[1].vertex_program);
+vm.runInContext('d.screenStagesDone=true;d.currentTarget="unrelated-ui";inspectScreenShader(device,d)',reused.context);
+assert.equal(reused.messages.length,2);
 for(const failure of ['shader','program','constants','disassemble','text-size','release-assembly','state','sampler']) {
     const f=fixture(failure);assert.throws(f.screen,/failed|unbounded/);
     if(failure!=='shader')assert.ok(f.calls.includes('shader'));

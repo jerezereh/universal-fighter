@@ -297,6 +297,13 @@ The bounded inspector now captures post-color vertex programs, constant banks an
 quad inputs with three exact native updates and clean restoration. Shader/target dedup
 does not prove repeated draws share vertex inputs; preserve synchronous current inputs
 when replaying reused copy writes. Retail programs and native input data remain local.
+Private original-camera post-color replay now passes nine ordered copy/downsample/blur/
+composite draws using private textures and current native CPU inputs. Coverage is applied
+only at the end. Four held linked captures and source/graphics restoration pass; limited
+HUD-excluded interior error is about 3.47/255, without final fidelity acceptance. A fresh
+phase-specific inventory handles copies also seen before grading and stops before UI.
+Next add private SMAA/lookup inputs with a coverage policy, then normalize dimensions and
+repeat movement/normal/facing checks. No source producer capability is enabled.
 The existing host withholds steps during hitpause; the producer must avoid applying a
 second native countdown for those same externally held ticks. Clash/superfreeze and
 universal stop/result ownership still need dedicated validation.

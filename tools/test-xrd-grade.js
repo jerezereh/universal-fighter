@@ -97,6 +97,29 @@ function fixture(failure=null) {
 }
 const good=fixture();good.run();good.restore();good.release();assert.equal(vm.runInContext('Boolean(meshLayer.graded)',good.context),true);
 const sourceView=fixture();sourceView.context.config.layer.projection=null;sourceView.run();sourceView.restore();sourceView.release();
+const unmasked=fixture();unmasked.context.config.layer.post_color=[];
+unmasked.run();unmasked.restore();unmasked.release();
+assert.equal(vm.runInContext('meshLayer.post.index',unmasked.context),0);
+assert.equal(vm.runInContext('meshLayer.post.outputs.size',unmasked.context),1);
+function postFixture(failure=null,final=false) {
+    const f=fixture(failure),c=f.context;
+    c.config.layer.source_color=true;
+    c.stage={shader:'source-shader',target:'post-target',original_hex:'01020304',vertex_hex:'01020304',
+        width:4,height:4,format:21,sources:[{slot:0,surface:'prior'}]};
+    c.config.layer.post_color=final?[c.stage]:[c.stage,c.stage];
+    c.screenTextureSources=()=>c.stage.sources;
+    c.replay=()=>failure==='post-draw'?-1:0;
+    vm.runInContext('meshLayer.post={index:0,complete:false,outputs:new Map([["prior",{texture:hdr}]])}',c);
+    f.post=()=>vm.runInContext('postColorLayer(device,d,replay)',c);return f;
+}
+for(const final of [false,true]) {
+    const f=postFixture(null,final);f.post();f.restore();f.release();
+    assert.equal(vm.runInContext('meshLayer.post.index',f.context),1);
+    assert.equal(vm.runInContext('meshLayer.post.complete',f.context),final);
+}
+for(const failure of ['block','texture','surface','post-draw','copy','mask-draw']) {
+    const f=postFixture(failure,true);assert.throws(f.post,/failed/);f.restore();f.release();
+}
 const sourceColor=fixture();sourceColor.runSource();sourceColor.restore();sourceColor.release();
 assert.equal(sourceColor.context.replays,1);
 const sourceFailure=fixture('source-draw');assert.throws(sourceFailure.runSource,/failed/);sourceFailure.restore();sourceFailure.release();

@@ -64,6 +64,8 @@ def compare_trace(folder, exclusions=(), exclusion_note='', color_stage=False):
     results = []
     for file in files:
         layer = json.loads(file.read_text())
+        if color_stage and layer.get('native_post_color_replayed') is True:
+            raise ValueError('post-color output cannot be compared as an unprocessed grading-stage replay')
         scene_file = file.name.replace('render-', 'pass-') if color_stage else file.name
         scene = json.loads((folder / scene_file).read_text())
         if color_stage and (scene.get('original_color_stage') is not True or scene.get('format') not in (21,22) or
@@ -99,6 +101,7 @@ def compare_trace(folder, exclusions=(), exclusion_note='', color_stage=False):
         images = [i[:viewport[3],:viewport[2]] for i in images]
         results.append(dict(counter=layer['counter'], capture=file.name,
             full_source_color_replayed=layer.get('full_source_color_replayed') is True,
+            native_post_color_replayed=layer.get('native_post_color_replayed') is True,
             private_dimensions=[layer['width'], layer['height']],
             source_dimensions=[scene['width'], scene['height']],
             reference_scope='original-color-stage' if color_stage else 'final-backbuffer',

@@ -278,7 +278,10 @@ function textureSurface(device,slot) {
 }
 
 function inspectScreenShader(device,d,method,args) {
-    const key=d.currentTarget+':'+d.pixelShader;
+    if(config.capture_screen_stages && d.screenStagesDone)return;
+    // A copy program/target seen before grading needs a fresh post-color input sample.
+    const postPhase=config.capture_screen_stages && d.screenStagesStarted && !d.screenStagesDone;
+    const key=d.currentTarget+':'+d.pixelShader+(postPhase?':post':'');
     if (d.screenShaders.has(key)) return;
     if (d.screenShaders.size>=32) throw new Error('screen shader observation limit');
     const program=shaderProgram(device,'pixel'), constants=Memory.alloc(224*16);
@@ -529,6 +532,7 @@ function finishMeshLayer(device) {
     try {
         const root = Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
         if(config.layer.grade && !current.graded)throw new Error('private mesh lacks native grading');
+        if(config.layer.post_color && !current.post?.complete)throw new Error('private post-color chain incomplete');
         const captured = captureBackBuffer(device, root, current.counter, false, current.graded??current.target);
         const metadata={...captured.metadata, kind: config.layer.hdr&&!config.layer.grade?'render-hdr-layer':'render-layer', presentation_index: renderCapture.presentations + 1,
             diagnostic_settling: config.layer.settle || config.layer.presentations.length > 1, native_coverage_verified: false,
@@ -536,6 +540,7 @@ function finishMeshLayer(device) {
             replayed_draws: current.draws, skipped_draws_total: layerSkipped,
             color_product_draws_total: layerColorBlends,
             native_color_grading_replayed:Boolean(current.graded),native_bloom_replayed:false,
+            native_post_color_replayed:Boolean(current.post?.complete),native_smaa_replayed:false,
             source_view_projection:Boolean(config.layer.source_view),
             full_source_color_replayed:Boolean(config.layer.source_color),
             ...(config.layer.source_view?{source_color_shader:config.layer.grade.shader}:{}),

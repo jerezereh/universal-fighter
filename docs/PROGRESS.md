@@ -1,5 +1,42 @@
 # Progress record
 
+## 2026-10-08 — Private native blur and color composite replay
+
+- Added opt-in `--post-color-layer` for the neutral original-camera private HDR/LUT
+  diagnostic. Nine ordered native draws after grading use private copy/downsample,
+  horizontal/vertical blur and composite targets, including native unsigned 16-bit
+  intermediate format. Each current synchronous CPU quad, native shader and constants
+  is reused; samplers map observed surface lineage to earlier private outputs. Missing
+  dependencies, program/binding drift, wrong dimensions/state and incomplete chains
+  reject. No full-scene effect texture supplies these private passes.
+- Grading alpha is no longer overwritten with actor coverage before this chain. The
+  terminal coverage pass restores binary mesh alpha and clears uncovered RGB. All private
+  textures/surfaces/program references remain owned by the existing bounded layer lifetime.
+  State blocks plus explicit constant-bank restoration verify targets/depth, shaders/FVF,
+  viewport, render/sampler states, textures and the held source counter.
+- A reused pre-color copy target initially lacked post-color vertex input evidence.
+  Phase-specific inspection now resamples it, then stops at SMAA blend instead of later
+  UI. The first refresh hit the existing 32-program bound and is rejected with clean
+  hook restoration; two pre-start attach timeouts remain rejected. The scoped repeat
+  passes three exact updates, 120 blocked opportunities and all 13 native stage outputs.
+  Evidence: ignored `20261008-222305-484036/boundary-20261009-003343-116507`.
+- Private native trial `boundary-20261009-003506-146175` passes three exact updates,
+  80 blocked opportunities, four linked layer/scene captures, no trace errors and
+  source/graphics hook/state restoration. Viewed the private fighter output. Explicit
+  bottom-HUD exclusion retains about 45,665 interior pixels per sample with mean error
+  about 3.47/255 against the final backbuffer. This is a different held capture from
+  earlier grading-only evidence, not a controlled before/after improvement measurement;
+  feet, two-pixel silhouette edges, background-dependent effects and final fidelity
+  remain unaccepted. No producer capabilities are enabled.
+- Authored checks cover chain ordering/dependency rejection, resampled copy inputs,
+  unmasked grading, intermediate/final replay resource failures and processed-image
+  comparison labels. Node syntax, Python compilation, grading/transform/comparison
+  checks and installed-header validation of 123 literal D3D calls pass. Dynamic native
+  CPU draw dispatch remains outside literal-call checking; live restoration is separate.
+- Next implement private SMAA with native lookup resources and an explicit alpha policy,
+  then validate normalized dimensions and moving/attacking poses. Pivot/scale, persistent
+  source ownership and universal result/contact delivery remain pending.
+
 ## 2026-10-08 — Post-color vertex inputs captured
 
 - Extended the existing bounded screen inspector to retain native vertex programs,
