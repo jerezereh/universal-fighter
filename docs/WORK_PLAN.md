@@ -385,6 +385,10 @@ joins ownership stamps when the combat profile is supplied; rendered positive re
 passes. Final native negative age-guard reset proof remains pending after window-preflight
 timeouts and an inconclusive scalar run. Age-zero resets/full reset generations remain
 unsupported; revalidate long-hold code-verification scheduling before lifecycle acceptance.
+Short and long age-guard recovery checks now pass with revised hash scheduling, unchanged
+watchdog/queue bounds and clean native restoration. Native age-reset guard rejection is
+still pending. Add exact changed-field diagnostics before the next synchronized reset so
+the rejection can be attributed directly to age rather than inferred from elapsed timing.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

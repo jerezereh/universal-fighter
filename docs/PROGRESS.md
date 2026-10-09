@@ -1,5 +1,21 @@
 # Progress record
 
+## 2026-10-09 — Age-guard recovery timing verified
+
+- Native renewal check with validated age ownership passes in
+  `20261009-214454-210641/boundary-20261009-221034-057266`: 1,103 blocked updates,
+  zero requested steps/deltas/gaps/errors, unchanged held state, automatic source resume
+  and hook removal, clean source/graphics restoration. Earlier
+  `boundary-20261009-221000-293981` times out attaching before instrumentation and is
+  retained as rejected evidence.
+- Repeat the longer no-input scalar hold in `boundary-20261009-221124-887998`.
+  All recovery checks pass with 2,748 blocked updates, no state changes/errors, observed
+  resume/removal and restored code. This verifies the revised near-removal code hash
+  scheduling for the long manual hold without extending watchdog/queue limits.
+- This clears the pending recovery-timing regression. It does not accept the still-pending
+  native reset rejection with the age guard. Next make failure receipts identify exactly
+  which ownership field changed, then synchronize the user's final reset check.
+
 ## 2026-10-09 — Confirmed age reset marker; ownership guard added
 
 - User confirms reset while `20261009-214454-210641/boundary-20261009-215951-218139`
