@@ -54,7 +54,14 @@ assert.throws(()=>run('const moved=transactionState(gate.root);moved[0][1]=1;ass
 assert.throws(()=>run('const replaced=transactionState(gate.root);replaced[0][0]="new-actor";assertTransactionHeld(gate,100,replaced)'),/outside owned/);
 run('config.state.ownership_age_field=12;gate.heldState=transactionState(gate.root)');
 assert.equal(run('gate.heldState[0].length'),5);
+assert.throws(()=>run('const missing=transactionState(gate.root);missing[0].pop();assertTransactionHeld(gate,100,missing)'),/shape changed/);
 assert.throws(()=>run('const reset=transactionState(gate.root);reset[0][4]=1;assertTransactionHeld(gate,100,reset)'),/outside owned/);
+assert.throws(()=>run('const resetAge=transactionState(gate.root);resetAge[1][4]=3;assertTransactionHeld(gate,100,resetAge)'),e=>{
+    assert.equal(JSON.stringify(e.ownership_changes),JSON.stringify([{fighter:1,field:'age',before:0,after:3}]));return true;
+});
+assert.throws(()=>run('assertTransactionHeld(gate,101,transactionState(gate.root))'),e=>{
+    assert.equal(JSON.stringify(e.ownership_changes),JSON.stringify([{field:'counter',before:100,after:101}]));return true;
+});
 run('config.state.ownership_age_field=13');assert.throws(()=>run('transactionState(gate.root)'),/invalid ownership age/);
 run('config.state.ownership_age_field=12');
 run('gate.frameReady=100;gate.lastCounter=101');assert.throws(()=>api.step([0,0],100),/outside owned/);

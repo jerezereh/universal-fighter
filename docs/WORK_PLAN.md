@@ -389,6 +389,10 @@ Short and long age-guard recovery checks now pass with revised hash scheduling, 
 watchdog/queue bounds and clean native restoration. Native age-reset guard rejection is
 still pending. Add exact changed-field diagnostics before the next synchronized reset so
 the rejection can be attributed directly to age rather than inferred from elapsed timing.
+Exact field-change diagnostics and strict two-fighter age-reset classification are now
+implemented with authored rejection checks and a clean native no-reset regression. Next
+manual check: reset during the no-render age-guard hold and classify its actual failure
+fields/recovery. No native age-reset rejection or source generation is accepted yet.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

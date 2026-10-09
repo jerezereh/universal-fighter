@@ -612,7 +612,8 @@ function installGate(target, p) {
             if (g.ownsState) assertTransactionHeld(g, s.before, transactionState(g.root));
         } catch (error) {
             g.resumed = true;
-            send({kind: 'error',phase: 'gate',message: String(error) + '; original execution resumed'});
+            send({kind: 'error',phase: 'gate',message: String(error) + '; original execution resumed',
+                ...(error.ownership_changes?{ownership_changes:error.ownership_changes}:{})});
             original(object); return;
         }
         const execute = g.credits === 1;
@@ -660,9 +661,18 @@ function transactionState(root) {
 }
 
 function assertTransactionHeld(g, counter, state) {
-    if (g.lastCounter!==null && counter!==g.lastCounter ||
-        g.heldState!==null && JSON.stringify(state)!==JSON.stringify(g.heldState))
-        throw new Error('transaction source changed outside owned update');
+    if(g.heldState!==null && (state.length!==g.heldState.length || state.some((v,i)=>v.length!==g.heldState[i].length)))
+        throw new Error('transaction state shape changed');
+    const changes=[];
+    if(g.lastCounter!==null && counter!==g.lastCounter)
+        changes.push({field:'counter',before:g.lastCounter,after:counter});
+    if(g.heldState!==null) state.forEach((fighter,i)=>fighter.forEach((value,j)=>{
+        if(value!==g.heldState[i][j])changes.push({fighter:i,field:['actor','x','y','facing','age'][j],before:g.heldState[i][j],after:value});
+    }));
+    if(changes.length) {
+        const error=new Error('transaction source changed outside owned update');
+        error.ownership_changes=changes;throw error;
+    }
 }
 
 function armGateRemoval() {
@@ -777,7 +787,8 @@ rpc.exports = {
                 assertTransactionHeld(gate,root.add(4+config.candidate.counter_field).readU32(),transactionState(root));
             } catch(error) {
                 gate.resumed=true;gate.credits=0;gate.frameReady=null;
-                send({kind:'error',phase:'gate',message:String(error)+'; original execution resumed'});
+                send({kind:'error',phase:'gate',message:String(error)+'; original execution resumed',
+                    ...(error.ownership_changes?{ownership_changes:error.ownership_changes}:{})});
                 throw error;
             }
         }

@@ -24,4 +24,17 @@ assert not check(receipt,observations,recovered|dict(fighters=[fighter,fighter])
 assert not check(receipt,observations,recovered|dict(clock=dict(advancing=False)))['passed']
 bad=copy.deepcopy(observations);bad[0]['boundary']['executed']=True
 assert not check(receipt,bad,recovered)['passed']
-print('Reset classification requires guard rejection, zero credits, changed transform, resumed clock and clean restoration.')
+aged=copy.deepcopy(observations)
+for f in aged[0]['fighters']: f['scalar_observations']={'age_candidate':10}
+age_receipt=copy.deepcopy(receipt);age_receipt['errors']=age_receipt['errors'][:2]
+changes=[dict(fighter=i,field='age',before=10,after=0) for i in range(2)]
+age_receipt['errors'][0]['payload']['ownership_changes']=changes
+same=recovered|dict(fighters=[fighter,fighter])
+assert check(age_receipt,aged,same)['passed'] and check(age_receipt,aged,same)['age_reset_diagnostic']
+assert len(age_receipt['errors'][0]['payload']['ownership_changes'])==2 # classifier leaves raw receipt intact
+for changes in ([dict(fighter=0,field='age',before=10,after=0)],
+        [dict(fighter=i,field='invented',before=10,after=0)for i in range(2)],
+        [dict(fighter=i,field='age',before=11,after=0)for i in range(2)]):
+    wrong=copy.deepcopy(age_receipt);wrong['errors'][0]['payload']['ownership_changes']=changes
+    assert not check(wrong,aged,same)['passed']
+print('Reset classification requires guard rejection, zero credits, changed transform or matched shared age reset, resumed clock and clean restoration.')

@@ -1,5 +1,30 @@
 # Progress record
 
+## 2026-10-09 — Exact ownership-change diagnostics and reset classification
+
+- Held ownership errors now carry bounded field changes with fighter identity, field
+  name and before/after values. Counter changes are separate; malformed stamp shape
+  rejects rather than omitting a field. Native memory/layout values remain ignored local
+  evidence. No receiving protocol or host changes.
+- Extend the separate reset classifier to validate structured age diagnostics against
+  the final held snapshot. A matching positive-to-zero reset for both fighters can
+  establish an age-based state change even with unchanged coordinates. Known rendered
+  interruption and scalar interruption error chains are accepted; unrelated errors,
+  invented fields, mismatched prior values, single-fighter age changes, requested credits,
+  stopped clocks and failed restoration reject. The raw receipt remains unchanged.
+- Authored actual guard checks prove exact age/counter diagnostics, invalid stamp-shape
+  rejection and normal ownership behavior. Classifier checks cover both old transform
+  receipts and the new age receipt. Existing historical classifier behavior passes.
+- Native no-reset regression `20261009-214454-210641/boundary-20261009-221459-518088`
+  passes with structured diagnostics: 1,223 blocked updates, zero credits/deltas/gaps/
+  errors, unchanged held state, automatic resume/removal and clean restoration. Python/
+  JavaScript syntax and whitespace pass. Structured native reset rejection itself still
+  needs the user's synchronized reset; authored metadata is not that acceptance.
+- Next manual gate: no-render age-guard hold from default positions, reset after the
+  installed cue, inspect its exact native changed fields and classify after recovery.
+  Same-observation/age-already-zero resets, source reset/rebind, continuous streaming and
+  combat result/contact ownership remain unsupported. Live producer/caps stay disabled.
+
 ## 2026-10-09 — Age-guard recovery timing verified
 
 - Native renewal check with validated age ownership passes in
