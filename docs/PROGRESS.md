@@ -1,5 +1,30 @@
 # Progress record
 
+## 2026-10-09 — Default-position reset observation and bounded telemetry
+
+- User clarified that positions were reset; SIGN's process remains PID 22700. Fresh
+  read-only probe `20261009-214454-210641` and profile re-derivation confirm the source
+  identity. One-second observer has only 61 updates and correctly rejects as gate proof;
+  three-second observer `boundary-20261009-214605-108673` has 179 clean native updates
+  and restored code. No old process/resource identity is inferred from the clarification.
+- Added exclusive `--reset-observation` with verified combat-field derivation, no credits,
+  no private rendering, a 46-second renewable hold and bounded recovery over 60 seconds.
+  Native eight-second execution lease and twelve-second removal deadlines are unchanged.
+- First attempt `boundary-20261009-214624-402644` fails instrumentation queue overflow
+  after 930 captured updates, with clean detachment/restoration. User reports a reset,
+  but the interrupted timing cannot establish a reset marker; retain this failed receipt.
+- Reduce only unneeded held renderer telemetry in this observation mode. Renderer hooks
+  and restoration witnesses remain; resumed presentations still prove source recovery.
+  Source snapshots/scalars and watchdog diagnostics remain, and queue limits stay fixed.
+- Retry `boundary-20261009-214933-066161` passes recovery: 3,158 blocked zero-delta
+  updates, no requested steps/gaps/errors, hold beyond the prior twelve-second lifetime,
+  automatic resume and hook removal, full source/graphics restoration. Native scalar
+  observations remain unchanged in the captured hold. User confirmation for this retry
+  is pending, so no same-position-reset acceptance or animation-age reset marker is
+  claimed. Await clarification before choosing further reset-marker instrumentation.
+- Boundary/lease regressions, Python/JavaScript syntax and whitespace pass. This is
+  development observation tooling; SIGN's source capabilities/live producer stay disabled.
+
 ## 2026-10-09 — User reset invalidates held ownership
 
 - First synchronized attempt `boundary-20261009-213747-078842` completes its normal

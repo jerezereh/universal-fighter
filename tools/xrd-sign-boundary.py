@@ -262,7 +262,7 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False):
     if renewable and (not expire or not gate_receipt or plan_path or capture or trace_draws or layer_path):
         raise ValueError('renewable trace requires an exclusive gate recovery experiment')
     if transactions and (renewable or expire or plan_path or not gate_receipt or not layer_path or not normalize or not settle or layer_steps not in (None,'0,1,2,3')):
@@ -270,6 +270,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if transaction_loss and not transactions: raise ValueError('transaction loss requires transaction control')
     if not 13<=transaction_hold<=45 or transaction_hold!=13 and (not transactions or transaction_loss):
         raise ValueError('extended hold requires a normal transaction check; hold must be 13..45 seconds')
+    if reset_observation and (not renewable or not combat_path or seconds!=60):
+        raise ValueError('reset observation requires the bounded scalar/renewable experiment')
     receipt=json.loads((probe/'inspection.json').read_text())
     state=json.loads((probe/'state-profile.json').read_text())
     if scalar_path:
@@ -405,7 +407,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             abi=validate_device_calls([source],(ROOT/'local-cache/msys64/mingw64/include/d3d9.h').read_text())
             script=session.create_script(source)
             script.on('message',receive);bounded_call(frida,script.load)
-            settings=dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,capture_screen_stages=capture_screen_stages,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer,renewable=renewable or transactions,transactions=transactions)
+            settings=dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,capture_screen_stages=capture_screen_stages,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer,renewable=renewable or transactions,transactions=transactions,reset_observation=reset_observation)
             phase='start';native_start_attempted=True
             print(bounded_call(frida,lambda:script.exports_sync.start(settings)),flush=True)
             phase='observe'
@@ -419,7 +421,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                     elapsed=time.perf_counter()-started
                     frames_complete=transactions and completed==3 and len(layers)==8 and len(scene_packets)==8
                     if frames_complete and transaction_loss and controller_lost_at is None: controller_lost_at=elapsed
-                    if controller_lost_at is None and (transactions or renewable and elapsed<14) and elapsed>=next_heartbeat:
+                    if controller_lost_at is None and (transactions or renewable and elapsed<seconds-14) and elapsed>=next_heartbeat:
                         bounded_call(frida,script.exports_sync.heartbeat)
                         next_heartbeat=elapsed+1
                     if layer and plan and completed==len(plan) and len(layers)==len(layer['capture_steps'])*per_step and len(scene_packets)==len(layers):
@@ -719,6 +721,7 @@ if __name__=='__main__':
     p.add_argument('--gate',type=Path,help='clean same-session boundary trace: run a bounded 4.5-second freeze/three-step experiment')
     p.add_argument('--lease-check',action='store_true',help='with --gate: omit steps and verify automatic resume/removal over 13 seconds')
     p.add_argument('--renewable-check',action='store_true',help='with --gate: renew without steps for 14 seconds, then verify controller-loss recovery; no private rendering')
+    p.add_argument('--reset-observation',action='store_true',help='with --gate and --combat-candidate: 46-second no-credit renewable hold for a manual reset, followed by recovery; no private rendering')
     p.add_argument('--transaction-check',action='store_true',help='renew ownership across a thirteen-second initial hold, then three counter-bound neutral steps with settled frames; requires normalized settled layer')
     p.add_argument('--transaction-loss-check',action='store_true',help='run transaction check, then cease renewal and verify automatic source/renderer-hook recovery')
     p.add_argument('--transaction-hold-seconds',type=float,default=13,help='13..45 seconds for the initial normal transaction hold, allowing a synchronized manual reset test')
@@ -747,6 +750,10 @@ if __name__=='__main__':
     p.add_argument('--post-color-layer',type=Path,help='with private source-view grading: clean stage inventory for private blur/composite replay; --smaa-layer extends it through SMAA')
     p.add_argument('--smaa-layer',action='store_true',help='extend private post-color replay through native SMAA; terminal alpha retains binary mesh coverage')
     a=p.parse_args()
+    if a.reset_observation:
+        if not a.combat_candidate or a.renewable_check or a.transaction_check or a.transaction_loss_check:
+            p.error('--reset-observation requires exclusive --combat-candidate observation')
+        a.renewable_check=True
     if a.transaction_loss_check: a.transaction_check=True
     if not 13<=a.transaction_hold_seconds<=45 or a.transaction_hold_seconds!=13 and (not a.transaction_check or a.transaction_loss_check):
         p.error('extended transaction hold requires --transaction-check; hold must be 13..45 seconds')
@@ -754,8 +761,8 @@ if __name__=='__main__':
     if a.lease_check and not a.gate: p.error('--lease-check requires --gate')
     if a.renewable_check and (not a.gate or a.lease_check or a.input_plan or a.capture_render or a.trace_draws or a.capture_layer):
         p.error('--renewable-check requires an exclusive gate recovery experiment')
-    trace(a.probe.resolve(),a.candidate.resolve(),34 if a.transaction_loss_check else a.transaction_hold_seconds+15 if a.transaction_check else 28 if a.renewable_check else 13 if a.lease_check else 10 if a.capture_layer and a.input_plan else 8 if a.capture_passes or a.capture_layer else 7 if a.input_plan else 4.5 if a.gate else a.seconds,
+    trace(a.probe.resolve(),a.candidate.resolve(),60 if a.reset_observation else 34 if a.transaction_loss_check else a.transaction_hold_seconds+15 if a.transaction_check else 28 if a.renewable_check else 13 if a.lease_check else 10 if a.capture_layer and a.input_plan else 8 if a.capture_passes or a.capture_layer else 7 if a.input_plan else 4.5 if a.gate else a.seconds,
           a.gate.resolve() if a.gate else None,a.lease_check or a.renewable_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation)

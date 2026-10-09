@@ -374,6 +374,11 @@ four-frame failure is preserved and classified separately with read-only recover
 Next synchronize a default-position reset while observing verified native age/stop fields:
 same-observation reset detection, automatic source reset/rebind and result ownership are
 still unverified. Manual reset control remains with the user.
+Default-position reset observation now has a bounded no-credit scalar capture mode.
+An initial queue overflow is retained as failed evidence; suppressing only unneeded held
+render telemetry permits a clean 3,158-update hold and automatic recovery. Observed age/
+health/stop values stay unchanged. Retry reset confirmation remains pending; no default-
+position reset marker is accepted. Resolve that observation before extending reset guards.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

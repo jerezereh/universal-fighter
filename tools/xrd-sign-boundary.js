@@ -488,7 +488,7 @@ function observePresent() {
                         else finishMeshLayer(ptr(this.device));
                     } catch (error) { send({kind: 'error',phase: 'layer-end',message: String(error)}); }
                 }
-                if (this.valid) send({kind: 'present',counter: this.counter,device: this.device,
+                if (this.valid && (!config.reset_observation || gate===null || gate.resumed)) send({kind: 'present',counter: this.counter,device: this.device,
                     method: this.method,target: target.toString(),thread: this.threadId,hresult: result.toInt32(),wall_ms: Date.now()});
                 if (this.capture && result.toInt32() === 0) {
                     this.capture.metadata.thread=this.threadId;this.capture.metadata.hresult=0;
