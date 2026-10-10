@@ -101,6 +101,20 @@ def main():
     assert not external_contact_check(owned,reverse,suppressed,[],[mapped],2,17)['passed']
     assert not external_contact_check(owned,reverse,suppressed,[],[mapped],2)['passed']
     reject(lambda:external_contact_check(owned,reverse,suppressed,[],[mapped],2,True))
+    zero_records=[];zero_states=[]
+    for r,s in zip(owned,reverse):
+        s=copy.deepcopy(s)
+        for f in s:f['scalar_observations'].update(hitstop_candidate=0,age_candidate=r['after'])
+        s[0]['pose_candidates']=[dict(value='sol052_00' if r['after']>1 else 'sol000_00')]
+        for _ in range(1 if r['executed'] else 3):zero_records.append(r);zero_states.append(copy.deepcopy(s))
+    host_event=mapped|dict(hitstop_owner='host')
+    host_check=lambda samples=zero_states,e=host_event:external_contact_check(zero_records,samples,suppressed,[],[e],2,10,True)
+    assert host_check()['passed'] and host_check()['host_freeze_verified']
+    assert not host_check(e=host_event|dict(hitstop_owner='source'))['passed']
+    bad_zero=copy.deepcopy(zero_states);bad_zero[3][0]['scalar_observations']['age_candidate']+=1
+    assert not host_check(samples=bad_zero)['passed']
+    bad_zero=copy.deepcopy(zero_states);bad_zero[3][0]['scalar_observations']['hitstop_candidate']=1
+    assert not host_check(samples=bad_zero)['passed']
     reject(lambda:check(events=[event,event]))
     reject(lambda:check(events=[event|dict(after=[])]))
     for patch in (dict(counter=3),dict(thread=8),dict(attacker=0),dict(source_collision_suppressed=False)):

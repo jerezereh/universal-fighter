@@ -502,6 +502,9 @@ With user-disabled regeneration, damage persists after detach. Explicit nonfatal
 now passes a native 17-point override with the original Punch reaction and source contacts
 suppressed. Continue host/source hitstop ownership and the remaining typed result fields;
 the diagnostic does not yet complete universal contact or a playable guest.
+Host-owned freeze now passes a native diagnostic: clear deferred native stop, withhold
+credits to freeze, then resume native reaction age. Actual IKEMEN result transport and
+stop scheduling remain unconnected; continue the other result fields and match lifecycle.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

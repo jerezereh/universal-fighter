@@ -89,7 +89,7 @@ def suppressed_contact_check(records,states,dispatches,contacts):
         observed_counter_phase=sorted(phases),universal_contact=False,external_results_applied=False)
 
 
-def external_contact_check(records,states,dispatches,contacts,events,step,damage=0):
+def external_contact_check(records,states,dispatches,contacts,events,step,damage=0,host_stop=False):
     executed=[r for r in records if r['executed']]
     native=contact_check(records,states,1)
     if len(records)!=len(states) or len(events)!=1 or type(step)!=int or not 1<=step<=len(executed):raise ValueError('external native contact requires exactly one requested result')
@@ -104,13 +104,26 @@ def external_contact_check(records,states,dispatches,contacts,events,step,damage
         event.get('requested_damage')==damage and event['before'][0]-event['after'][0]==damage and event['after'][0]>0 and
         len(native['damage_events'])==1 and native['damage_events'][0]['before']==event['before'][0] and
         native['damage_events'][0]['after']==event['after'][0])
+    if type(host_stop)!=bool:raise ValueError('invalid hitstop owner')
+    host_freeze=False
+    if host_stop:
+        held=[s for r,s in zip(records,states) if not r['executed'] and r['after']==frame['after']]
+        scalar=lambda s:[[f['scalar_observations'][k+'_candidate'] for k in ('health','hitstop','age')] for f in s]
+        reacting=[s for r,s in zip(records,states) if r['executed'] and r['after']>frame['after'] and
+            s[0].get('pose_candidates') and all(not re.fullmatch(r'sol00[01]_[0-9]{2}',n['value']) for n in s[0]['pose_candidates']) and
+            any('Nokezori' in n['value'] for n in s[0]['state_candidates'])]
+        host_freeze=(event.get('hitstop_owner')=='host' and native['max_stop']==[0,0] and len(held)>=5 and
+            all(scalar(s)==scalar(held[0]) for s in held) and len(reacting)>=2 and
+            reacting[-1][0]['scalar_observations']['age_candidate']>reacting[0][0]['scalar_observations']['age_candidate'] and
+            len(native['damage_events'])==1 and native['damage_events'][0]['mirrored_box_overlap'])
     suppressed=len(dispatches)==3*len(executed) and all(
         [c['argument'] for c in dispatches[i*3:i*3+3]]==[0,1,2] and all(
             c.get('suppressed') is True and c['original_called'] is False and c['thread']==r['thread'] and
             c['this_delta']==4 and c['counter']==r['after'] for c in dispatches[i*3:i*3+3])
         for i,r in enumerate(executed))
     requested=all(c.get('externally_requested') is True for c in contacts)
-    return native|dict(passed=bool(native['passed'] and linked and suppressed and requested and damage_mapped),external_result_linked=linked,
+    return native|dict(passed=bool((host_freeze if host_stop else native['passed']) and linked and suppressed and requested and damage_mapped),external_result_linked=linked,
+        host_freeze_verified=host_freeze,
         requested_damage_verified=bool(damage and damage_mapped),
         source_dispatch_suppressed=suppressed,automatic_pair_calls=sum(c.get('externally_requested') is not True for c in contacts),
         universal_contact=False,typed_host_result_applied=False)

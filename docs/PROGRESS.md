@@ -1,5 +1,22 @@
 # Progress record
 
+## 2026-10-09 — Host-owned freeze without a native stop countdown
+
+- Opt-in `--external-host-stop` clears deferred native stop fields after owned source
+  updates following the requested hit. It leaves native reaction execution in SIGN;
+  withholding credits supplies the diagnostic host freeze instead of two stop clocks.
+- Native `20261010-042922-749575/boundary-20261010-061133-572898` passes 78 credits,
+  234 suppressed dispatcher stages, requested damage 395 to 378, zero observed native
+  stop on both actors, stable held health/age and resumed hurt-pose age on later credits.
+  Source code restoration and detach pass. This demonstrates the freeze mechanism,
+  not a connected IKEMEN stop timer or full typed result application.
+- Authored host-freeze checks reject the wrong owner, changing held age and residual
+  stop. Combat/input/boundary checks and JS syntax pass. Boundary fixtures first failed
+  on sandbox Temp permissions; the same test passes with the authorized native runtime.
+- Explicit damage and host-owned freeze are now native-verified diagnostics. Continue
+  guard/stun/push/KO and reset semantics, actual typed producer transport and atomic
+  rendered match acceptance; required playable capabilities remain disabled.
+
 ## 2026-10-09 — Persistent requested damage
 
 - User disabled SIGN training auto regeneration. Native receipt

@@ -768,8 +768,11 @@ function installGate(target, p) {
                     send({kind:'external-pair-result',request_index:index,counter:object.add(p.candidate.counter_field).readU32(),
                         thread:this.threadId,attacker:1,defender:0,before,
                         after:actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32()),
-                        requested_damage:p.external_damage || null,source_collision_suppressed:true});
+                        requested_damage:p.external_damage || null,hitstop_owner:p.external_host_stop?'host':'source',source_collision_suppressed:true});
                 }
+                // Diagnostic only: host withholding credits owns freeze; native reaction may queue stop later.
+                if(p.external_host_stop && g.externalPairs)for(let i=0;i<2;i++)
+                    g.root.add(p.state.fields.slots+4*i).readPointer().add(p.state.scalar_fields.hitstop_candidate).writeS32(0);
             } finally { g.executing = false; }
         }
         try {
