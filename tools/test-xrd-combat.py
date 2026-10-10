@@ -96,6 +96,11 @@ def main():
     event=dict(request_index=2,counter=2,thread=9,attacker=1,defender=0,source_collision_suppressed=True,before=[420,420],after=[410,420])
     check=lambda events=[event],dispatches=suppressed,contacts=[]:external_contact_check(owned,reverse,dispatches,contacts,events,2)
     assert check()['passed'] and not check()['typed_host_result_applied']
+    mapped=event|dict(requested_damage=10)
+    assert external_contact_check(owned,reverse,suppressed,[],[mapped],2,10)['requested_damage_verified']
+    assert not external_contact_check(owned,reverse,suppressed,[],[mapped],2,17)['passed']
+    assert not external_contact_check(owned,reverse,suppressed,[],[mapped],2)['passed']
+    reject(lambda:external_contact_check(owned,reverse,suppressed,[],[mapped],2,True))
     reject(lambda:check(events=[event,event]))
     reject(lambda:check(events=[event|dict(after=[])]))
     for patch in (dict(counter=3),dict(thread=8),dict(attacker=0),dict(source_collision_suppressed=False)):

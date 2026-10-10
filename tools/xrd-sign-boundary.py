@@ -264,7 +264,7 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0):
     if type(frame_control)!=bool or frame_control and (not input_path or plan_path):
         raise ValueError('source control requires exclusive native input profile without a local plan')
     if frame_control:frame_tap=True
@@ -276,6 +276,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         raise ValueError('duration controller-loss check requires 60..120 seconds')
     if type(external_pair_step)!=int or not 0<=external_pair_step<=85 or external_pair_step and (not suppress_contact_path or controlled_slot!=1):
         raise ValueError('external pair experiment requires bounded suppressed second-player contact')
+    if type(external_damage)!=int or not 0<=external_damage<=419 or external_damage and not external_pair_step:
+        raise ValueError('external damage requires a bounded requested native pair')
     if type(controlled_slot)!=int or controlled_slot not in (0,1):raise ValueError('invalid controlled native slot')
     if controlled_slot and (oracle!='contact' or not plan_path or not combat_path or not gate_receipt or capture or layer_path or stream_frames or stream_duration or suppress_contact_path and not external_pair_step):
         raise ValueError('second-player input requires an exclusive original contact validation scene')
@@ -401,6 +403,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         if not gate_options or not input_profile or expire or plan_path.stat().st_size>16384:
             raise ValueError('bounded input plan requires a native gate and validated input ingress')
         plan=(punch_plan if stream_frames and oracle=='render-attack' else position_plan if stream_frames or oracle=='positioning' else input_plan)(json.loads(plan_path.read_text()),stream_frames or (3 if transactions else None))
+        if external_pair_step>len(plan):raise ValueError('external pair step exceeds the bounded input plan')
         if layer and (not oracle.startswith('render-') or not stream_frames and layer['capture_steps'][-1]!=len(plan)):
             raise ValueError('private render plan must use a render oracle and capture its final requested step')
     sys.path.insert(0,str(ROOT/'local-cache/xrd-tools/frida/python'))
@@ -469,7 +472,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             abi=validate_device_calls([source],(ROOT/'local-cache/msys64/mingw64/include/d3d9.h').read_text())
             script=session.create_script(source)
             script.on('message',receive);bounded_call(frida,script.load)
-            settings=dict(external_pair_step=external_pair_step,contact=contact,state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,capture_screen_stages=capture_screen_stages,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer,renewable=renewable or transactions,transactions=transactions,reset_observation=reset_observation)
+            settings=dict(external_damage=external_damage,external_pair_step=external_pair_step,contact=contact,state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,capture_screen_stages=capture_screen_stages,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer,renewable=renewable or transactions,transactions=transactions,reset_observation=reset_observation)
             settings['streaming']=stream_mode
             phase='start';native_start_attempted=True
             print(bounded_call(frida,lambda:script.exports_sync.start(settings)),flush=True)
@@ -800,7 +803,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         result['native_contact_observer_restored']=bool(cleanup_receipt and cleanup_receipt.get('contact_observer_code_restored'))
         if not result['native_contact_observer_restored']:errors.append(dict(contact_error='contact observer restoration failed'))
         try:
-            result['native_contact_pair_check']=(external_contact_check(records,states,dispatches,contacts,external_events,external_pair_step) if external_pair_step else suppressed_contact_check(records,states,dispatches,contacts) if suppress_contact_path else contact_observations(records,states,contacts))
+            result['native_contact_pair_check']=(external_contact_check(records,states,dispatches,contacts,external_events,external_pair_step,external_damage) if external_pair_step else suppressed_contact_check(records,states,dispatches,contacts) if suppress_contact_path else contact_observations(records,states,contacts))
             if not result['native_contact_pair_check']['passed']:errors.append(dict(contact_error='native pair health change not verified'))
         except ValueError as error:errors.append(dict(contact_error=str(error)))
     if gate_options:
@@ -871,7 +874,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                 result['render_oracle']=dict(passed=False,error=str(error));errors.append(dict(check_error=str(error)))
             result['input_oracle_passed']=result['render_oracle']['passed']
         if oracle=='contact' and combat_profile:
-            try: result['contact_check']=(external_contact_check(records,states,dispatches,contacts,external_events,external_pair_step) if external_pair_step else suppressed_contact_check(records,states,dispatches,contacts) if suppress_contact_path else contact_check(records,states,controlled_slot))
+            try: result['contact_check']=(external_contact_check(records,states,dispatches,contacts,external_events,external_pair_step,external_damage) if external_pair_step else suppressed_contact_check(records,states,dispatches,contacts) if suppress_contact_path else contact_check(records,states,controlled_slot))
             except ValueError as error:
                 result['contact_check']=dict(passed=False,error=str(error))
                 errors.append(dict(check_error=str(error)))
@@ -922,6 +925,7 @@ if __name__=='__main__':
     p.add_argument('--oracle',choices=('positioning','movement','crossover','contact','render-motion','render-attack','render-settle','render-framing','render-facing','render-position'),default='movement',help='required input-plan evidence; native render oracles require --capture-layer')
     p.add_argument('--scalar-fields',type=Path,help='ignored bounded field hypotheses to observe without semantic promotion')
     p.add_argument('--external-pair-step',type=int,default=0,help='bounded diagnostic original native pair invocation after one owned step')
+    p.add_argument('--external-damage',type=int,default=0,help='1..419 requested nonfatal damage; native Punch reaction remains unchanged')
     p.add_argument('--input-slot',type=int,choices=(0,1),default=0,help='original contact validation control slot; rendered guest stays Sol/slot zero')
     p.add_argument('--contact-callees',type=Path,help='ignored static direct-callee inventory for original contact observation')
     p.add_argument('--suppress-source-contact',type=Path,help='bounded dispatch suppression; requires clean original dispatch proof folder')
@@ -968,4 +972,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check or a.renewable_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control,a.observe_native_contact,a.contact_dispatch_candidate.resolve() if a.contact_dispatch_candidate else None,a.suppress_source_contact.resolve() if a.suppress_source_contact else None,a.contact_callees.resolve() if a.contact_callees else None,a.input_slot,a.external_pair_step)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control,a.observe_native_contact,a.contact_dispatch_candidate.resolve() if a.contact_dispatch_candidate else None,a.suppress_source_contact.resolve() if a.suppress_source_contact else None,a.contact_callees.resolve() if a.contact_callees else None,a.input_slot,a.external_pair_step,a.external_damage)

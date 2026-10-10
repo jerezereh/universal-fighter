@@ -89,7 +89,7 @@ def suppressed_contact_check(records,states,dispatches,contacts):
         observed_counter_phase=sorted(phases),universal_contact=False,external_results_applied=False)
 
 
-def external_contact_check(records,states,dispatches,contacts,events,step):
+def external_contact_check(records,states,dispatches,contacts,events,step,damage=0):
     executed=[r for r in records if r['executed']]
     native=contact_check(records,states,1)
     if len(records)!=len(states) or len(events)!=1 or type(step)!=int or not 1<=step<=len(executed):raise ValueError('external native contact requires exactly one requested result')
@@ -99,13 +99,19 @@ def external_contact_check(records,states,dispatches,contacts,events,step):
     linked=(event['request_index']==step and event['counter']==frame['after'] and event['thread']==frame['thread'] and
         event['attacker']==1 and event['defender']==0 and event['source_collision_suppressed'] is True and
         event['before'][0]>event['after'][0] and event['before'][1]==event['after'][1])
+    if type(damage)!=int or not 0<=damage<=419:raise ValueError('invalid requested damage')
+    damage_mapped=(not damage and event.get('requested_damage') is None or damage>0 and
+        event.get('requested_damage')==damage and event['before'][0]-event['after'][0]==damage and event['after'][0]>0 and
+        len(native['damage_events'])==1 and native['damage_events'][0]['before']==event['before'][0] and
+        native['damage_events'][0]['after']==event['after'][0])
     suppressed=len(dispatches)==3*len(executed) and all(
         [c['argument'] for c in dispatches[i*3:i*3+3]]==[0,1,2] and all(
             c.get('suppressed') is True and c['original_called'] is False and c['thread']==r['thread'] and
             c['this_delta']==4 and c['counter']==r['after'] for c in dispatches[i*3:i*3+3])
         for i,r in enumerate(executed))
     requested=all(c.get('externally_requested') is True for c in contacts)
-    return native|dict(passed=bool(native['passed'] and linked and suppressed and requested),external_result_linked=linked,
+    return native|dict(passed=bool(native['passed'] and linked and suppressed and requested and damage_mapped),external_result_linked=linked,
+        requested_damage_verified=bool(damage and damage_mapped),
         source_dispatch_suppressed=suppressed,automatic_pair_calls=sum(c.get('externally_requested') is not True for c in contacts),
         universal_contact=False,typed_host_result_applied=False)
 

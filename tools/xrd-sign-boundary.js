@@ -761,11 +761,14 @@ function installGate(target, p) {
                         throw new Error('external pair requires an active native proxy normal');
                     g.externalApplying=true;
                     const before=actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32());
+                    if(p.external_damage && before[0]<=p.external_damage)throw new Error('external damage experiment requires a nonfatal result');
                     try {externalPair(actors[1],actors[0],0);} finally {g.externalApplying=false;}
+                    if(p.external_damage)actors[0].add(p.state.scalar_fields.health_candidate).writeS32(before[0]-p.external_damage);
                     g.externalPairs++;
                     send({kind:'external-pair-result',request_index:index,counter:object.add(p.candidate.counter_field).readU32(),
                         thread:this.threadId,attacker:1,defender:0,before,
-                        after:actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32()),source_collision_suppressed:true});
+                        after:actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32()),
+                        requested_damage:p.external_damage || null,source_collision_suppressed:true});
                 }
             } finally { g.executing = false; }
         }

@@ -1,5 +1,24 @@
 # Progress record
 
+## 2026-10-09 — Persistent requested damage
+
+- User disabled SIGN training auto regeneration. Native receipt
+  `20261010-042922-749575/boundary-20261010-060659-083880` passes the original
+  requested hit; read-only `health-persistence.json` retains 412/420 health over
+  five seconds after clean detach. Regeneration is no longer observed in this setup.
+- An initial attach timeout installed no hooks. One retry rejected the default
+  starting distance before any credits and restored cleanly. Source-only positioning
+  `boundary-20261010-060636-145249` then passes 26 linked walking credits.
+- Added opt-in bounded nonfatal requested damage after native reaction application.
+  `boundary-20261010-060910-365345` passes 78 credits, 234 suppressed dispatcher
+  stages, exact requested damage 412 to 395, native reaction/stop/recovery and clean
+  restoration/detach. Host damage is still a diagnostic CLI value, not a connected
+  typed host result; guard, stun, push, knockdown and KO remain unmapped.
+- Authored checks reject mismatched damage and invalid types; existing combat checks
+  and JavaScript syntax pass. Requested steps beyond the input plan reject before
+  instrumentation. Continue hitstop ownership and typed result transport, then the
+  remaining renderer/pivot/latency and live mixed-match acceptance gates.
+
 ## 2026-10-09 — Requested native hit with automatic contacts suppressed
 
 - Added bounded selected-callee observation and second-player contact controls. Broad
