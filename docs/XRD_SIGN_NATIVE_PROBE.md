@@ -885,3 +885,23 @@ plan is not a position reset. Every frame checks coverage and source-facing agre
 `requests.json`, `input.jsonl` and the stream receipt preserve proof after cleanup.
 Jump/normal rolling input coverage, indefinite producer transport and combat ownership
 remain unverified; source capabilities remain false.
+
+## Duration-controlled stream lifetime check
+
+Use the existing neutral normalized/settled/graded/SMAA transaction options with
+`--stream-duration-check --seconds 90 --transaction-loss-check`. No input candidate or
+plan is allowed in duration mode. The fixed credit ceiling is replaced by readiness-driven
+neutral credits; this remains a bounded development experiment, not a network producer.
+
+Duration checks accept 28..120 seconds, or 60..120 with controller-loss recovery. They
+retain 64 source samples, two frame receipts, 64 recent Present records, sixteen diagnostics
+and one image. Aggregate counters preserve gaps and total counts beyond the retained window.
+The incoming queue holds at most 256 messages and overflow fails. Full per-update state
+JSON logging is disabled in this mode; the empty `state.jsonl` is not a complete trace.
+
+Normal mode stops new credits five seconds before its deadline and waits for the final
+frame. Controller-loss mode stops credits nineteen seconds before the deadline and ceases
+renewal after that final frame, leaving time to verify the native lease's recovery and
+hook removal. The 90-second native check passes 75 credits/76 images and automatic recovery
+with clean restoration. This is simulated loss of renewal, not a forced controller crash
+or real network disconnect. Total process memory and indefinite transport are unverified.

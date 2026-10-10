@@ -1,5 +1,37 @@
 # Progress record
 
+## 2026-10-09 — Bounded controller retention and duration recovery
+
+- Added a stdlib rolling audit retaining 64 recent source records/states and two compact
+  frame receipts. Aggregate sample/frame/gap counts survive eviction; ordered frame/counter
+  checks handle uint32 wrap. Authored 10,000-sample/frame checks verify bounds, an old gap
+  surviving eviction, duplicate/counter rejection and unchanged counters on failure.
+- Added `--stream-duration-check --seconds 28..120`: neutral credits follow frame readiness
+  without a fixed credit count. Duration mode retains 64 Present records, 16 diagnostics,
+  one latest image and a 256-message queue; per-update source JSON logging is disabled.
+  Queue overflow now uses an Event rather than an accumulating marker list. Fixed-count
+  diagnostics retain their existing complete finite histories and queue limit.
+- Five seconds before the deadline, normal duration mode stops issuing credits and waits
+  for the last paired frame before normal cleanup. With `--transaction-loss-check` and
+  60..120 seconds, credits stop nineteen seconds before the deadline; heartbeat renewal
+  stops only after the final frame. Existing lease/watchdog recovery and code-restoration
+  checks then run. Native eight-second lease and twelve-second removal guards are unchanged.
+- Native ignored `20261010-000623-001413/boundary-20261010-003021-485419` passes the
+  90-second duration/controller-loss experiment: 75 exact credits, 76 linked frames,
+  745 source samples, zero gaps/errors, 64 retained state samples, two retained frame
+  receipts and sixteen retained diagnostics. Renewal stops at 71.65 seconds; native
+  lease resumes execution and hard lifetime removes hooks before final detach. Source
+  and graphics restoration pass; total elapsed including cleanup is 91.83 seconds.
+  Only one image is saved; source `state.jsonl` is empty in duration mode. Recovery's
+  no-requested-steps field describes the retained final hold window, not all 75 credits.
+- Named fixed-count regression `boundary-20261010-003248-675582` still passes 20 credits/
+  21 linked frames with native input history, both movement directions and restoration.
+  Boundary/input/coverage/stream/lease/replay checks and syntax/whitespace pass.
+- This verifies bounded controller retention and simulated controller loss after a longer
+  neutral run. It does not measure whole-process memory or implement an indefinite network
+  producer. Generic transport integration, broader input coverage and source contact/result
+  ownership remain next; capabilities and automatic live rebind remain disabled.
+
 ## 2026-10-09 — Named positioning through rolling frames
 
 - Rolling verification now accepts an exact-count `render-position` plan with the existing

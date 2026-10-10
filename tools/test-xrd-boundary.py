@@ -114,3 +114,9 @@ for count in (-1,121,True,1.5):
     reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,stream_frames=count))
 reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,stream_frames=20))
 reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,stream_frames=20,transactions=True,combat_path=Path('unused'),capture_passes=True))
+for options in (dict(stream_duration=1),dict(stream_duration=True,stream_frames=20),
+                dict(stream_duration=True,plan_path=Path('unused')),dict(stream_duration=True,input_path=Path('unused'))):
+    reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,**options))
+for seconds in (27,121,float('nan')):
+    reject(lambda:boundary.trace(Path('unused'),Path('unused'),seconds,stream_duration=True))
+reject(lambda:boundary.trace(Path('unused'),Path('unused'),59,stream_duration=True,transaction_loss=True))

@@ -1,6 +1,6 @@
 """Observe a local SIGN update candidate, or test a bounded offline freeze/step gate."""
 import argparse
-from collections import Counter
+from collections import Counter, deque
 import datetime
 import hashlib
 import json
@@ -22,6 +22,7 @@ from xrd_shader import opaque_alpha_variant, screen_packet
 from xrd_layer import layer_pixels, save_layer_preview, save_hdr_layer, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle
 from xrd_transform import transform_packet, transform_changes, projection_bindings, vertex_bindings
 from xrd_d3d import validate_device_calls
+from xrd_stream import RollingAudit
 
 ROOT=Path(__file__).resolve().parent.parent
 EXE=Path('C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-/Binaries/Win32/GuiltyGearXrd.exe')
@@ -262,10 +263,15 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False):
+    if type(stream_duration)!=bool or stream_duration and (stream_frames or plan_path or input_path or not 28<=seconds<=120):
+        raise ValueError('duration stream requires exclusive neutral 28..120 second verification')
+    if stream_duration and transaction_loss and seconds<60:
+        raise ValueError('duration controller-loss check requires 60..120 seconds')
+    stream_mode=bool(stream_frames or stream_duration)
     if type(stream_frames)!=int or not 0<=stream_frames<=120:
         raise ValueError('stream check steps must be 0..120')
-    if stream_frames and (not transactions or not combat_path or transaction_loss or capture_passes or capture_screen_stages or inspect_screen or inspect_shaders or inspect_transforms):
+    if stream_mode and (not transactions or not combat_path or transaction_loss and not stream_duration or capture_passes or capture_screen_stages or inspect_screen or inspect_shaders or inspect_transforms):
         raise ValueError('stream check requires owned transactions with age guard and no inventory capture')
     if renewable and (not expire or not gate_receipt or plan_path or capture or trace_draws or layer_path):
         raise ValueError('renewable trace requires an exclusive gate recovery experiment')
@@ -388,14 +394,19 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if input_profile: (out/'input-profile.json').write_text(json.dumps(input_profile,indent=2))
     if combat_profile: (out/'combat-profile.json').write_text(json.dumps(combat_profile,indent=2))
     if plan: (out/'input-plan.json').write_text(json.dumps(plan,indent=2))
-    messages=queue.Queue(maxsize=8192);overflow=[]
+    messages=queue.Queue(maxsize=256 if stream_duration else 8192);overflow=threading.Event()
     def receive(message,data):
         try: messages.put_nowait((message,data,time.perf_counter()))
-        except queue.Full: overflow.append(True)
+        except queue.Full: overflow.set()
     errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];vertices=[];screens=[];layers=[];transforms=[];scene_packets=[];layer_packets=[];render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
     started=time.perf_counter();started_utc=datetime.datetime.now(datetime.timezone.utc).isoformat();completed=0;next_request=.5 if plan else 1;request_log=[]
     per_step=2 if settle else len(layer['presentations']) if layer else 0
     stream_receipts=[];latest_layer=None
+    audit=RollingAudit() if stream_duration else None
+    credit_until=seconds-(19 if transaction_loss else 5)
+    if audit:
+        records=audit.records;states=audit.states;stream_receipts=audit.frames
+        presents=deque(maxlen=64);diagnostics=deque(maxlen=16)
     with ReadOnlyProcess(state['pid'],EXE) as process:
         def unchanged():
             base,size=process.module_base()
@@ -416,7 +427,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             script=session.create_script(source)
             script.on('message',receive);bounded_call(frida,script.load)
             settings=dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,capture_screen_stages=capture_screen_stages,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer,renewable=renewable or transactions,transactions=transactions,reset_observation=reset_observation)
-            settings['streaming']=bool(stream_frames)
+            settings['streaming']=stream_mode
             phase='start';native_start_attempted=True
             print(bounded_call(frida,lambda:script.exports_sync.start(settings)),flush=True)
             phase='observe'
@@ -426,22 +437,23 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             if transactions: next_request=transaction_hold
             with (out/'state.jsonl').open('w',encoding='utf-8') as log:
                 while time.perf_counter()-started<seconds:
-                    if overflow: raise ValueError('instrumentation queue overflow')
+                    if overflow.is_set(): raise ValueError('instrumentation queue overflow')
                     elapsed=time.perf_counter()-started
                     frames_complete=(completed==stream_frames and len(stream_receipts)==stream_frames+1) if stream_frames else transactions and completed==3 and len(layers)==8 and len(scene_packets)==8
+                    if audit:frames_complete=elapsed>=credit_until and requests==completed and audit.frame_count==completed+1
                     if frames_complete and transaction_loss and controller_lost_at is None: controller_lost_at=elapsed
                     if controller_lost_at is None and (transactions or renewable and elapsed<seconds-14) and elapsed>=next_heartbeat:
                         heartbeat=bounded_call(frida,script.exports_sync.heartbeat)
-                        if stream_frames:diagnostics.append(dict(elapsed=elapsed,heartbeat=heartbeat))
+                        if stream_mode:diagnostics.append(dict(elapsed=elapsed,heartbeat=heartbeat))
                         next_heartbeat=elapsed+1
-                    if not stream_frames and layer and plan and completed==len(plan) and len(layers)==len(layer['capture_steps'])*per_step and len(scene_packets)==len(layers):
+                    if not stream_mode and layer and plan and completed==len(plan) and len(layers)==len(layer['capture_steps'])*per_step and len(scene_packets)==len(layers):
                         break
                     if frames_complete and not transaction_loss: break
                     image_ready=not layer or requests not in layer['capture_steps'] or (
                         sum(c['request_index']==requests for c in layers)==per_step and
                         sum(m['request_index']==requests for m,_,_ in scene_packets)==per_step)
                     image_ready &= not capture_screen_stages or bool(scene_packets)
-                    if stream_frames: image_ready=bool(stream_receipts) and stream_receipts[-1]['request_index']==requests
+                    if stream_mode: image_ready=bool(stream_receipts) and stream_receipts[-1]['request_index']==requests
                     if plan and requests<len(plan) and requests==completed and image_ready and time.perf_counter()-started>=next_request:
                         if requests==0 and (not states or not input_scene_ready(states[0],oracle,plan)):
                             raise ValueError('input oracle requires grounded idle Sol/opponent within its scene distance bounds')
@@ -449,9 +461,9 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         counter=records[-1]['after'] if transactions else None
                         bounded_call(frida,lambda:script.exports_sync.step([mask,0],counter));request_log.append(dict(step=requests+1,mask=mask,**packet));requests+=1
                         next_request=time.perf_counter()-started+.03+packet['hold_ms']/1000
-                    elif not plan and gate_options and not expire and requests<(stream_frames or 3) and requests==completed and image_ready and time.perf_counter()-started>=next_request and (not capture_passes or draws):
+                    elif not plan and gate_options and not expire and (elapsed<credit_until if audit else requests<(stream_frames or 3)) and requests==completed and image_ready and time.perf_counter()-started>=next_request and (not capture_passes or draws):
                         counter=records[-1]['after'] if transactions else None
-                        bounded_call(frida,lambda:script.exports_sync.step([0,0],counter));requests+=1;next_request=time.perf_counter()-started+(.03 if stream_frames else 1)
+                        bounded_call(frida,lambda:script.exports_sync.step([0,0],counter));requests+=1;next_request=time.perf_counter()-started+(.03 if stream_mode else 1)
                     if expire and elapsed>(seconds-1.5 if renewable else 12.5) and not automatic_restore:
                         automatic_restore=unchanged()
                     if controller_lost_at is not None and elapsed-controller_lost_at>12.5 and not automatic_restore:
@@ -495,7 +507,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                     if message['type']=='send' and message['payload'].get('kind')=='mesh-layer-skipped':
                         diagnostics.append(message['payload']);continue
                     if message['type']=='send' and message['payload'].get('kind')=='layer-readiness':
-                        if stream_frames: continue
+                        if stream_mode: continue
                         if not settle or len(diagnostics)>=128: raise ValueError('readiness diagnostic limit')
                         diagnostics.append(message['payload']);continue
                     if message['type']=='send' and message['payload'].get('kind')=='layer-transform':
@@ -508,23 +520,25 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         passes.append((message['payload'],data));continue
                     if message['type']=='send' and message['payload'].get('kind') in ('render-layer','render-hdr-layer'):
                         native=message['payload']
-                        if stream_frames:
+                        if stream_mode:
                             pixels,_=render_pixels(native,data)
                             coverage=layer_pixels(native,pixels)
                             observation=observe(CapturedMemory(native['segments'],data[:native['state_size']]),state)
                             matches=[s for r,s in zip(records,states) if r['after']==native['counter']]
-                            if (native['request_index']!=len(stream_receipts) or native['request_index']!=completed or
+                            if (native['request_index']!=(audit.frame_count if audit else len(stream_receipts)) or native['request_index']!=completed or
                                 not matches or any(s!=observation['fighters'] for s in matches) or
                                 native.get('frame_readiness_candidate') is not True or native.get('identical_native_pixels') is not True or
                                 native.get('source_graphics_state_verified') is not True or coverage['touches_target_edge'] or
                                 native.get('normalized_projection') is not True or native.get('canonical_right_facing') is not True or
                                 native.get('source_facing_left')!=observation['fighters'][0]['facing_left'] or native.get('skipped_draws_total')!=0):
                                 raise ValueError('unlinked or unordered streaming frame')
-                            stream_receipts.append(dict(counter=native['counter'],request_index=native['request_index'],
+                            frame_receipt=dict(counter=native['counter'],request_index=native['request_index'],
                                 settled_pair=native['settled_pair'],raw_sha256=hashlib.sha256(pixels).hexdigest(),
                                 coverage_bounds=coverage['native_coverage_bounds'],
                                 source_x=observation['fighters'][0]['x_raw'],source_y=observation['fighters'][0]['y_raw'],
-                                source_facing_left=observation['fighters'][0]['facing_left']))
+                                source_facing_left=observation['fighters'][0]['facing_left'])
+                            if audit:audit.frame(frame_receipt)
+                            else:stream_receipts.append(frame_receipt)
                             latest_layer=(native,data,observation)
                             continue
                         if native['kind']=='render-hdr-layer':
@@ -550,9 +564,10 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                     native=message['payload']
                     observation=observe(CapturedMemory(native.pop('segments'),data),state)
                     observation.update(boundary=native,wall_seconds=wall-started,boundary_aligned=True)
-                    log.write(json.dumps(observation,separators=(',',':'))+'\n')
-                    records.append(native)
-                    states.append(observation['fighters'])
+                    if audit:audit.record(native,observation['fighters'])
+                    else:
+                        log.write(json.dumps(observation,separators=(',',':'))+'\n')
+                        records.append(native);states.append(observation['fighters'])
                     if native['executed']: completed+=1
         except Exception as error:
             # RPC rejection can arrive before the loop reads its queued native diagnostic.
@@ -597,10 +612,17 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             cleanup_receipt['render_verification_after_detach']=detached
     if not restored: errors.append(dict(cleanup_error='loaded source code was not restored'))
     if fingerprint(EXE)!=SIGN_HASH: errors.append(dict(source_error='source executable fingerprint changed'))
-    if stream_frames:
-        gaps=sum(b['before']!=a['after'] for a,b in zip(records,records[1:]))
-        if requests!=completed or completed!=stream_frames or len(stream_receipts)!=stream_frames+1:
+    if stream_mode:
+        gaps=audit.gaps if audit else sum(b['before']!=a['after'] for a,b in zip(records,records[1:]))
+        frames_received=audit.frame_count if audit else len(stream_receipts)
+        counts_verified=requests==completed and frames_received==completed+1 and (completed>=4 if audit else completed==stream_frames)
+        if not counts_verified:
             errors.append(dict(stream_error='bounded check ended without all requested state/image transactions'))
+        recovery=None
+        if audit and transaction_loss:
+            recovery=lease_check(records,presents,diagnostics,automatic_restore)
+            if not all(recovery[k] for k in ('lease_resumed','hard_lifetime_removed_hook')):
+                errors.append(dict(stream_error='duration stream controller-loss recovery not verified'))
         stream_input=None
         if plan:
             stream_input=input_check(records,states,inputs,request_log)
@@ -614,17 +636,19 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             (out/'requests.json').write_text(json.dumps(request_log,indent=2))
             (out/'input.jsonl').write_text(''.join(json.dumps(r,separators=(',',':'))+'\n' for r in inputs))
             if not stream_input['passed']:errors.append(dict(stream_error='rolling positioning/input history not verified'))
-        passed=requests==completed==stream_frames and len(stream_receipts)==stream_frames+1 and gaps==0 and not errors and detached and restored and bool(cleanup_receipt and cleanup_receipt.get('render_code_restored'))
-        result=dict(passed=passed,requested_steps=requests,completed_steps=completed,frames=stream_receipts,
+        passed=counts_verified and gaps==0 and not errors and detached and restored and bool(cleanup_receipt and cleanup_receipt.get('render_code_restored'))
+        result=dict(passed=passed,requested_steps=requests,completed_steps=completed,frames=list(stream_receipts),frames_received=frames_received,
             continuity_gaps=gaps,errors=errors,detached=detached,loaded_code_restored=restored,
-            cleanup=cleanup_receipt,diagnostics=diagnostics,seconds=seconds,elapsed=time.perf_counter()-started,
+            cleanup=cleanup_receipt,diagnostics=list(diagnostics),seconds=seconds,elapsed=time.perf_counter()-started,
             source_capabilities_enabled=False,live_host_producer=False,
-            rolling_image_retention=True,bounded_verification=True,input_check=stream_input)
+            rolling_image_retention=True,bounded_verification=True,input_check=stream_input,duration_check=stream_duration,
+            retained_state_samples=len(records),total_state_samples=audit.samples if audit else len(records),
+            controller_loss_recovery=recovery,controller_lost_at=controller_lost_at)
         if latest_layer:
             folder=out/'latest-layer';folder.mkdir()
             save_render(folder,*latest_layer)
         (out/'stream-check.json').write_text(json.dumps(result,indent=2))
-        print('Rolling stream check:',passed,'steps',completed,'frames',len(stream_receipts),';',out,flush=True)
+        print('Rolling stream check:',passed,'steps',completed,'frames',frames_received,'retained states',len(records),';',out,flush=True)
         if not passed: raise RuntimeError('rolling stream check failed; see preserved receipt')
         return out
     # Encode RGB previews/histograms only after native hooks and session have been removed.
@@ -793,6 +817,7 @@ if __name__=='__main__':
     p.add_argument('--transaction-check',action='store_true',help='renew ownership across an initial hold, then three counter-bound steps with settled frames; optional three-frame positioning plan requires combat profile')
     p.add_argument('--transaction-loss-check',action='store_true',help='run transaction check, then cease renewal and verify automatic source/renderer-hook recovery')
     p.add_argument('--stream-check-steps',type=int,default=0,help='1..120 rolling credits; optional exact-count horizontal render-position plan, no live host producer')
+    p.add_argument('--stream-duration-check',action='store_true',help='neutral rolling capture for --seconds (28..120), bounded recent metadata, no fixed credit count')
     p.add_argument('--transaction-hold-seconds',type=float,default=13,help='13..45 seconds for the initial normal transaction hold, allowing a synchronized manual reset test')
     p.add_argument('--input-candidate',type=Path,help='ignored local sampler/writer/ingress discovery JSON')
     p.add_argument('--input-plan',type=Path,help='bounded named-input oracle plan, with --gate and --input-candidate')
@@ -820,6 +845,9 @@ if __name__=='__main__':
     p.add_argument('--smaa-layer',action='store_true',help='extend private post-color replay through native SMAA; terminal alpha retains binary mesh coverage')
     a=p.parse_args()
     if not 0<=a.stream_check_steps<=120:p.error('--stream-check-steps must be 0..120')
+    if a.stream_duration_check:
+        if a.stream_check_steps or not 28<=a.seconds<=120:p.error('duration check requires exclusive --seconds 28..120')
+        a.transaction_check=True
     if a.stream_check_steps:a.transaction_check=True
     if a.reset_observation:
         if not a.combat_candidate or a.renewable_check or a.transaction_check or a.transaction_loss_check:
@@ -832,8 +860,8 @@ if __name__=='__main__':
     if a.lease_check and not a.gate: p.error('--lease-check requires --gate')
     if a.renewable_check and (not a.gate or a.lease_check or a.input_plan or a.capture_render or a.trace_draws or a.capture_layer):
         p.error('--renewable-check requires an exclusive gate recovery experiment')
-    trace(a.probe.resolve(),a.candidate.resolve(),60 if a.reset_observation or a.stream_check_steps else 34 if a.transaction_loss_check else a.transaction_hold_seconds+15 if a.transaction_check else 28 if a.renewable_check else 13 if a.lease_check else 10 if a.capture_layer and a.input_plan else 8 if a.capture_passes or a.capture_layer else 7 if a.input_plan else 4.5 if a.gate else a.seconds,
+    trace(a.probe.resolve(),a.candidate.resolve(),a.seconds if a.stream_duration_check else 60 if a.reset_observation or a.stream_check_steps else 34 if a.transaction_loss_check else a.transaction_hold_seconds+15 if a.transaction_check else 28 if a.renewable_check else 13 if a.lease_check else 10 if a.capture_layer and a.input_plan else 8 if a.capture_passes or a.capture_layer else 7 if a.input_plan else 4.5 if a.gate else a.seconds,
           a.gate.resolve() if a.gate else None,a.lease_check or a.renewable_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check)

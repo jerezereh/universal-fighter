@@ -443,6 +443,12 @@ state/image receipts with both movement directions, exact source input history, 
 state, normalized/uncropped alpha coverage and clean restoration. Continue continuous
 producer/controller lifetime and transport plus broader jump/normal input coverage before
 contact suppression/results. Back/forward speeds differ; no exact position reset is claimed.
+Duration-controlled neutral streaming now keeps bounded recent controller evidence while
+aggregating all sample/frame/gap counts. A 90-second native experiment passes 75 credits/
+76 linked images, 745 samples, 64 retained samples and two retained frame receipts, then
+automatic controller-loss recovery and restoration. Fixed-count named-input regression
+passes. This proves retention/recovery, not an indefinite network producer or whole-process
+memory bounds. Continue transport integration, broader inputs and contact/result ownership.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a
