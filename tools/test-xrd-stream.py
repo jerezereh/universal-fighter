@@ -1,5 +1,18 @@
 """Exercise retained evidence bounds and gaps that predate the retained window."""
-from xrd_stream import RollingAudit
+from xrd_stream import RollingAudit,body_geometry
+
+native=dict(native_absolute_body_origin=[-25.2,0,12],projection_pivot=[320,640],
+    pixels_per_world_unit=4,width=640,height=768)
+geometry=body_geometry(native)
+assert geometry['native_absolute_body_origin']==[-25.2,0,12] and geometry['foot_pivot_verified'] is False
+native['native_absolute_body_origin'][0]=0
+assert geometry['native_absolute_body_origin'][0]==-25.2
+for replacement in (dict(native_absolute_body_origin=[0,float('nan'),0]),dict(native_absolute_body_origin=[0,.01,0]),
+        dict(projection_pivot=[640,640]),dict(pixels_per_world_unit=True),dict(pixels_per_world_unit=float('inf')),
+        dict(width=1025),dict(height=None)):
+    try:body_geometry(native|replacement)
+    except ValueError:pass
+    else:raise AssertionError('accepted invalid body geometry')
 
 audit=RollingAudit()
 for index in range(10000):

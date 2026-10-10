@@ -1,5 +1,25 @@
 # Progress record
 
+## 2026-10-09 — Rolling body-geometry evidence; live retry pending
+
+- Rolling frame receipts now retain native absolute body origin, target dimensions,
+  projection pivot and pixels per world unit alongside source position/counter/image
+  evidence. Reject nonfinite/out-of-range geometry, nonzero depth-plane origins and
+  invalid pivots/scales before accepting a frame. Existing duration retention stays
+  two frame receipts; no image history or runtime dependency was added.
+- Authored geometry rejection and 10000-frame retention checks pass, as do layer/unit,
+  boundary and native-JS streaming checks. The geometry helper also accepts the retained
+  native final image from `boundary-20261010-010446-288378`; this is historical metadata
+  compatibility, not fresh calibration. Anatomical foot pivot and host publication remain
+  false. Horizontal and vertical variation are still needed for the existing unit fit.
+- Fresh native check `boundary-20261010-013531-837431` stops at zero credits/frames on
+  the bounded presentation readiness guard. Refresh preparation in
+  `20261010-013553-256358` observes 105 source samples and 147 clean owner increments,
+  then draw capture `boundary-20261010-013603-088481` fails D3D9
+  `GetRenderTargetData` with HRESULT -2005530520 before any credits. Both checks restore
+  source/render code and detach. Live receipt integration remains unverified until SIGN's
+  visible training display is restored; no render bound was widened or capability enabled.
+
 ## 2026-10-09 — Request-driven diagnostic source controls
 
 - Added explicit `source-control-tap` mode alongside the existing read-only observer.

@@ -461,6 +461,11 @@ observed state over 4.04 seconds; source/render restoration passes. Stale/duplic
 reject, and pre-hook connection timeout now preserves failure reporting. Continue broader
 input and unit/pivot mapping, contact suppression/results and live host guest transport;
 the control tap remains distinct from the playable IKEMEN protocol with capabilities off.
+Rolling receipts now retain checked body-origin/projection geometry for subsequent unit
+calibration, preserving duration retention bounds. Authored and historical metadata checks
+pass; fresh live verification stops before credits on render readiness and D3D9 readback
+failure. Restore SIGN's visible training display, refresh bindings and verify receipts
+before collecting horizontal/vertical calibration samples. Foot pivot remains unaccepted.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

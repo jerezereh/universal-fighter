@@ -22,7 +22,7 @@ from xrd_shader import opaque_alpha_variant, screen_packet
 from xrd_layer import layer_pixels, save_layer_preview, save_hdr_layer, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle
 from xrd_transform import transform_packet, transform_changes, projection_bindings, vertex_bindings
 from xrd_d3d import validate_device_calls
-from xrd_stream import RollingAudit
+from xrd_stream import RollingAudit,body_geometry
 from source_frame_tap import FrameTap
 
 ROOT=Path(__file__).resolve().parent.parent
@@ -562,7 +562,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                                 settled_pair=native['settled_pair'],raw_sha256=hashlib.sha256(pixels).hexdigest(),
                                 coverage_bounds=coverage['native_coverage_bounds'],
                                 source_x=observation['fighters'][0]['x_raw'],source_y=observation['fighters'][0]['y_raw'],
-                                source_facing_left=observation['fighters'][0]['facing_left'])
+                                source_facing_left=observation['fighters'][0]['facing_left'])|body_geometry(native)
                             if audit:audit.frame(frame_receipt)
                             else:stream_receipts.append(frame_receipt)
                             if tap:tap.publish(native,pixels,observation['fighters'])
