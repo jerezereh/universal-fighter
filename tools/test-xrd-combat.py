@@ -2,7 +2,7 @@
 import copy
 import struct
 
-from xrd_combat import combat_fields, contact_check, world_boxes
+from xrd_combat import combat_fields, contact_check, contact_observations, world_boxes
 
 
 def reject(action):
@@ -12,6 +12,13 @@ def reject(action):
 
 
 def main():
+    records=[dict(before=5,executed=True,thread=9)]
+    states=[[dict(scalar_observations=dict(health_candidate=420)),dict(scalar_observations=dict(health_candidate=410))]]
+    c=dict(original_called=True,attacker=0,defender=1,argument=0,counter=5,thread=9,before=[420,420],after=[420,410])
+    assert contact_observations(records,states,[c])['passed']
+    for patch in (dict(counter=4),dict(thread=8),dict(original_called=False),dict(after=[420,409]),dict(defender=0)):
+        reject(lambda:contact_observations(records,states,[c|patch]))
+    assert not contact_observations(records,states,[c|dict(before=[420,410])])['passed']
     code=bytearray(b'\xcc'*128)
     code[32:39]=b'\x8b\x81'+struct.pack('<I',0x100)+b'\xc3'
     code[64:77]=b'\x8b\x44\x24\x04\x89\x81'+struct.pack('<I',0x104)+b'\xc2\x04\x00'

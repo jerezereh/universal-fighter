@@ -14,9 +14,9 @@ import threading
 import time
 
 from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
-from xrd_state import assembly_rows, boundary_candidate, observe, read_clock
+from xrd_state import assembly_rows, boundary_candidate, observe, read_clock, unique
 from xrd_input import input_candidate, input_mask, input_plan, position_plan, punch_plan, input_check, oracle_passed, input_scene_ready
-from xrd_combat import combat_fields, contact_check
+from xrd_combat import combat_fields, contact_check, contact_observations
 from xrd_render import render_pixels, save_render, render_check, draw_check, save_pass
 from xrd_shader import opaque_alpha_variant, screen_packet
 from xrd_layer import layer_pixels, save_layer_preview, save_hdr_layer, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle
@@ -264,7 +264,7 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False):
     if type(frame_control)!=bool or frame_control and (not input_path or plan_path):
         raise ValueError('source control requires exclusive native input profile without a local plan')
     if frame_control:frame_tap=True
@@ -274,6 +274,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         raise ValueError('duration stream requires exclusive neutral 28..120 second verification')
     if stream_duration and transaction_loss and seconds<60:
         raise ValueError('duration controller-loss check requires 60..120 seconds')
+    if type(observe_contact)!=bool or observe_contact and (not gate_receipt or not combat_path or stream_frames or stream_duration):
+        raise ValueError('contact observation requires a bounded scalar/source gate')
     stream_mode=bool(stream_frames or stream_duration)
     if type(stream_frames)!=int or not 0<=stream_frames<=120:
         raise ValueError('stream check steps must be 0..120')
@@ -407,6 +409,15 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];vertices=[];screens=[];layers=[];transforms=[];scene_packets=[];layer_packets=[];render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
     started=time.perf_counter();started_utc=datetime.datetime.now(datetime.timezone.utc).isoformat();completed=0;next_request=.5 if plan else 1;request_log=[]
     per_step=2 if settle else len(layer['presentations']) if layer else 0
+    contacts=[]
+    contact=None
+    if observe_contact:
+        entry=unique([v for v in receipt['loaded_candidates'] if v['name']=='hit_detection'],'native contact signature')
+        match=unique(entry['matches'],'native contact entry')
+        at=match['candidate_rva']-state['code_rva']
+        if not 0<at<at+32<=len(code) or code[at-1]!=0xcc or code[at:at+6]!=bytes.fromhex('81ecdc000000'):
+            raise ValueError('native contact prologue disagrees with inspected SIGN code')
+        contact=dict(rva=match['candidate_rva'],before=code[at:at+32].hex())
     stream_receipts=[];latest_layer=None;controller_lost_at=None
     audit=RollingAudit() if stream_duration else None
     credit_until=seconds-(19 if transaction_loss else 5)
@@ -437,7 +448,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             abi=validate_device_calls([source],(ROOT/'local-cache/msys64/mingw64/include/d3d9.h').read_text())
             script=session.create_script(source)
             script.on('message',receive);bounded_call(frida,script.load)
-            settings=dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,capture_screen_stages=capture_screen_stages,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer,renewable=renewable or transactions,transactions=transactions,reset_observation=reset_observation)
+            settings=dict(contact=contact,state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,capture_screen_stages=capture_screen_stages,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer,renewable=renewable or transactions,transactions=transactions,reset_observation=reset_observation)
             settings['streaming']=stream_mode
             phase='start';native_start_attempted=True
             print(bounded_call(frida,lambda:script.exports_sync.start(settings)),flush=True)
@@ -503,6 +514,9 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         presents.append(message['payload']);continue
                     if message['type']=='send' and message['payload'].get('kind')=='input':
                         inputs.append(message['payload']);continue
+                    if message['type']=='send' and message['payload'].get('kind')=='native-contact-observation':
+                        if not observe_contact or len(contacts)>=256:raise ValueError('unbounded/unrequested native contact observation')
+                        contacts.append(message['payload']);continue
                     if message['type']=='send' and message['payload'].get('kind')=='draw-trace':
                         if len(draws)>=2: raise ValueError('unbounded draw intervals')
                         draws.append(message['payload']);continue
@@ -747,6 +761,14 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         result['private_layer_state_restored']=bool(layers) and all(c['source_graphics_state_verified'] for c in layers)
         if len(layers)<2 or not result['layer_check']['held_counter_state_linked'] or not result['private_layer_state_restored']:
             errors.append(dict(layer_error='missing/unlinked private layer or graphics-state restoration'))
+    if observe_contact:
+        result['native_contact_observations']=contacts
+        result['native_contact_observer_restored']=bool(cleanup_receipt and cleanup_receipt.get('contact_observer_code_restored'))
+        if not result['native_contact_observer_restored']:errors.append(dict(contact_error='contact observer restoration failed'))
+        try:
+            result['native_contact_pair_check']=contact_observations(records,states,contacts)
+            if not result['native_contact_pair_check']['passed']:errors.append(dict(contact_error='native pair health change not verified'))
+        except ValueError as error:errors.append(dict(contact_error=str(error)))
     if gate_options:
         result['gate_check']=gate_check(records,states,presents,len(plan) if plan else 3)
         result['controlled_update_step_verified']=not expire and all(result['gate_check'][k] for k in ('exact_steps','frozen_counter','frozen_observed_state','rendering_while_frozen')) and gaps==0 and not errors
@@ -864,6 +886,7 @@ if __name__=='__main__':
     p.add_argument('--input-plan',type=Path,help='bounded named-input oracle plan, with --gate and --input-candidate')
     p.add_argument('--oracle',choices=('movement','crossover','contact','render-motion','render-attack','render-settle','render-framing','render-facing','render-position'),default='movement',help='required input-plan evidence; native render oracles require --capture-layer')
     p.add_argument('--scalar-fields',type=Path,help='ignored bounded field hypotheses to observe without semantic promotion')
+    p.add_argument('--observe-native-contact',action='store_true',help='observe native pair contact calls without suppressing source combat')
     p.add_argument('--combat-candidate',type=Path,help='ignored local scalar getter/setter discoveries for the native contact check')
     p.add_argument('--capture-render',action='store_true',help='with --gate: capture up to eight full-scene D3D9 backbuffers and held source states; no isolated-layer claim')
     p.add_argument('--trace-draws',action='store_true',help='with --gate: observe two Present intervals of D3D9 draw/target/shader bindings; no draw suppression')
@@ -905,4 +928,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check or a.renewable_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control,a.observe_native_contact)

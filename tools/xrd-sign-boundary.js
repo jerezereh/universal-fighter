@@ -12,6 +12,40 @@ let drawFilter = null;
 const comMethods = new Map();
 let stopRequested = false;
 let stopReceipt = null;
+let contactObserver = null;
+let contactSamples = 0;
+
+function observeNativeContact(p) {
+    const target=Process.mainModule.base.add(p.contact.rva);
+    if(hex(bytes(target,32))!==p.contact.before)throw new Error('native contact entry changed');
+    contactSamples=0;
+    contactObserver=Interceptor.attach(target,{
+        onEnter(args) {
+            this.contact=null;
+            if(!gate || !gate.executing || gate.resumed)return;
+            try {
+                const root=Process.mainModule.base.add(p.state.engine_global_rva).readPointer();
+                if(!root.equals(gate.root))throw new Error('contact scene changed');
+                const actors=[0,1].map(i=>root.add(p.state.fields.slots+4*i).readPointer());
+                const attacker=actors.findIndex(a=>a.equals(this.context.ecx));
+                const defender=actors.findIndex(a=>a.equals(args[0]));
+                if(attacker<0 || defender<0 || attacker===defender)return;
+                const health=()=>actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32());
+                this.contact={attacker,defender,argument:args[1].toInt32(),thread:this.threadId,
+                    return_rva:this.returnAddress.sub(Process.mainModule.base).toUInt32(),
+                    counter:root.add(4+p.candidate.counter_field).readU32(),before:health(),actors};
+            } catch(error) {send({kind:'error',phase:'contact-observe',message:String(error)});}
+        },
+        onLeave() {
+            if(!this.contact)return;
+            const c=this.contact;contactSamples++;
+            if(contactSamples<=256)send({kind:'native-contact-observation',attacker:c.attacker,defender:c.defender,
+                argument:c.argument,thread:c.thread,return_rva:c.return_rva,counter:c.counter,before:c.before,
+                after:c.actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32()),original_called:true});
+            else if(contactSamples===257)send({kind:'error',phase:'contact-observe',message:'contact observation bound exceeded'});
+        }
+    });
+}
 
 function removeDrawFilter() {
     if (drawFilter !== null) {
@@ -716,6 +750,11 @@ function verifyGateOwner(checkState=true) {
 }
 
 function finishStop() {
+    let contactRestored=true;
+    if(contactObserver) {
+        contactObserver.detach();contactObserver=null;Interceptor.flush();
+        contactRestored=hex(bytes(Process.mainModule.base.add(config.contact.rva),32))===config.contact.before;
+    }
     if (config?.streaming) { pendingLayer=null; previousCandidate=null; pixelScratch=null; }
     const skipped = drawFilter === null ? 0 : drawFilter.skipped;
     removeDrawFilter();
@@ -733,7 +772,7 @@ function finishStop() {
     }
     stopRequested = false;
     return {detached: true, samples: sequence, render_code_restored: renderRestored, render_targets: renderTargets,
-        diagnostic_mesh_draws_skipped: skipped};
+        diagnostic_mesh_draws_skipped: skipped,contact_observer_code_restored:contactRestored,contact_samples:contactSamples};
 }
 
 rpc.exports = {
@@ -766,6 +805,7 @@ rpc.exports = {
         const actual = hex(bytes(target, p.candidate.code_size));
         if (actual !== p.candidate.function_hex) throw new Error('native function bytes changed');
         config = p;
+        if(p.contact)observeNativeContact(p);
         if (p.input) installInput(p);
         if (p.gate) return installGate(target, p);
         listener = Interceptor.attach(target, {

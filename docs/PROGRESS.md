@@ -1,5 +1,24 @@
 # Progress record
 
+## 2026-10-09 — Native pair-contact boundary observation
+
+- Added opt-in `--observe-native-contact` to bounded scalar/update experiments. Entry
+  derives from the unique loaded signature and inspected prologue; loaded code and scene
+  ownership remain checked. Observe only the two native actors inside owned updates,
+  retain at most 256 calls, leave original combat untouched and verify hook restoration.
+- Native positioning check `boundary-20261010-035534-591101` safely approaches through
+  24 original forward credits. Contact check `boundary-20261010-035600-571750` then
+  passes 78 exact credits, 342 held updates, zero gaps/errors and original mirrored
+  health/stop/reaction/recovery oracle. One observed pair call on the owned source thread
+  changes Ky health 420 to 410; its counter and post-health match the owned tick. Observer
+  code restores. Fresh evidence remains under `20261010-033610-229066`.
+- Authored pair checks reject unowned counters/threads, false original-call claims and
+  inconsistent post-health; combat, boundary and native streaming regressions pass.
+- Caller disassembly shows additional hit bookkeeping after the pair routine returns.
+  Suppressing only that routine cannot yet establish host-owned contacts. Continue
+  inspection of the enclosing dispatch and native result/reaction application. No source
+  contacts are suppressed and universal-contact capabilities remain false.
+
 ## 2026-10-09 — Network-requested standing normal
 
 - Added an explicit `render-attack` rolling oracle with standing Punch/neutral controls

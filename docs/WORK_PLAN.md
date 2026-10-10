@@ -479,6 +479,9 @@ Network standing Punch/neutral now passes twenty requested native credits/twenty
 linked frames with active hitboxes, source input history and unchanged native health.
 Next prioritize native contact suppression/result application and real host transport;
 the diagnostic standing-normal oracle does not enable universal-contact capabilities.
+Native pair-handler observation now links one original damage call to the owned source
+counter and post-health, with restoration. The caller performs additional hit bookkeeping;
+derive the enclosing suppression boundary before claiming host-owned native contacts.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

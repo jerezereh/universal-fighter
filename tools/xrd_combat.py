@@ -41,6 +41,28 @@ def overlap(a,b):
     return max(a[0],b[0])<min(a[2],b[2]) and max(a[1],b[1])<min(a[3],b[3])
 
 
+def contact_observations(records,states,contacts):
+    """Associate original pair-handler health changes with the enclosing owned tick."""
+    if not 1<=len(contacts)<=256:raise ValueError('missing/unbounded native pair observations')
+    executed={r['before']:(r,s) for r,s in zip(records,states) if r['executed']}
+    changes=[]
+    for c in contacts:
+        if (c.get('original_called') is not True or c.get('attacker') not in (0,1) or
+                c.get('defender')!=1-c['attacker'] or type(c.get('argument'))!=int or
+                not 0<=c['argument']<=16 or c.get('counter') not in executed or
+                any(type(v)!=int or not 0<=v<=100000 for v in c.get('before',[])+c.get('after',[])) or
+                len(c.get('before',[]))!=2 or len(c.get('after',[]))!=2):
+            raise ValueError('invalid/unowned native pair observation')
+        r,s=executed[c['counter']]
+        if c.get('thread')!=r['thread']:raise ValueError('native pair thread differs from owned tick')
+        if c['before']!=c['after']:
+            if c['after']!=[f['scalar_observations']['health_candidate'] for f in s]:
+                raise ValueError('pair health change disagrees with owned post-state')
+            changes.append(c)
+    return dict(passed=len(changes)==1,observed_calls=len(contacts),health_changes=len(changes),
+        original_source_combat_preserved=True,source_contact_suppressed=False,universal_contact=False)
+
+
 def contact_check(records,states):
     executed=[(r,s) for r,s in zip(records,states) if r['executed']]
     if len(executed)<20: raise ValueError('native contact capture is too short')
