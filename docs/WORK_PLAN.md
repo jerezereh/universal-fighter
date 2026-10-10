@@ -521,6 +521,10 @@ The following-update retry now passes with 78 credits/419 presentations and the 
 fatal/crumple pose while the source retains one health and avoids its global fatal/reset
 lifecycle. Continue typed host defeat/input/round ownership and the other result fields;
 the bounded presentation proof leaves complete defeat semantics and capabilities off.
+Generic host HitResult validation and an explicit partial JSON damage probe now pass
+native verification. Nonzero unmapped fields reject before attachment; receipts list
+the remaining fields and keep full typed application/live transport disabled. Continue
+stun/motion mapping and the real producer rather than treating file input as live IPC.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

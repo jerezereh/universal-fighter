@@ -16,6 +16,7 @@ import time
 from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
 from xrd_state import assembly_rows, boundary_candidate, observe, read_clock, unique
 from xrd_input import input_candidate, input_mask, input_plan, position_plan, punch_plan, input_check, oracle_passed, input_scene_ready
+from host_hit_result import read_result,damage_probe,FIELDS as HIT_RESULT_FIELDS
 from xrd_combat import combat_fields, contact_check, contact_observations, dispatch_candidate, dispatch_ownership, suppressed_contact_check, contact_callees, external_contact_check, guard_contact_check, dispatch_result_fields, fatal_global_field, state_transition_candidate
 from xrd_render import render_pixels, save_render, render_check, draw_check, save_pass
 from xrd_shader import opaque_alpha_variant, screen_packet
@@ -264,7 +265,11 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None):
+    typed_result=read_result(host_result_path) if host_result_path else None
+    if typed_result is not None:
+        if external_damage or external_guard or external_ko or external_pair_control or not external_pair_step or not external_host_stop:raise ValueError('typed damage probe requires exclusive requested pair with host-owned freeze')
+        external_damage=damage_probe(typed_result)
     if type(frame_control)!=bool or frame_control and (not input_path or plan_path):
         raise ValueError('source control requires exclusive native input profile without a local plan')
     if frame_control:frame_tap=True
@@ -892,6 +897,10 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                 errors.append(dict(check_error=str(error)))
             result['input_oracle_passed']=result['contact_check']['passed']
         (out/'requests.json').write_text(json.dumps(request_log,indent=2))
+    if typed_result is not None:
+        mapped=['Accepted','Damage','Hitstop']
+        verified=result.get('contact_check',{}).get('passed',False) and result['controlled_update_step_verified'] and restored and detached
+        result['typed_result_probe']=dict(result=typed_result,native_effects_verified=bool(verified),mapped_fields=mapped if verified else [],unmapped_fields=sorted(HIT_RESULT_FIELDS-set(mapped)),typed_host_result_applied=False,live_host_transport=False)
     (out/'inspection.json').write_text(json.dumps(result,indent=2))
     print('Boundary trace:',len(records),'samples; counter deltas',dict(deltas),'gaps',gaps,'errors',len(errors),';',out,flush=True)
     if gate_options: print('Gate checks:',{k:v for k,v in result['gate_check'].items() if k!='graphics_completions_per_held_counter'},flush=True)
@@ -944,6 +953,7 @@ if __name__=='__main__':
     p.add_argument('--external-pair-control',action='store_true',help='negative guard control: skip native pair invocation')
     p.add_argument('--external-guard',action='store_true',help='diagnostic defender back input around one requested normal')
     p.add_argument('--external-host-stop',action='store_true',help='diagnostic host-owned freeze: clear native stops after requested reaction')
+    p.add_argument('--host-hit-result',type=Path,help='partial typed damage probe from host HitResult JSON; unsupported values reject')
     p.add_argument('--external-damage',type=int,default=0,help='1..419 requested nonfatal damage; native Punch reaction remains unchanged')
     p.add_argument('--input-slot',type=int,choices=(0,1),default=0,help='original contact validation control slot; rendered guest stays Sol/slot zero')
     p.add_argument('--contact-callees',type=Path,help='ignored static direct-callee inventory for original contact observation')
@@ -991,4 +1001,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check or a.renewable_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control,a.observe_native_contact,a.contact_dispatch_candidate.resolve() if a.contact_dispatch_candidate else None,a.suppress_source_contact.resolve() if a.suppress_source_contact else None,a.contact_callees.resolve() if a.contact_callees else None,a.input_slot,a.external_pair_step,a.external_damage,a.external_host_stop,a.external_guard,a.external_pair_control,a.external_guard_commit,a.external_ko,a.isolate_source_ko.resolve() if a.isolate_source_ko else None,a.ko_reaction.resolve() if a.ko_reaction else None)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control,a.observe_native_contact,a.contact_dispatch_candidate.resolve() if a.contact_dispatch_candidate else None,a.suppress_source_contact.resolve() if a.suppress_source_contact else None,a.contact_callees.resolve() if a.contact_callees else None,a.input_slot,a.external_pair_step,a.external_damage,a.external_host_stop,a.external_guard,a.external_pair_control,a.external_guard_commit,a.external_ko,a.isolate_source_ko.resolve() if a.isolate_source_ko else None,a.ko_reaction.resolve() if a.ko_reaction else None,a.host_hit_result.resolve() if a.host_hit_result else None)

@@ -1,5 +1,24 @@
 # Progress record
 
+## 2026-10-10 — Generic typed result reader and partial native damage probe
+
+- Add a game-independent validator for the exact host `HitResult` fields, booleans,
+  bounded integers/hitstop and finite float32 motion. File reading rejects duplicates
+  and oversized payloads. No game identifiers or native offsets are embedded in it.
+- `--host-hit-result` is an explicit partial diagnostic: accepted nonfatal unguarded
+  damage with zero hitstop. Nonzero stun/motion/resources or unsupported flags reject
+  before source attachment. Zero placeholders for unmapped fields do not claim their
+  full semantics are implemented; every receipt lists mapped and unmapped fields.
+- User full-health reset is verified. Approach `boundary-20261010-072258-663375` and
+  typed probe `20261010-042922-749575/boundary-20261010-072324-489463` pass. The latter
+  has 78 credits/420 presentations, exact JSON damage 420 to 403, zero native stop,
+  linked input/history, 234 suppressed dispatcher stages and clean restoration/detach.
+  An authored nonzero-stun file is rejected before native setup.
+- Generic schema/rejection, combat and boundary checks pass. This is structured file
+  input to the native diagnostic, not a connected live host result producer. Full typed
+  application and playable capabilities remain off. Continue actual stun/motion mapping
+  and live producer transport before enabling the required contact capability.
+
 ## 2026-10-10 — Isolated fatal/crumple presentation retry passes
 
 - Foreground SIGN restores successful presentations. Initial scene-distance rejection
