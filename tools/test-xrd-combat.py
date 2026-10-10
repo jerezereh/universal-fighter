@@ -140,6 +140,20 @@ def main():
     assert guard_check()['passed'] and guard_check()['guard_semantics_verified']
     assert not guard_check(e=guarded|dict(native_pair_called=False))['passed']
     assert not guard_check(e=guarded|dict(caller_result_committed=False))['passed']
+    lethal_states=copy.deepcopy(zero_states)
+    for r,s in zip(zero_records,lethal_states):
+        if r['after']>=2:
+            s[0]['scalar_observations'].update(health_candidate=0,age_candidate=1)
+            s[0].update(pose_candidates=[dict(value='sol085_00')],state_candidates=[dict(value='CmnActHizakuzure')])
+        else:s[0]['scalar_observations']['health_candidate']=420
+    lethal_event=host_event|dict(before=[420,420],after=[0,420],requested_damage=None,requested_ko=True,caller_result_committed=True,native_pair_called=True)
+    ko_check=lambda samples=lethal_states,e=lethal_event:external_contact_check(zero_records,samples,suppressed,[],[e],2,0,True,False,True)
+    assert ko_check()['native_lethal_result_verified'] and not ko_check()['defeat_semantics_verified']
+    assert not ko_check()['passed']  # Frozen fighter age does not prove a completed KO lifecycle.
+    assert not ko_check(e=lethal_event|dict(thread=8))['native_lethal_result_verified']
+    restored=copy.deepcopy(lethal_states);restored[-1][0]['scalar_observations']['health_candidate']=420
+    assert ko_check(samples=restored)['source_ko_lifecycle_changed'] and not ko_check(samples=restored)['passed']
+    reject(lambda:external_contact_check(zero_records,lethal_states,suppressed,[],[lethal_event],2,17,True,False,True))
     bad_zero=copy.deepcopy(zero_states);bad_zero[3][0]['scalar_observations']['hitstop_candidate']=1
     assert not host_check(samples=bad_zero)['passed']
     reject(lambda:check(events=[event,event]))

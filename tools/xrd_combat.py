@@ -102,7 +102,7 @@ def suppressed_contact_check(records,states,dispatches,contacts):
         observed_counter_phase=sorted(phases),universal_contact=False,external_results_applied=False)
 
 
-def external_contact_check(records,states,dispatches,contacts,events,step,damage=0,host_stop=False,guard=False):
+def external_contact_check(records,states,dispatches,contacts,events,step,damage=0,host_stop=False,guard=False,ko=False):
     executed=[r for r in records if r['executed']]
     native=contact_check(records,states,1)
     if len(records)!=len(states) or len(events)!=1 or type(step)!=int or not 1<=step<=len(executed):raise ValueError('external native contact requires exactly one requested result')
@@ -120,13 +120,14 @@ def external_contact_check(records,states,dispatches,contacts,events,step,damage
         native['damage_events'][0]['after']==event['after'][0])
     if type(host_stop)!=bool:raise ValueError('invalid hitstop owner')
     if type(guard)!=bool or guard and (damage or not host_stop):raise ValueError('invalid guard experiment')
+    if type(ko)!=bool or ko and (damage or guard or not host_stop):raise ValueError('invalid KO experiment')
     host_freeze=False
     if host_stop:
         held=[s for r,s in zip(records,states) if not r['executed'] and r['after']==frame['after']]
         scalar=lambda s:[[f['scalar_observations'][k+'_candidate'] for k in ('health','hitstop','age')] for f in s]
         reacting=[s for r,s in zip(records,states) if r['executed'] and r['after']>frame['after'] and
             s[0].get('pose_candidates') and all(not re.fullmatch(r'sol00[01]_[0-9]{2}',n['value']) for n in s[0]['pose_candidates']) and
-            any(('Guard' if guard else 'Nokezori') in n['value'] for n in s[0]['state_candidates'])]
+            any(('Guard' if guard else 'Hizakuzure' if ko else 'Nokezori') in n['value'] for n in s[0]['state_candidates'])]
         host_freeze=(event.get('hitstop_owner')=='host' and native['max_stop']==[0,0] and len(held)>=5 and
             all(scalar(s)==scalar(held[0]) for s in held) and len(reacting)>=2 and
             reacting[-1][0]['scalar_observations']['age_candidate']>reacting[0][0]['scalar_observations']['age_candidate'] and
@@ -141,8 +142,14 @@ def external_contact_check(records,states,dispatches,contacts,events,step,damage
     guard_applied=guard and event.get('caller_result_committed') is True and sum(
         r['executed'] and r['after']>frame['after'] and any(n['value']=='sol040_03' for n in s[0].get('pose_candidates',[]))
         for r,s in zip(records,states))>=5 and all(re.fullmatch(r'sol00[01]_[0-9]{2}',n['value']) for n in states[-1][0].get('pose_candidates',[]))
+    ko_candidate=ko and event.get('requested_ko') is True and event.get('caller_result_committed') is True and event['after'][0]==0 and all(
+        s[0]['scalar_observations']['health_candidate']==0 for r,s in zip(records,states) if r['after']>=frame['after'])
+    lethal=ko and linked and event.get('requested_ko') is True and event['after'][0]==0 and len(native['damage_events'])==1 and native['damage_events'][0]['step']==step and native['damage_events'][0]['after']==0
+    lifecycle_changed=ko and any(s[0]['scalar_observations']['health_candidate']!=0 for r,s in zip(records,states) if r['after']>=frame['after'])
     # Proximity guard alone is insufficient; require the original block's hit pose and caller commit.
-    return native|dict(passed=bool((guard_applied if guard else True) and (host_freeze if host_stop else native['passed']) and linked and suppressed and requested and damage_mapped),external_result_linked=linked,
+    return native|dict(passed=bool((guard_applied if guard else ko_candidate if ko else True) and (host_freeze if host_stop else native['passed']) and linked and suppressed and requested and damage_mapped),external_result_linked=linked,
+        native_ko_candidate=bool(ko_candidate),native_lethal_result_verified=bool(lethal),
+        source_ko_lifecycle_changed=bool(lifecycle_changed),defeat_semantics_verified=False,
         host_freeze_verified=host_freeze,
         native_guard_reaction_candidate=bool(guard and host_freeze),guard_semantics_verified=bool(guard_applied and host_freeze and linked and suppressed and requested),
         requested_damage_verified=bool(damage and damage_mapped),

@@ -1,5 +1,24 @@
 # Progress record
 
+## 2026-10-09 — Lethal template exposes source KO lifecycle outside the gate
+
+- Full-health user reset is verified, then source-only approach
+  `20261010-042922-749575/boundary-20261010-064451-509399` passes 26 credits.
+- Opt-in lethal template stages one health before original native damage in the verified
+  contact phase, allowing its fatal branch to run rather than writing zero afterward.
+  `boundary-20261010-064530-283942` records one owned lethal result 420 to zero and
+  native `CmnActHizakuzure`/`sol085_00` KO pose with automatic contacts suppressed.
+- The complete check fails: fighter animation age stays fixed while the battle counter
+  advances, and training restores health during a held interval outside the owned
+  fighter update. Source/render/observer code restores and detaches cleanly. This is
+  fatal-template evidence, not completed defeat semantics or a safe playable KO boundary.
+- Authored checks distinguish a linked lethal result from defeat completion and reject
+  wrong threads, health restoration and frozen animation. Combat/input/boundary and JS
+  syntax pass. After the user reset, `manual-recovery.json` verifies full health and both
+  fighter ages advancing again. No process restart or Rev2 interaction was needed.
+- Continue separating host match defeat from source training/round coordination. The
+  receiving protocol and playable capabilities remain unchanged and disabled for SIGN.
+
 ## 2026-10-09 — Native guarded result phase and caller commit
 
 - User reset baseline is verified at full health/default positions. Source-only

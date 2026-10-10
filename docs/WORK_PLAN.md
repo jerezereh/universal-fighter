@@ -509,6 +509,10 @@ Standing native normal guard now passes with a caller-result commit in the verif
 source dispatch phase. Negative controls reject anticipatory poses and after-update
 application. Continue arbitrary blockstun/chip and the other result fields; this template
 proof leaves the playable capabilities and typed IKEMEN producer unimplemented.
+The native fatal normal produces a KO pose, but training health recovery and fatal freeze
+operate outside the fighter update gate. The KO check rejects this lifecycle behavior;
+user reset restores normal stepping. Resolve host/source match coordination before
+claiming defeat semantics or enabling a playable guest.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

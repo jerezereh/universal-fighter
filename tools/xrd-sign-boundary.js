@@ -32,11 +32,17 @@ function applyExternalPair(p,index,thread) {
         throw new Error('external pair requires an active native proxy normal');
     const before=actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32());
     if(p.external_damage && before[0]<=p.external_damage)throw new Error('external damage experiment requires a nonfatal result');
+    // Let native damage execute the fatal branch rather than merely publishing zero health.
+    if(p.external_ko) {
+        if(before[0]<=0)throw new Error('KO probe requires a living defender');
+        actors[0].add(p.state.scalar_fields.health_candidate).writeS32(1);
+    }
     g.externalApplying=true;
     try {if(!p.external_pair_control)externalPair(actors[1],actors[0],0);} finally {g.externalApplying=false;}
-    if(p.external_guard_commit) {
+    if(p.external_guard_commit || p.external_ko) {
         const c=p.contact.dispatch.caller_result;
-        if(hex(bytes(Process.mainModule.base.add(c.rva),10))!==c.before || actors[0].add(c.kind_field).readS32()!==2)
+        const kind=actors[0].add(c.kind_field).readS32();
+        if(hex(bytes(Process.mainModule.base.add(c.rva),10))!==c.before || (p.external_ko?![1,2,4,5].includes(kind):kind!==2))
             throw new Error('guard caller result witness changed');
         const flags=actors[0].add(c.pending_field);
         flags.writeU32(flags.readU32()|c.pending_mask);
@@ -47,7 +53,7 @@ function applyExternalPair(p,index,thread) {
         thread,attacker:1,defender:0,before,
         after:actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32()),
         native_pair_called:!p.external_pair_control,
-        caller_result_committed:p.external_guard_commit===true,
+        caller_result_committed:p.external_guard_commit===true || p.external_ko===true,requested_ko:p.external_ko===true,
         requested_damage:p.external_damage || null,hitstop_owner:p.external_host_stop?'host':'source',source_collision_suppressed:true};
 }
 
@@ -111,7 +117,7 @@ function observeNativeContact(p) {
                     thread:this.threadId,return_rva:returned,counter:root.add(4+p.candidate.counter_field).readU32(),
                     result:0,original_called:false,suppressed:true});
                 else if(dispatchSamples===257)send({kind:'error',phase:'contact-suppress',message:'suppression observation bound exceeded'});
-                if(p.external_guard && stage===1 && gate.currentIndex===p.external_pair_step)applyExternalPair(p,gate.currentIndex,this.threadId);
+                if((p.external_guard || p.external_ko) && stage===1 && gate.currentIndex===p.external_pair_step)applyExternalPair(p,gate.currentIndex,this.threadId);
                 return 0;
             },'int',['pointer','int'],'thiscall');
             Interceptor.replace(entry,dispatchReplacement);
@@ -784,7 +790,7 @@ function installGate(target, p) {
                 g.currentIndex=((s.before-g.initialCounter)>>>0)+1;
                 original(object);
                 const index=(object.add(p.candidate.counter_field).readU32()-g.initialCounter)>>>0;
-                if(!p.external_guard && p.external_pair_step && index===p.external_pair_step) {
+                if(!p.external_guard && !p.external_ko && p.external_pair_step && index===p.external_pair_step) {
                     applyExternalPair(p,index,this.threadId);
                 }
                 if(g.externalEvent) {send({...g.externalEvent,counter:object.add(p.candidate.counter_field).readU32()});g.externalEvent=null;}
