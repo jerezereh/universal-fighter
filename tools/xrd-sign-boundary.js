@@ -713,7 +713,11 @@ function snapshot(root) {
         throw new Error('invalid training slots/count');
     for (const actor of slots) {
         // One actor block contains both scalar fields and candidate pose/state names.
-        const data = bytes(actor, 0x2600);
+        const span = config.reaction_memory_bytes || 0x2600;
+        const range = Process.findRangeByAddress(actor);
+        if (!range || !range.protection.includes('r') || actor.add(span).compare(range.base.add(range.size)) > 0)
+            throw new Error('actor snapshot exceeds readable memory range');
+        const data = bytes(actor, span);
         const view = new DataView(data.buffer);
         const hurt = view.getInt32(f.hurt_count, true);
         const hit = view.getInt32(f.hit_count, true);
@@ -949,6 +953,8 @@ function finishStop() {
 rpc.exports = {
     start(p) {
         if (listener || gate) throw new Error('already observing');
+        if (p.reaction_memory_bytes !== undefined && (!Number.isInteger(p.reaction_memory_bytes) || p.reaction_memory_bytes < 0x2600 || p.reaction_memory_bytes > 0x10000 || p.reaction_memory_bytes % 4))
+            throw new Error('invalid actor snapshot span');
         if (p.renewable !== undefined && typeof p.renewable !== 'boolean') throw new Error('invalid renewable mode');
         if (p.transactions !== undefined && typeof p.transactions !== 'boolean') throw new Error('invalid transaction mode');
         if (p.streaming !== undefined && typeof p.streaming !== 'boolean') throw new Error('invalid streaming mode');
