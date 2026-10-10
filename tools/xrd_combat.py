@@ -53,6 +53,28 @@ def dispatch_result_fields(code,code_rva,local):
     return dict(kind_field=kind,pending_field=field,pending_mask=mask,rva=pending,before=code[write:write+10].hex())
 
 
+def fatal_global_field(code,code_rva,local,global_address):
+    rva=local.get('rva')
+    if type(rva)!=int:raise ValueError('invalid fatal global witness')
+    at=rva-code_rva;body=code[at:at+9]
+    if not 0<=at<at+9<=len(code) or body.hex()!=local.get('before') or body[:1]!=b'\xa1' or body[5:7]!=b'\x83\x48' or struct.unpack_from('<I',body,1)[0]!=global_address:
+        raise ValueError('fatal global load/write changed')
+    field,mask=body[7:9]
+    if field%4 or not 0<field<128 or not 0<mask<128 or mask&(mask-1):raise ValueError('invalid fatal global operand')
+    return dict(rva=rva,before=body.hex(),field=field,mask=mask)
+
+
+def state_transition_candidate(code,code_rva,local,module_base,image_size):
+    rva=local.get('rva');size=local.get('size');returned=local.get('return_rva');state=local.get('state_rva');name=local.get('name')
+    if any(type(v)!=int for v in (rva,size,returned,state)) or not 32<=size<=256 or type(name)!=str or not re.fullmatch('[A-Za-z0-9_]{1,31}',name):raise ValueError('invalid state transition witness')
+    at=rva-code_rva;caller=returned-code_rva-12
+    if not 0<at<at+size<=len(code) or code[at-1]!=0xcc or code[at:at+32].hex()!=local.get('before') or code[at+size-3:at+size]!=b'\xc2\x04\x00' or not 0<=state<state+32<=image_size:
+        raise ValueError('state transition entry/data bounds changed')
+    if not 0<=caller<caller+12<=len(code) or code[caller]!=0x68 or code[caller+5:caller+8]!=b'\x8b\xce\xe8' or struct.unpack_from('<I',code,caller+1)[0]!=module_base+state or returned+struct.unpack_from('<i',code,caller+8)[0]!=rva:
+        raise ValueError('state transition caller disagrees with entry or name')
+    return dict(rva=rva,before=local['before'],state_rva=state,name=name)
+
+
 def dispatch_ownership(code,code_rva,dispatch,proof,thread):
     if (proof.get('errors') or not all(proof.get(k) for k in ('source_unchanged','detached',
             'loaded_code_restored','controlled_update_step_verified','native_contact_observer_restored')) or
@@ -102,7 +124,7 @@ def suppressed_contact_check(records,states,dispatches,contacts):
         observed_counter_phase=sorted(phases),universal_contact=False,external_results_applied=False)
 
 
-def external_contact_check(records,states,dispatches,contacts,events,step,damage=0,host_stop=False,guard=False,ko=False):
+def external_contact_check(records,states,dispatches,contacts,events,step,damage=0,host_stop=False,guard=False,ko=False,isolate_ko=False):
     executed=[r for r in records if r['executed']]
     native=contact_check(records,states,1)
     if len(records)!=len(states) or len(events)!=1 or type(step)!=int or not 1<=step<=len(executed):raise ValueError('external native contact requires exactly one requested result')
@@ -112,7 +134,7 @@ def external_contact_check(records,states,dispatches,contacts,events,step,damage
     linked=(event['request_index']==step and event['counter']==frame['after'] and event['thread']==frame['thread'] and
         event.get('native_pair_called',True) is True and
         event['attacker']==1 and event['defender']==0 and event['source_collision_suppressed'] is True and
-        (event['before']==event['after'] if guard else event['before'][0]>event['after'][0]) and event['before'][1]==event['after'][1])
+        (event['before']==event['after'] if guard else event['before'][0]>=event['after'][0] if ko and isolate_ko else event['before'][0]>event['after'][0]) and event['before'][1]==event['after'][1])
     if type(damage)!=int or not 0<=damage<=419:raise ValueError('invalid requested damage')
     damage_mapped=(not damage and event.get('requested_damage') is None or damage>0 and
         event.get('requested_damage')==damage and event['before'][0]-event['after'][0]==damage and event['after'][0]>0 and
@@ -121,6 +143,7 @@ def external_contact_check(records,states,dispatches,contacts,events,step,damage
     if type(host_stop)!=bool:raise ValueError('invalid hitstop owner')
     if type(guard)!=bool or guard and (damage or not host_stop):raise ValueError('invalid guard experiment')
     if type(ko)!=bool or ko and (damage or guard or not host_stop):raise ValueError('invalid KO experiment')
+    if type(isolate_ko)!=bool or isolate_ko and not ko:raise ValueError('invalid source KO isolation')
     host_freeze=False
     if host_stop:
         held=[s for r,s in zip(records,states) if not r['executed'] and r['after']==frame['after']]
@@ -130,9 +153,10 @@ def external_contact_check(records,states,dispatches,contacts,events,step,damage
             any(('Guard' if guard else 'Hizakuzure' if ko else 'Nokezori') in n['value'] for n in s[0]['state_candidates'])]
         host_freeze=(event.get('hitstop_owner')=='host' and native['max_stop']==[0,0] and len(held)>=5 and
             all(scalar(s)==scalar(held[0]) for s in held) and len(reacting)>=2 and
-            reacting[-1][0]['scalar_observations']['age_candidate']>reacting[0][0]['scalar_observations']['age_candidate'] and
+            any(b[0]['scalar_observations']['age_candidate']>a[0]['scalar_observations']['age_candidate'] for a,b in zip(reacting,reacting[1:])) and
             (not native['damage_events'] and all(s[0]['scalar_observations']['health_candidate']==event['before'][0] for s in states)
-                if guard else len(native['damage_events'])==1 and native['damage_events'][0]['mirrored_box_overlap']))
+                if guard else not native['damage_events'] and event['before'][0]==event['after'][0]==1
+                if ko and isolate_ko and not native['damage_events'] else len(native['damage_events'])==1 and native['damage_events'][0]['mirrored_box_overlap']))
     suppressed=len(dispatches)==3*len(executed) and all(
         [c['argument'] for c in dispatches[i*3:i*3+3]]==[0,1,2] and all(
             c.get('suppressed') is True and c['original_called'] is False and c['thread']==r['thread'] and
@@ -142,14 +166,21 @@ def external_contact_check(records,states,dispatches,contacts,events,step,damage
     guard_applied=guard and event.get('caller_result_committed') is True and sum(
         r['executed'] and r['after']>frame['after'] and any(n['value']=='sol040_03' for n in s[0].get('pose_candidates',[]))
         for r,s in zip(records,states))>=5 and all(re.fullmatch(r'sol00[01]_[0-9]{2}',n['value']) for n in states[-1][0].get('pose_candidates',[]))
-    ko_candidate=ko and event.get('requested_ko') is True and event.get('caller_result_committed') is True and event['after'][0]==0 and all(
-        s[0]['scalar_observations']['health_candidate']==0 for r,s in zip(records,states) if r['after']>=frame['after'])
-    lethal=ko and linked and event.get('requested_ko') is True and event['after'][0]==0 and len(native['damage_events'])==1 and native['damage_events'][0]['step']==step and native['damage_events'][0]['after']==0
-    lifecycle_changed=ko and any(s[0]['scalar_observations']['health_candidate']!=0 for r,s in zip(records,states) if r['after']>=frame['after'])
+    expected_health=1 if isolate_ko else 0
+    isolation_matches=not isolate_ko or event.get('source_ko_isolated') is True and event.get('native_fatal_health')==0
+    ko_candidate=ko and isolation_matches and event.get('requested_ko') is True and event.get('caller_result_committed') is True and event['after'][0]==expected_health and all(
+        s[0]['scalar_observations']['health_candidate']==expected_health for r,s in zip(records,states) if r['after']>=frame['after'])
+    lethal=ko and linked and isolation_matches and event.get('requested_ko') is True and event['after'][0]==expected_health and (not native['damage_events'] and isolate_ko and event['before'][0]==1 or len(native['damage_events'])==1 and native['damage_events'][0]['step']==step and native['damage_events'][0]['after']==expected_health)
+    lifecycle_changed=ko and any(s[0]['scalar_observations']['health_candidate']!=expected_health for r,s in zip(records,states) if r['after']>=frame['after'])
+    defeat_pose=isolate_ko and event.get('native_reaction_requested')=='CmnActHizakuzure' and sum(
+        r['executed'] and r['after']>frame['after'] and any(n['value'].startswith('sol085_') for n in s[0].get('pose_candidates',[])) for r,s in zip(records,states))>=5
     # Proximity guard alone is insufficient; require the original block's hit pose and caller commit.
-    return native|dict(passed=bool((guard_applied if guard else ko_candidate if ko else True) and (host_freeze if host_stop else native['passed']) and linked and suppressed and requested and damage_mapped),external_result_linked=linked,
+    return native|dict(passed=bool((guard_applied if guard else ko_candidate and (not isolate_ko or defeat_pose) if ko else True) and (host_freeze if host_stop else native['passed']) and linked and suppressed and requested and damage_mapped),external_result_linked=linked,
         native_ko_candidate=bool(ko_candidate),native_lethal_result_verified=bool(lethal),
         source_ko_lifecycle_changed=bool(lifecycle_changed),defeat_semantics_verified=False,
+        native_defeat_pose_observed=bool(defeat_pose),
+        source_ko_isolation_verified=bool(isolate_ko and defeat_pose and ko_candidate and host_freeze and linked and suppressed and requested),
+        source_lifecycle_isolated=bool(isolate_ko and lethal and not lifecycle_changed and suppressed and requested),
         host_freeze_verified=host_freeze,
         native_guard_reaction_candidate=bool(guard and host_freeze),guard_semantics_verified=bool(guard_applied and host_freeze and linked and suppressed and requested),
         requested_damage_verified=bool(damage and damage_mapped),

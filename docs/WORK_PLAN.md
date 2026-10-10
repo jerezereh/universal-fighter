@@ -513,6 +513,10 @@ The native fatal normal produces a KO pose, but training health recovery and fat
 operate outside the fighter update gate. The KO check rejects this lifecycle behavior;
 user reset restores normal stepping. Resolve host/source match coordination before
 claiming defeat semantics or enabling a playable guest.
+Private fatal-bit isolation plus one source health prevents the observed global freeze
+and training reset, but the source plays an ordinary hurt reaction. A named-state wrapper
+is witnessed; dispatch-phase invocation is overwritten. Retry the following-update
+schedule with rendering active before claiming an isolated defeat presentation.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

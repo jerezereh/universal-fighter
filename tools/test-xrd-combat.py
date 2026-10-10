@@ -2,7 +2,7 @@
 import copy
 import struct
 
-from xrd_combat import combat_fields, contact_check, contact_observations, world_boxes, dispatch_candidate, dispatch_ownership, suppressed_contact_check, contact_callees, external_contact_check, guard_contact_check, dispatch_result_fields
+from xrd_combat import combat_fields, contact_check, contact_observations, world_boxes, dispatch_candidate, dispatch_ownership, suppressed_contact_check, contact_callees, external_contact_check, guard_contact_check, dispatch_result_fields, fatal_global_field, state_transition_candidate
 import hashlib
 
 
@@ -13,6 +13,18 @@ def reject(action):
 
 
 def main():
+    transition=bytearray(b'\xcc'*512);transition[32:64]=b'\x90'*29+b'\xc2\x04\x00'
+    transition[188:200]=b'\x68'+struct.pack('<I',32768+384)+b'\x8b\xce\xe8'+struct.pack('<i',8224-8392)
+    transition_witness=dict(rva=8224,size=32,return_rva=8392,state_rva=384,name='CommonFall',before=transition[32:64].hex())
+    assert state_transition_candidate(transition,8192,transition_witness,32768,512)['name']=='CommonFall'
+    for patch in (dict(size=True),dict(state_rva=500),dict(name='bad name'),dict(before='bad'),dict(return_rva=8393)):
+        reject(lambda:state_transition_candidate(transition,8192,transition_witness|patch,32768,512))
+    global_code=b'\xcc\xa1'+struct.pack('<I',32768)+b'\x83\x48\x0c\x04'
+    global_witness=dict(rva=8193,before=global_code[1:].hex())
+    assert fatal_global_field(global_code,8192,global_witness,32768)['field']==12
+    reject(lambda:fatal_global_field(global_code,8192,global_witness,32772))
+    reject(lambda:fatal_global_field(global_code,8192,global_witness|dict(before='bad'),32768))
+    bad=global_code[:-1]+b'\x03';reject(lambda:fatal_global_field(bad,8192,global_witness|dict(before=bad[1:].hex()),32768))
     caller=bytearray(b'\xcc'*128);caller[32:38]=b'\x8b\x87'+struct.pack('<I',128)
     caller[48:58]=b'\x81\x8f'+struct.pack('<II',132,256)
     witness=dict(rva=8192,size=128,pair_return_rva=8224,pending_rva=8240)
@@ -154,6 +166,14 @@ def main():
     restored=copy.deepcopy(lethal_states);restored[-1][0]['scalar_observations']['health_candidate']=420
     assert ko_check(samples=restored)['source_ko_lifecycle_changed'] and not ko_check(samples=restored)['passed']
     reject(lambda:external_contact_check(zero_records,lethal_states,suppressed,[],[lethal_event],2,17,True,False,True))
+    isolated_states=copy.deepcopy(lethal_states)
+    for r,s in zip(zero_records,isolated_states):
+        if r['after']>=2:s[0]['scalar_observations'].update(health_candidate=1,age_candidate=r['after'])
+    isolated_event=lethal_event|dict(after=[1,420],source_ko_isolated=True,native_fatal_health=0,native_reaction_requested='CmnActHizakuzure')
+    isolation_check=lambda e=isolated_event:external_contact_check(zero_records,isolated_states,suppressed,[],[e],2,0,True,False,True,True)
+    assert isolation_check()['source_lifecycle_isolated'] and isolation_check()['source_ko_isolation_verified']
+    assert not isolation_check(e=isolated_event|dict(native_fatal_health=1))['passed']
+    assert not isolation_check(e=isolated_event|dict(native_reaction_requested=None))['passed']
     bad_zero=copy.deepcopy(zero_states);bad_zero[3][0]['scalar_observations']['hitstop_candidate']=1
     assert not host_check(samples=bad_zero)['passed']
     reject(lambda:check(events=[event,event]))

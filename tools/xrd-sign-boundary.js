@@ -22,6 +22,7 @@ let contactCallObservers=[];
 let contactCallSamples=0;
 let contactCallUnsupported=[];
 let externalPair=null;
+let koTransition=null;
 
 
 function applyExternalPair(p,index,thread) {
@@ -31,6 +32,10 @@ function applyExternalPair(p,index,thread) {
     if(actors.some(a=>a.isNull()) || actors[1].add(p.state.fields.hit_count).readS32()<=0)
         throw new Error('external pair requires an active native proxy normal');
     const before=actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32());
+    const isolation=p.ko_isolation;
+    const fatalBefore=isolation?g.root.add(isolation.field).readU32():null;
+    if(isolation && (hex(bytes(Process.mainModule.base.add(isolation.rva),9))!==isolation.before || fatalBefore&isolation.mask))
+        throw new Error('fatal global witness/baseline changed');
     if(p.external_damage && before[0]<=p.external_damage)throw new Error('external damage experiment requires a nonfatal result');
     // Let native damage execute the fatal branch rather than merely publishing zero health.
     if(p.external_ko) {
@@ -39,6 +44,16 @@ function applyExternalPair(p,index,thread) {
     }
     g.externalApplying=true;
     try {if(!p.external_pair_control)externalPair(actors[1],actors[0],0);} finally {g.externalApplying=false;}
+    const fatalHealth=p.external_ko?actors[0].add(p.state.scalar_fields.health_candidate).readS32():null;
+    let isolated=false;
+    if(isolation) {
+        const flags=g.root.add(isolation.field),raised=flags.readU32();
+        if(fatalHealth!==0 || (raised&isolation.mask)===0 || ((raised&~isolation.mask)>>>0)!==fatalBefore)
+            throw new Error('native fatal branch did not match isolated global write');
+        actors[0].add(p.state.scalar_fields.health_candidate).writeS32(1);
+        flags.writeU32(raised&~isolation.mask);
+        isolated=true;
+    }
     if(p.external_guard_commit || p.external_ko) {
         const c=p.contact.dispatch.caller_result;
         const kind=actors[0].add(c.kind_field).readS32();
@@ -54,6 +69,8 @@ function applyExternalPair(p,index,thread) {
         after:actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32()),
         native_pair_called:!p.external_pair_control,
         caller_result_committed:p.external_guard_commit===true || p.external_ko===true,requested_ko:p.external_ko===true,
+        native_fatal_health:fatalHealth,source_ko_isolated:isolated,
+        native_reaction_requested:p.ko_transition?p.ko_transition.name:null,
         requested_damage:p.external_damage || null,hitstop_owner:p.external_host_stop?'host':'source',source_collision_suppressed:true};
 }
 
@@ -61,6 +78,11 @@ function observeNativeContact(p) {
     const target=Process.mainModule.base.add(p.contact.rva);
     if(hex(bytes(target,32))!==p.contact.before)throw new Error('native contact entry changed');
     if(p.external_pair_step)externalPair=new NativeFunction(target,'void',['pointer','pointer','int'],{abi:'thiscall',exceptions:'propagate'});
+    if(p.ko_transition) {
+        const k=p.ko_transition,entry=Process.mainModule.base.add(k.rva),state=Process.mainModule.base.add(k.state_rva);
+        if(hex(bytes(entry,32))!==k.before || state.readUtf8String(k.name.length)!==k.name || state.add(k.name.length).readU8()!==0)throw new Error('native reaction entry/name changed');
+        koTransition=new NativeFunction(entry,'void',['pointer','pointer'],{abi:'thiscall',exceptions:'propagate'});
+    }
     contactSamples=0;
     dispatchSamples=0;
     contactCallSamples=0;
@@ -790,6 +812,8 @@ function installGate(target, p) {
                 g.currentIndex=((s.before-g.initialCounter)>>>0)+1;
                 original(object);
                 const index=(object.add(p.candidate.counter_field).readU32()-g.initialCounter)>>>0;
+                if(p.ko_transition && g.externalPairs===1 && index===p.external_pair_step+1)
+                    koTransition(g.root.add(p.state.fields.slots).readPointer(),Process.mainModule.base.add(p.ko_transition.state_rva));
                 if(!p.external_guard && !p.external_ko && p.external_pair_step && index===p.external_pair_step) {
                     applyExternalPair(p,index,this.threadId);
                 }

@@ -1,5 +1,29 @@
 # Progress record
 
+## 2026-10-10 — Source fatal isolation and named reaction candidate
+
+- Derive the fatal global load/bit write from the actual health-result callee tail,
+  validating its private instruction witness against the loaded module/global pointer.
+  Isolated probe `20261010-042922-749575/boundary-20261010-065605-476319` clears only
+  that bit and retains one source health after native fatal damage. Held state stays
+  stable, actor age advances and training does not restore health. However, it selects
+  an ordinary hurt reaction and returns to idle; complete defeat presentation rejects.
+- Locate the native named-state wrapper through actual constant-data/caller references.
+  Candidate `boundary-20261010-070420-502208` executes cleanly but the requested
+  crumple state is overwritten by the normal received-hit path. It also records no
+  successful presentations, so rendering acceptance fails. All hooks/code restore and
+  detach; source lifecycle isolation remains distinct from defeat completion.
+- Schedule the named-state request after the following owned update, with entry/name,
+  thiscall caller, stack cleanup and module-data bounds checked. This changed scheduling
+  is pending a native retry. User foreground setup is requested because source restore
+  confirms a visible/responding window but the probe has no successful presentations.
+- Authored checks cover changed global loads/masks, changed state/caller/name/data bounds,
+  isolated health/lifecycle evidence and rejection of missing fatal/reaction evidence.
+  Combat/boundary checks and JS syntax pass. No private names/offset profiles or native
+  bytes are committed; no playable capabilities or host runtime boundary changed.
+- Continue the native reaction timing/rendering retry, then typed host result producer,
+  other result fields and atomic mixed-match validation. Defeat semantics remain off.
+
 ## 2026-10-09 — Lethal template exposes source KO lifecycle outside the gate
 
 - Full-health user reset is verified, then source-only approach
@@ -7,7 +31,7 @@
 - Opt-in lethal template stages one health before original native damage in the verified
   contact phase, allowing its fatal branch to run rather than writing zero afterward.
   `boundary-20261010-064530-283942` records one owned lethal result 420 to zero and
-  native `CmnActHizakuzure`/`sol085_00` KO pose with automatic contacts suppressed.
+  native `CmnActHizakuzure`/`sol085_00` fatal/crumple pose with automatic contacts suppressed.
 - The complete check fails: fighter animation age stays fixed while the battle counter
   advances, and training restores health during a held interval outside the owned
   fighter update. Source/render/observer code restores and detaches cleanly. This is
