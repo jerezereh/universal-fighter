@@ -1,5 +1,27 @@
 # Progress record
 
+## 2026-10-09 — Fresh two-axis body-origin calibration
+
+- Existing bounded walk/jump oracle passes in fresh scene bindings:
+  `20261010-033610-229066/boundary-20261010-034306-195680`, 28 exact credits,
+  64 blocked updates, zero gaps/errors, neutral Ky and eight paired captures at source
+  steps 0/8/20/28. Images move with left/right walking and rising source Y, stay uncropped
+  and canonical, and paired held-state pixels agree. Cleanup restores source/render code.
+  The selected last step is airborne; landing was not tested by this capture plan.
+- Rehashed retained native pixels and reran the existing strict offline calibration.
+  Four selected images provide at least three distinct positions spanning ten logical
+  units on each axis. World/source slopes are X 0.4299127779 and Y 0.4299127995;
+  maximum world residuals are 0.000003592 and 0.000000451. The normalized target has
+  0.8598255774 pixels per logical unit and projection pivot [320,700].
+- Body-origin mapping is verified for these fresh bindings. Anatomical foot pivot, full
+  color fidelity, atomic native frame and host publication remain false. The diagnostic
+  network controller still permits only horizontal inputs; this selected capture oracle
+  does not establish rolling/network jump or normal-attack coverage.
+- Added `tools/fixtures/xrd-sign-body-calibration.json`, reproducing all 28 proven native
+  requests and bounded holds with merged identical segments, checked through `input_plan`.
+  Use with fresh render bindings, `--oracle render-framing --layer-steps 0,8,20,28`.
+  Local native profiles, captures and calibration receipts remain ignored.
+
 ## 2026-10-09 — Fresh live rolling geometry verification
 
 - After the user's display recovery, fresh preparation `20261010-033610-229066`

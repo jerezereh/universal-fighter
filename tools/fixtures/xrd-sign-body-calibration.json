@@ -1,0 +1,110 @@
+[
+  {
+    "frames": 3,
+    "input": {
+      "left": true
+    },
+    "accept_input": true,
+    "hold_ms": 0
+  },
+  {
+    "frames": 1,
+    "input": {
+      "left": true
+    },
+    "accept_input": true,
+    "hold_ms": 350
+  },
+  {
+    "frames": 3,
+    "input": {
+      "left": true
+    },
+    "accept_input": true,
+    "hold_ms": 0
+  },
+  {
+    "frames": 1,
+    "input": {
+      "left": true
+    },
+    "accept_input": true,
+    "hold_ms": 350
+  },
+  {
+    "frames": 3,
+    "input": {
+      "right": true
+    },
+    "accept_input": true,
+    "hold_ms": 0
+  },
+  {
+    "frames": 1,
+    "input": {
+      "right": true
+    },
+    "accept_input": true,
+    "hold_ms": 350
+  },
+  {
+    "frames": 3,
+    "input": {
+      "right": true
+    },
+    "accept_input": true,
+    "hold_ms": 0
+  },
+  {
+    "frames": 1,
+    "input": {
+      "right": true
+    },
+    "accept_input": true,
+    "hold_ms": 350
+  },
+  {
+    "frames": 1,
+    "input": {
+      "up": true
+    },
+    "accept_input": true,
+    "hold_ms": 0
+  },
+  {
+    "frames": 2,
+    "input": {},
+    "accept_input": true,
+    "hold_ms": 0
+  },
+  {
+    "frames": 1,
+    "input": {},
+    "accept_input": true,
+    "hold_ms": 350
+  },
+  {
+    "frames": 3,
+    "input": {},
+    "accept_input": true,
+    "hold_ms": 0
+  },
+  {
+    "frames": 1,
+    "input": {},
+    "accept_input": true,
+    "hold_ms": 350
+  },
+  {
+    "frames": 3,
+    "input": {},
+    "accept_input": true,
+    "hold_ms": 0
+  },
+  {
+    "frames": 1,
+    "input": {},
+    "accept_input": true,
+    "hold_ms": 350
+  }
+]

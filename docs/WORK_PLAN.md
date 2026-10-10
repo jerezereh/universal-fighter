@@ -470,6 +470,11 @@ After display recovery, fresh render preparation and twenty-step rolling geometr
 pass (21 linked frames, clean restoration). Horizontal body-origin regression has residual
 below 0.000009 world units. Continue vertical coverage/two-axis fitting and anatomical pivot
 validation; horizontal-only evidence does not enable host capabilities.
+Fresh bounded walk/jump selected captures now pass strict two-axis body-origin fitting:
+matching X/Y scales near 0.42991279 world units per logical source unit. Repeatable plan
+is `tools/fixtures/xrd-sign-body-calibration.json` (28 steps; select 0,8,20,28).
+Continue anatomical foot-pivot evidence and rolling/network vertical/normal coverage;
+selected airborne captures do not prove landing or enable playable host publication.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a
