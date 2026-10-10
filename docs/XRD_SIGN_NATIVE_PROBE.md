@@ -865,3 +865,23 @@ renderer-owned private frames to release; pending credits suppress new replay. S
 render overlap was observed and rejected before this guard. Non-neutral rolling coverage
 and indefinite transport still remain pending. Restore a lost SIGN display and derive
 fresh graphics evidence before reuse; do not reuse bindings from a failed preparation.
+
+For named horizontal input verification, also supply `--input-candidate`, `--input-plan`
+and `--oracle render-position`. The plan's expanded frame count must equal the stream
+credit count. Only `left`, `right`, `forward`, `back` and neutral inputs are supported;
+vertical/attack inputs and neutral-only plans reject. A tested twenty-credit plan is:
+
+```json
+[
+  {"frames": 8, "input": {"back": true}, "label": "retreat"},
+  {"frames": 8, "input": {"forward": true}, "label": "return"},
+  {"frames": 4, "input": {}, "label": "release"}
+]
+```
+
+This native plan passes exact source input history and both movement directions with
+21 linked, normalized, uncropped private frames. Forward/backward speeds differ, so the
+plan is not a position reset. Every frame checks coverage and source-facing agreement.
+`requests.json`, `input.jsonl` and the stream receipt preserve proof after cleanup.
+Jump/normal rolling input coverage, indefinite producer transport and combat ownership
+remain unverified; source capabilities remain false.

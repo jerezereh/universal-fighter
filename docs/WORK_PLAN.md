@@ -438,6 +438,11 @@ private layers to release and pending credits suppress new replay. Native retry 
 20 neutral credits/21 linked images with clean restoration; legacy four-frame regression
 passes too. Continue non-neutral rolling coverage and continuous controller/transport
 lifetime before contact/results. Capabilities and automatic rebind stay disabled.
+Rolling named horizontal plans now pass 20 native back/forward/neutral credits and 21
+state/image receipts with both movement directions, exact source input history, grounded
+state, normalized/uncropped alpha coverage and clean restoration. Continue continuous
+producer/controller lifetime and transport plus broader jump/normal input coverage before
+contact suppression/results. Back/forward speeds differ; no exact position reset is claimed.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

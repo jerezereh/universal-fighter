@@ -1,5 +1,35 @@
 # Progress record
 
+## 2026-10-09 — Named positioning through rolling frames
+
+- Rolling verification now accepts an exact-count `render-position` plan with the existing
+  validated native input candidate. A shared plan validator permits horizontal absolute/
+  relative directions and neutral segments, rejects vertical/attack requests, neutral-only
+  plans, and mismatched credit counts. Existing facing/SOCD/accept-input rules apply.
+  The controller's finite selected-frame ceiling is bypassed only for rolling mode; its
+  duration, native ownership, queue, lease and presentation bounds remain intact.
+- Each rolling frame now validates actual native alpha coverage using `layer_pixels`:
+  restored A8 layer, nonempty coverage, zero RGB outside alpha and no target-edge crop.
+  Normalized projection, canonical right facing, source-facing agreement and no skipped
+  mesh draws are required. Compact receipts retain coverage bounds and source XY/facing;
+  only the latest image remains retained. These are diagnostic checks, not capability
+  promotion, anatomical pivot/unit acceptance or silhouette antialias acceptance.
+- Plan acceptance requires exact requested-mask/source-step agreement, two native input
+  history slots per credit, neutral opponent, grounded/non-attacking source and observed
+  movement in every requested horizontal direction. Relative movements and frame hashes
+  remain reported separately. Authored input/count/facing/SOCD/disabled-input/unsupported-
+  input checks pass, alongside boundary, layer/coverage, stream, lease and replay checks.
+- Native ignored `20261010-000623-001413/boundary-20261010-001713-227375` passes 20
+  credits/21 linked frames in 40.29 seconds: eight relative back, eight forward, four
+  neutral, actual masks 4/8/0, both absolute and relative walk directions verified,
+  source history/request masks linked, zero gaps/errors and complete source/render
+  restoration/detach. Only one final image is saved; every observed frame is grounded.
+  Source X moves -252000 to -290496, then -241496 and remains there after input release.
+  No exact return-to-start claim: native backward/forward walking speeds differ.
+- Next: continuous producer/controller lifetime and transport, broader jump/normal input
+  coverage, then source contact suppression and universal results. SIGN is still not a
+  connected playable host guest; capabilities and automatic rebind remain disabled.
+
 ## 2026-10-09 — Native rolling verification and source/render exclusion
 
 - After the user restores SIGN's display, fresh preparation succeeds in ignored

@@ -44,6 +44,15 @@ def input_plan(data,expected_frames=None):
     return frames
 
 
+def position_plan(data,expected_frames):
+    frames=input_plan(data,expected_frames)
+    if any(set(q['input'])-{'left','right','forward','back'} for q in frames):
+        raise ValueError('rolling positioning excludes attacks and vertical inputs')
+    if not any(input_mask(q['input'],False,q['accept_input']) for q in frames):
+        raise ValueError('positioning requires a non-neutral request')
+    return frames
+
+
 def input_scene_ready(fighters,oracle,requests):
     if len(fighters)!=2 or any(f['y_raw'] or f['hit_count'] for f in fighters):return False
     if not any(re.fullmatch(r'sol00[01]_[0-9]{2}',n['value']) for n in fighters[0]['pose_candidates']):return False

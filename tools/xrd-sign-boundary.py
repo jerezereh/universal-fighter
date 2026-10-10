@@ -15,11 +15,11 @@ import time
 
 from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
 from xrd_state import assembly_rows, boundary_candidate, observe, read_clock
-from xrd_input import input_candidate, input_mask, input_plan, input_check, oracle_passed, input_scene_ready
+from xrd_input import input_candidate, input_mask, input_plan, position_plan, input_check, oracle_passed, input_scene_ready
 from xrd_combat import combat_fields, contact_check
 from xrd_render import render_pixels, save_render, render_check, draw_check, save_pass
 from xrd_shader import opaque_alpha_variant, screen_packet
-from xrd_layer import save_layer_preview, save_hdr_layer, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle
+from xrd_layer import layer_pixels, save_layer_preview, save_hdr_layer, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle
 from xrd_transform import transform_packet, transform_changes, projection_bindings, vertex_bindings
 from xrd_d3d import validate_device_calls
 
@@ -265,8 +265,8 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
 def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0):
     if type(stream_frames)!=int or not 0<=stream_frames<=120:
         raise ValueError('stream check steps must be 0..120')
-    if stream_frames and (not transactions or not combat_path or plan_path or transaction_loss or capture_passes or capture_screen_stages or inspect_screen or inspect_shaders or inspect_transforms):
-        raise ValueError('stream check requires neutral owned transactions with age guard and no inventory capture')
+    if stream_frames and (not transactions or not combat_path or transaction_loss or capture_passes or capture_screen_stages or inspect_screen or inspect_shaders or inspect_transforms):
+        raise ValueError('stream check requires owned transactions with age guard and no inventory capture')
     if renewable and (not expire or not gate_receipt or plan_path or capture or trace_draws or layer_path):
         raise ValueError('renewable trace requires an exclusive gate recovery experiment')
     if transactions and (renewable or expire or not gate_receipt or not layer_path or not normalize or not settle or layer_steps not in (None,'0,1,2,3')):
@@ -377,8 +377,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if plan_path:
         if not gate_options or not input_profile or expire or plan_path.stat().st_size>16384:
             raise ValueError('bounded input plan requires a native gate and validated input ingress')
-        plan=input_plan(json.loads(plan_path.read_text()),3 if transactions else None)
-        if layer and (not oracle.startswith('render-') or layer['capture_steps'][-1]!=len(plan)):
+        plan=(position_plan if stream_frames else input_plan)(json.loads(plan_path.read_text()),stream_frames or (3 if transactions else None))
+        if layer and (not oracle.startswith('render-') or not stream_frames and layer['capture_steps'][-1]!=len(plan)):
             raise ValueError('private render plan must use a render oracle and capture its final requested step')
     sys.path.insert(0,str(ROOT/'local-cache/xrd-tools/frida/python'))
     import frida
@@ -434,7 +434,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         heartbeat=bounded_call(frida,script.exports_sync.heartbeat)
                         if stream_frames:diagnostics.append(dict(elapsed=elapsed,heartbeat=heartbeat))
                         next_heartbeat=elapsed+1
-                    if layer and plan and completed==len(plan) and len(layers)==len(layer['capture_steps'])*per_step and len(scene_packets)==len(layers):
+                    if not stream_frames and layer and plan and completed==len(plan) and len(layers)==len(layer['capture_steps'])*per_step and len(scene_packets)==len(layers):
                         break
                     if frames_complete and not transaction_loss: break
                     image_ready=not layer or requests not in layer['capture_steps'] or (
@@ -510,15 +510,21 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         native=message['payload']
                         if stream_frames:
                             pixels,_=render_pixels(native,data)
+                            coverage=layer_pixels(native,pixels)
                             observation=observe(CapturedMemory(native['segments'],data[:native['state_size']]),state)
                             matches=[s for r,s in zip(records,states) if r['after']==native['counter']]
                             if (native['request_index']!=len(stream_receipts) or native['request_index']!=completed or
                                 not matches or any(s!=observation['fighters'] for s in matches) or
                                 native.get('frame_readiness_candidate') is not True or native.get('identical_native_pixels') is not True or
-                                native.get('source_graphics_state_verified') is not True):
+                                native.get('source_graphics_state_verified') is not True or coverage['touches_target_edge'] or
+                                native.get('normalized_projection') is not True or native.get('canonical_right_facing') is not True or
+                                native.get('source_facing_left')!=observation['fighters'][0]['facing_left'] or native.get('skipped_draws_total')!=0):
                                 raise ValueError('unlinked or unordered streaming frame')
                             stream_receipts.append(dict(counter=native['counter'],request_index=native['request_index'],
-                                settled_pair=native['settled_pair'],raw_sha256=hashlib.sha256(pixels).hexdigest()))
+                                settled_pair=native['settled_pair'],raw_sha256=hashlib.sha256(pixels).hexdigest(),
+                                coverage_bounds=coverage['native_coverage_bounds'],
+                                source_x=observation['fighters'][0]['x_raw'],source_y=observation['fighters'][0]['y_raw'],
+                                source_facing_left=observation['fighters'][0]['facing_left']))
                             latest_layer=(native,data,observation)
                             continue
                         if native['kind']=='render-hdr-layer':
@@ -595,12 +601,25 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         gaps=sum(b['before']!=a['after'] for a,b in zip(records,records[1:]))
         if requests!=completed or completed!=stream_frames or len(stream_receipts)!=stream_frames+1:
             errors.append(dict(stream_error='bounded check ended without all requested state/image transactions'))
+        stream_input=None
+        if plan:
+            stream_input=input_check(records,states,inputs,request_log)
+            executed=[r for r in records if r['executed']]
+            stream_input['requested_masks_linked']=len(executed)==len(request_log)==stream_frames and all(
+                r['requested_inputs']==[q['mask'],0] for r,q in zip(executed,request_log))
+            stream_input['directions_verified']=all(not any(q['mask']&bit for q in request_log) or stream_input[key]
+                for bit,key in ((4,'walk_left'),(8,'walk_right')))
+            stream_input['passed']=all(stream_input[k] for k in ('source_history_linked','requested_masks_linked','directions_verified','opponent_neutral','grounded_at_end')) and (
+                stream_input['walk_left'] or stream_input['walk_right']) and all(f[0]['y_raw']==0 and f[0]['hit_count']==0 for f in states)
+            (out/'requests.json').write_text(json.dumps(request_log,indent=2))
+            (out/'input.jsonl').write_text(''.join(json.dumps(r,separators=(',',':'))+'\n' for r in inputs))
+            if not stream_input['passed']:errors.append(dict(stream_error='rolling positioning/input history not verified'))
         passed=requests==completed==stream_frames and len(stream_receipts)==stream_frames+1 and gaps==0 and not errors and detached and restored and bool(cleanup_receipt and cleanup_receipt.get('render_code_restored'))
         result=dict(passed=passed,requested_steps=requests,completed_steps=completed,frames=stream_receipts,
             continuity_gaps=gaps,errors=errors,detached=detached,loaded_code_restored=restored,
             cleanup=cleanup_receipt,diagnostics=diagnostics,seconds=seconds,elapsed=time.perf_counter()-started,
             source_capabilities_enabled=False,live_host_producer=False,
-            rolling_image_retention=True,bounded_verification=True)
+            rolling_image_retention=True,bounded_verification=True,input_check=stream_input)
         if latest_layer:
             folder=out/'latest-layer';folder.mkdir()
             save_render(folder,*latest_layer)
@@ -773,7 +792,7 @@ if __name__=='__main__':
     p.add_argument('--reset-observation',action='store_true',help='with --gate and --combat-candidate: 46-second no-credit renewable hold for a manual reset, followed by recovery; no private rendering')
     p.add_argument('--transaction-check',action='store_true',help='renew ownership across an initial hold, then three counter-bound steps with settled frames; optional three-frame positioning plan requires combat profile')
     p.add_argument('--transaction-loss-check',action='store_true',help='run transaction check, then cease renewal and verify automatic source/renderer-hook recovery')
-    p.add_argument('--stream-check-steps',type=int,default=0,help='1..120 neutral credits using rolling private image retention; bounded verification, no live host producer')
+    p.add_argument('--stream-check-steps',type=int,default=0,help='1..120 rolling credits; optional exact-count horizontal render-position plan, no live host producer')
     p.add_argument('--transaction-hold-seconds',type=float,default=13,help='13..45 seconds for the initial normal transaction hold, allowing a synchronized manual reset test')
     p.add_argument('--input-candidate',type=Path,help='ignored local sampler/writer/ingress discovery JSON')
     p.add_argument('--input-plan',type=Path,help='bounded named-input oracle plan, with --gate and --input-candidate')

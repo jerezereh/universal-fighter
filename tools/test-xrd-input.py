@@ -1,7 +1,7 @@
 """Authored named-input, native-layout and source-step association checks."""
 import struct
 
-from xrd_input import input_mask, input_plan, input_candidate, input_check, oracle_passed, input_scene_ready
+from xrd_input import input_mask, input_plan, position_plan, input_candidate, input_check, oracle_passed, input_scene_ready
 
 
 def reject(action):
@@ -81,3 +81,13 @@ def main():
 
 
 if __name__=='__main__': main()
+
+rolling=position_plan([dict(frames=8,input={'back':True}),dict(frames=8,input={'forward':True}),dict(frames=4,input={})],20)
+assert len(rolling)==20
+assert input_mask(rolling[0]['input'],False)==4 and input_mask(rolling[0]['input'],True)==8
+assert input_mask(rolling[8]['input'],False)==8 and input_mask(rolling[8]['input'],True)==4
+for data,count in (([dict(frames=19,input={'back':True})],20),([dict(input={})],1),
+                   ([dict(input={'punch':True})],1),([dict(input={'up':True})],1),
+                   ([dict(input={'forward':True},accept_input=False)],1),
+                   ([dict(input={'left':True,'right':True})],1)):
+    reject(lambda:position_plan(data,count))
