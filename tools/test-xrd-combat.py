@@ -2,7 +2,7 @@
 import copy
 import struct
 
-from xrd_combat import combat_fields, contact_check, contact_observations, world_boxes, dispatch_candidate, dispatch_ownership, suppressed_contact_check, contact_callees, external_contact_check
+from xrd_combat import combat_fields, contact_check, contact_observations, world_boxes, dispatch_candidate, dispatch_ownership, suppressed_contact_check, contact_callees, external_contact_check, guard_contact_check, dispatch_result_fields
 import hashlib
 
 
@@ -13,6 +13,14 @@ def reject(action):
 
 
 def main():
+    caller=bytearray(b'\xcc'*128);caller[32:38]=b'\x8b\x87'+struct.pack('<I',128)
+    caller[48:58]=b'\x81\x8f'+struct.pack('<II',132,256)
+    witness=dict(rva=8192,size=128,pair_return_rva=8224,pending_rva=8240)
+    assert dispatch_result_fields(caller,8192,witness)['pending_mask']==256
+    reject(lambda:dispatch_result_fields(caller,8192,witness|dict(pending_rva=True)))
+    bad=bytearray(caller);bad[48]=0x80;reject(lambda:dispatch_result_fields(bad,8192,witness))
+    bad=bytearray(caller);struct.pack_into('<I',bad,54,3);reject(lambda:dispatch_result_fields(bad,8192,witness))
+    bad=bytearray(caller);struct.pack_into('<I',bad,50,128);reject(lambda:dispatch_result_fields(bad,8192,witness))
     candidate_code=bytearray(b'\xcc'*512);base=4096;entry=base+32;pair=base+400
     candidate_code[32:96]=b'\x90'*64;candidate_code[32:35]=b'\x83\xec\x50'
     candidate_code[48:53]=b'\xe8'+struct.pack('<i',pair-(base+53));candidate_code[93:96]=b'\xc2\x04\x00'
@@ -113,6 +121,25 @@ def main():
     assert not host_check(e=host_event|dict(hitstop_owner='source'))['passed']
     bad_zero=copy.deepcopy(zero_states);bad_zero[3][0]['scalar_observations']['age_candidate']+=1
     assert not host_check(samples=bad_zero)['passed']
+    block_states=copy.deepcopy(reverse)
+    for s in block_states:
+        s[0]['scalar_observations']['health_candidate']=420
+        s[0].update(pose_candidates=[dict(value='sol040_03')],state_candidates=[dict(value='CmnActMidGuardLoop')])
+    block_states[-1][0]['pose_candidates']=[dict(value='sol000_00')]
+    contact=dict(original_called=True,externally_requested=False,attacker=1,defender=0,counter=1,thread=9,before=[420,420],after=[420,420])
+    assert guard_contact_check(owned,block_states,[contact])['passed']
+    assert not guard_contact_check(owned,block_states,[])['passed']
+    assert not guard_contact_check(owned,block_states,[contact|dict(thread=8)])['passed']
+    guard_states=copy.deepcopy(zero_states)
+    for s in guard_states:
+        s[0]['scalar_observations']['health_candidate']=420
+        s[0].update(pose_candidates=[dict(value='sol040_03')],state_candidates=[dict(value='CmnActMidGuardLoop')])
+    guard_states[-1][0]['pose_candidates']=[dict(value='sol000_00')]
+    guarded=host_event|dict(before=[420,420],after=[420,420],requested_damage=None,caller_result_committed=True,native_pair_called=True)
+    guard_check=lambda e=guarded:external_contact_check(zero_records,guard_states,suppressed,[],[e],2,0,True,True)
+    assert guard_check()['passed'] and guard_check()['guard_semantics_verified']
+    assert not guard_check(e=guarded|dict(native_pair_called=False))['passed']
+    assert not guard_check(e=guarded|dict(caller_result_committed=False))['passed']
     bad_zero=copy.deepcopy(zero_states);bad_zero[3][0]['scalar_observations']['hitstop_candidate']=1
     assert not host_check(samples=bad_zero)['passed']
     reject(lambda:check(events=[event,event]))

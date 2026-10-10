@@ -505,6 +505,10 @@ the diagnostic does not yet complete universal contact or a playable guest.
 Host-owned freeze now passes a native diagnostic: clear deferred native stop, withhold
 credits to freeze, then resume native reaction age. Actual IKEMEN result transport and
 stop scheduling remain unconnected; continue the other result fields and match lifecycle.
+Standing native normal guard now passes with a caller-result commit in the verified
+source dispatch phase. Negative controls reject anticipatory poses and after-update
+application. Continue arbitrary blockstun/chip and the other result fields; this template
+proof leaves the playable capabilities and typed IKEMEN producer unimplemented.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

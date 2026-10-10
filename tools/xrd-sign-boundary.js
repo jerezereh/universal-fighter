@@ -23,6 +23,34 @@ let contactCallSamples=0;
 let contactCallUnsupported=[];
 let externalPair=null;
 
+
+function applyExternalPair(p,index,thread) {
+    const g=gate;
+    if(g.externalPairs!==0)throw new Error('external pair replay');
+    const actors=[0,1].map(i=>g.root.add(p.state.fields.slots+4*i).readPointer());
+    if(actors.some(a=>a.isNull()) || actors[1].add(p.state.fields.hit_count).readS32()<=0)
+        throw new Error('external pair requires an active native proxy normal');
+    const before=actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32());
+    if(p.external_damage && before[0]<=p.external_damage)throw new Error('external damage experiment requires a nonfatal result');
+    g.externalApplying=true;
+    try {if(!p.external_pair_control)externalPair(actors[1],actors[0],0);} finally {g.externalApplying=false;}
+    if(p.external_guard_commit) {
+        const c=p.contact.dispatch.caller_result;
+        if(hex(bytes(Process.mainModule.base.add(c.rva),10))!==c.before || actors[0].add(c.kind_field).readS32()!==2)
+            throw new Error('guard caller result witness changed');
+        const flags=actors[0].add(c.pending_field);
+        flags.writeU32(flags.readU32()|c.pending_mask);
+    }
+    if(p.external_damage)actors[0].add(p.state.scalar_fields.health_candidate).writeS32(before[0]-p.external_damage);
+    g.externalPairs++;
+    g.externalEvent={kind:'external-pair-result',request_index:index,counter:g.root.add(4+p.candidate.counter_field).readU32(),
+        thread,attacker:1,defender:0,before,
+        after:actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32()),
+        native_pair_called:!p.external_pair_control,
+        caller_result_committed:p.external_guard_commit===true,
+        requested_damage:p.external_damage || null,hitstop_owner:p.external_host_stop?'host':'source',source_collision_suppressed:true};
+}
+
 function observeNativeContact(p) {
     const target=Process.mainModule.base.add(p.contact.rva);
     if(hex(bytes(target,32))!==p.contact.before)throw new Error('native contact entry changed');
@@ -83,6 +111,7 @@ function observeNativeContact(p) {
                     thread:this.threadId,return_rva:returned,counter:root.add(4+p.candidate.counter_field).readU32(),
                     result:0,original_called:false,suppressed:true});
                 else if(dispatchSamples===257)send({kind:'error',phase:'contact-suppress',message:'suppression observation bound exceeded'});
+                if(p.external_guard && stage===1 && gate.currentIndex===p.external_pair_step)applyExternalPair(p,gate.currentIndex,this.threadId);
                 return 0;
             },'int',['pointer','int'],'thiscall');
             Interceptor.replace(entry,dispatchReplacement);
@@ -752,24 +781,13 @@ function installGate(target, p) {
         if (execute) {
             g.credits = 0; g.executing = true;
             try {
+                g.currentIndex=((s.before-g.initialCounter)>>>0)+1;
                 original(object);
                 const index=(object.add(p.candidate.counter_field).readU32()-g.initialCounter)>>>0;
-                if(p.external_pair_step && index===p.external_pair_step) {
-                    if(g.externalPairs!==0)throw new Error('external pair replay');
-                    const actors=[0,1].map(i=>g.root.add(p.state.fields.slots+4*i).readPointer());
-                    if(actors.some(a=>a.isNull()) || actors[1].add(p.state.fields.hit_count).readS32()<=0)
-                        throw new Error('external pair requires an active native proxy normal');
-                    g.externalApplying=true;
-                    const before=actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32());
-                    if(p.external_damage && before[0]<=p.external_damage)throw new Error('external damage experiment requires a nonfatal result');
-                    try {externalPair(actors[1],actors[0],0);} finally {g.externalApplying=false;}
-                    if(p.external_damage)actors[0].add(p.state.scalar_fields.health_candidate).writeS32(before[0]-p.external_damage);
-                    g.externalPairs++;
-                    send({kind:'external-pair-result',request_index:index,counter:object.add(p.candidate.counter_field).readU32(),
-                        thread:this.threadId,attacker:1,defender:0,before,
-                        after:actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32()),
-                        requested_damage:p.external_damage || null,hitstop_owner:p.external_host_stop?'host':'source',source_collision_suppressed:true});
+                if(!p.external_guard && p.external_pair_step && index===p.external_pair_step) {
+                    applyExternalPair(p,index,this.threadId);
                 }
+                if(g.externalEvent) {send({...g.externalEvent,counter:object.add(p.candidate.counter_field).readU32()});g.externalEvent=null;}
                 // Diagnostic only: host withholding credits owns freeze; native reaction may queue stop later.
                 if(p.external_host_stop && g.externalPairs)for(let i=0;i<2;i++)
                     g.root.add(p.state.fields.slots+4*i).readPointer().add(p.state.scalar_fields.hitstop_candidate).writeS32(0);

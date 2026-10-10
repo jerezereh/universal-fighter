@@ -40,6 +40,19 @@ def contact_callees(code,code_rva,local):
     return local
 
 
+def dispatch_result_fields(code,code_rva,local):
+    """Derive the witnessed caller's defender result load and pending-bit write."""
+    returned=local.get('pair_return_rva');pending=local.get('pending_rva')
+    if any(type(v)!=int for v in (returned,pending)):raise ValueError('missing caller-result witnesses')
+    start=local['rva'];end=start+local['size'];load=returned-code_rva;write=pending-code_rva
+    if not start<=returned<returned+6<=pending<pending+10<=end or not 0<=load<write+10<=len(code):raise ValueError('unbounded caller result')
+    if code[load:load+2]!=b'\x8b\x87' or code[write:write+2]!=b'\x81\x8f':raise ValueError('caller result operands changed')
+    kind=struct.unpack_from('<I',code,load+2)[0];field,mask=struct.unpack_from('<II',code,write+2)
+    if any(v%4 or not 0<=v<=0x2600-4 for v in (kind,field)) or kind==field or not mask or mask&(mask-1):raise ValueError('invalid caller result fields')
+    # The local witness still supplies branch locations; both operands are the defender (EDI).
+    return dict(kind_field=kind,pending_field=field,pending_mask=mask,rva=pending,before=code[write:write+10].hex())
+
+
 def dispatch_ownership(code,code_rva,dispatch,proof,thread):
     if (proof.get('errors') or not all(proof.get(k) for k in ('source_unchanged','detached',
             'loaded_code_restored','controlled_update_step_verified','native_contact_observer_restored')) or
@@ -89,7 +102,7 @@ def suppressed_contact_check(records,states,dispatches,contacts):
         observed_counter_phase=sorted(phases),universal_contact=False,external_results_applied=False)
 
 
-def external_contact_check(records,states,dispatches,contacts,events,step,damage=0,host_stop=False):
+def external_contact_check(records,states,dispatches,contacts,events,step,damage=0,host_stop=False,guard=False):
     executed=[r for r in records if r['executed']]
     native=contact_check(records,states,1)
     if len(records)!=len(states) or len(events)!=1 or type(step)!=int or not 1<=step<=len(executed):raise ValueError('external native contact requires exactly one requested result')
@@ -97,35 +110,58 @@ def external_contact_check(records,states,dispatches,contacts,events,step,damage
     if any(type(event.get(k))!=list or len(event[k])!=2 or any(type(v)!=int or v<0 for v in event[k]) for k in ('before','after')):
         raise ValueError('invalid external native health evidence')
     linked=(event['request_index']==step and event['counter']==frame['after'] and event['thread']==frame['thread'] and
+        event.get('native_pair_called',True) is True and
         event['attacker']==1 and event['defender']==0 and event['source_collision_suppressed'] is True and
-        event['before'][0]>event['after'][0] and event['before'][1]==event['after'][1])
+        (event['before']==event['after'] if guard else event['before'][0]>event['after'][0]) and event['before'][1]==event['after'][1])
     if type(damage)!=int or not 0<=damage<=419:raise ValueError('invalid requested damage')
     damage_mapped=(not damage and event.get('requested_damage') is None or damage>0 and
         event.get('requested_damage')==damage and event['before'][0]-event['after'][0]==damage and event['after'][0]>0 and
         len(native['damage_events'])==1 and native['damage_events'][0]['before']==event['before'][0] and
         native['damage_events'][0]['after']==event['after'][0])
     if type(host_stop)!=bool:raise ValueError('invalid hitstop owner')
+    if type(guard)!=bool or guard and (damage or not host_stop):raise ValueError('invalid guard experiment')
     host_freeze=False
     if host_stop:
         held=[s for r,s in zip(records,states) if not r['executed'] and r['after']==frame['after']]
         scalar=lambda s:[[f['scalar_observations'][k+'_candidate'] for k in ('health','hitstop','age')] for f in s]
         reacting=[s for r,s in zip(records,states) if r['executed'] and r['after']>frame['after'] and
             s[0].get('pose_candidates') and all(not re.fullmatch(r'sol00[01]_[0-9]{2}',n['value']) for n in s[0]['pose_candidates']) and
-            any('Nokezori' in n['value'] for n in s[0]['state_candidates'])]
+            any(('Guard' if guard else 'Nokezori') in n['value'] for n in s[0]['state_candidates'])]
         host_freeze=(event.get('hitstop_owner')=='host' and native['max_stop']==[0,0] and len(held)>=5 and
             all(scalar(s)==scalar(held[0]) for s in held) and len(reacting)>=2 and
             reacting[-1][0]['scalar_observations']['age_candidate']>reacting[0][0]['scalar_observations']['age_candidate'] and
-            len(native['damage_events'])==1 and native['damage_events'][0]['mirrored_box_overlap'])
+            (not native['damage_events'] and all(s[0]['scalar_observations']['health_candidate']==event['before'][0] for s in states)
+                if guard else len(native['damage_events'])==1 and native['damage_events'][0]['mirrored_box_overlap']))
     suppressed=len(dispatches)==3*len(executed) and all(
         [c['argument'] for c in dispatches[i*3:i*3+3]]==[0,1,2] and all(
             c.get('suppressed') is True and c['original_called'] is False and c['thread']==r['thread'] and
             c['this_delta']==4 and c['counter']==r['after'] for c in dispatches[i*3:i*3+3])
         for i,r in enumerate(executed))
     requested=all(c.get('externally_requested') is True for c in contacts)
-    return native|dict(passed=bool((host_freeze if host_stop else native['passed']) and linked and suppressed and requested and damage_mapped),external_result_linked=linked,
+    guard_applied=guard and event.get('caller_result_committed') is True and sum(
+        r['executed'] and r['after']>frame['after'] and any(n['value']=='sol040_03' for n in s[0].get('pose_candidates',[]))
+        for r,s in zip(records,states))>=5 and all(re.fullmatch(r'sol00[01]_[0-9]{2}',n['value']) for n in states[-1][0].get('pose_candidates',[]))
+    # Proximity guard alone is insufficient; require the original block's hit pose and caller commit.
+    return native|dict(passed=bool((guard_applied if guard else True) and (host_freeze if host_stop else native['passed']) and linked and suppressed and requested and damage_mapped),external_result_linked=linked,
         host_freeze_verified=host_freeze,
+        native_guard_reaction_candidate=bool(guard and host_freeze),guard_semantics_verified=bool(guard_applied and host_freeze and linked and suppressed and requested),
         requested_damage_verified=bool(damage and damage_mapped),
         source_dispatch_suppressed=suppressed,automatic_pair_calls=sum(c.get('externally_requested') is not True for c in contacts),
+        universal_contact=False,typed_host_result_applied=False)
+
+
+def guard_contact_check(records,states,contacts):
+    """Original native block baseline; anticipatory guarding alone must fail."""
+    native=contact_check(records,states,1)
+    executed={r['before']:r for r in records if r['executed']}
+    linked=len(contacts)==1 and all(c.get('original_called') is True and not c.get('externally_requested') and
+        c.get('attacker')==1 and c.get('defender')==0 and c.get('counter') in executed and
+        c.get('thread')==executed[c['counter']]['thread'] and c.get('before')==c.get('after') for c in contacts)
+    health=[[f['scalar_observations']['health_candidate'] for f in s] for s in states]
+    guarded=any(any('Guard' in n['value'] for n in s[0]['state_candidates']) for s in states)
+    recovered=bool(states[-1][0].get('pose_candidates')) and all(re.fullmatch(r'sol00[01]_[0-9]{2}',n['value']) for n in states[-1][0]['pose_candidates'])
+    passed=linked and all(h==health[0] for h in health) and guarded and recovered and all(native['max_stop']) and all(n>=3 for n in native['countdown_steps']) and all(n>=3 for n in native['held_animation_age_steps']) and native['frozen_stop_samples']>=5 and native['frozen_scalar_changes']==0 and native['stop_recovered'] and native['animation_age_resumed']
+    return native|dict(passed=bool(passed),original_guard_verified=bool(passed),original_pair_linked=linked,
         universal_contact=False,typed_host_result_applied=False)
 
 

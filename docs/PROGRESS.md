@@ -1,5 +1,29 @@
 # Progress record
 
+## 2026-10-09 — Native guarded result phase and caller commit
+
+- User reset baseline is verified at full health/default positions. Source-only
+  approach `20261010-042922-749575/boundary-20261010-062238-104405` passes.
+- Added original guard baseline and a no-call control. Initial direct-call guard poses
+  were anticipatory and did not reproduce block stun. No-call control
+  `boundary-20261010-062423-564263` rejects; the earlier candidate is not a verified
+  block result. Original guard `boundary-20261010-062740-038314` passes unchanged
+  health, linked original pair, stop 12/11, held age, countdown and idle recovery.
+- Derive defender result/pending-bit operands from a private witnessed caller and
+  validate bounded instruction bytes. An after-update pending-bit experiment
+  `boundary-20261010-063030-610786` still fails the block-hit-pose check. Applying the
+  pair and caller commit during the verified native stage-one dispatch succeeds:
+  `boundary-20261010-063223-195982` passes 78 credits/234 suppressed dispatcher stages,
+  zero damage, the original standing block-hit pose, host-owned freeze and recovery.
+  All source/observer/render code restores and detaches cleanly. Offsets stay ignored.
+- Authored checks reject changed/aliased/unbounded caller fields, no-call or uncommitted
+  guard results, wrong original-contact thread and missing baseline contact. Combat,
+  input, boundary and JS syntax pass. Native unguarded 17-point damage/freeze regression
+  `boundary-20261010-063449-474292` passes after helper reuse.
+- This verifies the native standing normal guard template, not arbitrary host blockstun,
+  chip, crouching/air guard, parry or barrier. Typed IKEMEN transport, other result
+  fields, KO/reset and atomic rendered match acceptance remain pending. Capabilities off.
+
 ## 2026-10-09 — Host-owned freeze without a native stop countdown
 
 - Opt-in `--external-host-stop` clears deferred native stop fields after owned source
