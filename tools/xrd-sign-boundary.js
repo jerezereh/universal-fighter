@@ -548,6 +548,10 @@ function snapshot(root) {
     return {segments: segments.map(({address, offset, size}) => ({address, offset, size})), data: output.buffer};
 }
 
+function ownedCreditReady(g) {
+    return g.credits===1 && (!config.layer || meshLayer===null && pendingLayer===null);
+}
+
 function publish(s, after, executed) {
     const captured = snapshot(s.root);
     send({kind: 'frame',sequence: ++sequence, before: s.before, after,
@@ -618,7 +622,7 @@ function installGate(target, p) {
                 ...(error.ownership_changes?{ownership_changes:error.ownership_changes}:{})});
             original(object); return;
         }
-        const execute = g.credits === 1;
+        const execute = ownedCreditReady(g);
         if (g.initialCounter === null) g.initialCounter = s.before;
         if (execute) {
             g.credits = 0; g.executing = true;

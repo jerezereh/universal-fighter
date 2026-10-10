@@ -432,6 +432,12 @@ acceptance fails with missing layers; fresh preparation subsequently reports D3D
 loss. Keep capabilities disabled. Recover the actual SIGN display manually, derive fresh
 graphics bindings and verify rolling credits before continuous transport/contact/results.
 Five-second owner observation preserves the 100-sample guard at reduced background FPS.
+After manual display recovery, fresh preparation passes. Rolling capture exposes a
+source/render overlap after four credits; queued credits now wait for renderer-owned
+private layers to release and pending credits suppress new replay. Native retry passes
+20 neutral credits/21 linked images with clean restoration; legacy four-frame regression
+passes too. Continue non-neutral rolling coverage and continuous controller/transport
+lifetime before contact/results. Capabilities and automatic rebind stay disabled.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

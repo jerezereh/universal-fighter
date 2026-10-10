@@ -30,6 +30,7 @@ for(let index=0;index<1000;index++) {
     assert.throws(()=>api.step([0,0],(c.counter-1)>>>0),/stale/);
     api.step([1,0],c.counter);
     assert.equal(run('gate.credits'),1);assert.equal(run('gate.frameReady'),null);
+    assert.equal(run('layerRequestSelected((counter-gate.initialCounter)>>>0)'),false);
     assert.throws(()=>api.step([0,0],c.counter),/pending/);
 }
 run('gate.pending=false;gate.credits=0;pendingLayer=candidate(24,9);previousCandidate={layer:candidate(23,7),scene:{metadata:{}}}');
@@ -40,6 +41,13 @@ run('gate.frameReady=null;renderCapture.presentations=25');
 assert.throws(()=>run('assertLayerWindow()'),/bounded presentation window/);
 run('gate.pending=true;assertLayerWindow();gate.pending=false;gate.frameReady=counter;assertLayerWindow()');
 run('config.streaming=false;gate.frameReady=null;assertLayerWindow()');
+run('gate.credits=1;meshLayer={};pendingLayer=null');
+assert.equal(run('ownedCreditReady(gate)'),false);
+run('meshLayer=null;pendingLayer={}');assert.equal(run('ownedCreditReady(gate)'),false);
+run('pendingLayer=null');assert.equal(run('ownedCreditReady(gate)'),true);
+run('gate.credits=0');assert.equal(run('ownedCreditReady(gate)'),false);
+run('gate.pending=true;meshLayer={};releaseLayer=()=>{meshLayer=null};finishMeshLayer(null)');
+assert.equal(run('meshLayer'),null);assert.equal(run('pendingLayer'),null);
 c.Interceptor={flush:()=>{}};
 run('config.streaming=true;gate=null;pendingLayer={};previousCandidate={};pixelScratch={};finishStop()');
 assert.equal(run('pendingLayer'),null);assert.equal(run('previousCandidate'),null);assert.equal(run('pixelScratch'),null);

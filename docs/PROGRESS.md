@@ -1,5 +1,36 @@
 # Progress record
 
+## 2026-10-09 — Native rolling verification and source/render exclusion
+
+- After the user restores SIGN's display, fresh preparation succeeds in ignored
+  `20261010-000623-001413`: owner `boundary-20261010-000624-945234` has 273 clean
+  increments; new draw/mesh/screen stages end at `000636-638695`, `000647-768648` and
+  `000658-835227`. Screen inventory captures thirteen stages. Final preparation
+  `boundary-20261010-000718-838996` passes three exact credits, four paired frames,
+  zero gaps/errors and complete restoration. New render thread is 30972.
+- First fresh rolling attempt `boundary-20261010-000803-327567` produces five linked
+  frames and four credits, then rejects a missing current body anchor. Failed receipt
+  remains preserved. The faster request cadence exposed source/render overlap.
+- Queued source credits now wait while a private mesh or pending layer exists. Pending
+  credits prevent new body-anchor/private replay work; an existing incomplete layer is
+  released on the renderer thread without publication. This preserves one-credit and
+  stale-counter rules while preventing native source updates during private frame work.
+  Authored checks verify deferred credits, pending capture rejection and independent
+  layer release, alongside the 1,000-credit/wrap/retention and existing lease/render tests.
+- Native rolling retry `boundary-20261010-001001-639918` passes 20 exact credits and
+  21 ordered state/private-image receipts in 31.04 seconds, zero gaps/errors, source-code
+  and render-hook restoration, and clean detach. Only one final image is saved. Visual
+  inspection of that RGB preview shows Sol facing right; unit/pivot and alpha-edge human
+  acceptance remain separate. This accepts bounded neutral rolling verification, not an
+  indefinite producer, atomic native pose or live host transport.
+- Shared-guard legacy regression `boundary-20261010-001123-058807` also passes: three
+  exact credits, 244 blocked updates, four paired frames, zero gaps/errors and restoration.
+  Syntax/whitespace and authored stream/lease/replay/readback/transform checks pass.
+- Next: non-neutral rolling input coverage and continuous controller/transport lifetime,
+  then original contact suppression and external universal results. Source capabilities
+  and automatic live rebind remain disabled. No manual reset or restart was performed by
+  tooling; the same verified SIGN PID 22700 remains separate from Rev2.
+
 ## 2026-10-09 — Experimental rolling private frame transactions
 
 - Added opt-in native streaming: one settled private state/image packet per counter,

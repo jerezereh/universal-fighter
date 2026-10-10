@@ -16,7 +16,7 @@ let privateViewOffset=null;
 
 function layerRequestSelected(index) {
     // Streaming retains one readiness receipt; the next credit consumes it.
-    return config.streaming ? gate.frameReady === null : config.layer.capture_steps.includes(index);
+    return config.streaming ? !gate.pending && !gate.executing && gate.frameReady === null : config.layer.capture_steps.includes(index);
 }
 
 function assertLayerWindow() {
@@ -148,7 +148,7 @@ function projectionRows(origin,facingLeft,p) {
 
 function observeBodyAnchor(device,d) {
     const p=config.layer.projection;
-    if (!p || layerFailed || !layerPresentationSelected()) return;
+    if (!p || layerFailed || gate?.pending || gate?.executing || !layerPresentationSelected()) return;
     const body=config.suppress_draws.parts.body;
     if (d.indexBuffer!==body.index_buffer || d.vertexBuffer!==body.vertex_buffer) return;
     const root=Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
@@ -425,7 +425,7 @@ function inspectLayerTransform(device,d,counter,viewport) {
 
 function replayMeshDraw(device, original, values, d) {
     const g = gate, p = config.layer;
-    if (layerDrawing || layerFailed || layerStopping || g === null || g.resumed || g.executing || Date.now() > g.deadline || !config.streaming && layerCaptures >= p.capture_steps.length * (p.settle?2:p.presentations.length) ||
+    if (layerDrawing || layerFailed || layerStopping || g === null || g.resumed || g.pending || g.executing || Date.now() > g.deadline || !config.streaming && layerCaptures >= p.capture_steps.length * (p.settle?2:p.presentations.length) ||
         d.currentTarget !== p.target || !layerPresentationSelected() || !p.programs[d.pixelShader]) return;
     const root = Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
     const counter = root.add(4 + config.candidate.counter_field).readU32();
@@ -549,6 +549,8 @@ function finishMeshLayer(device) {
     if (meshLayer === null) return;
     const current = meshLayer;
     try {
+        // A queued credit waits for this renderer-owned frame to release; never publish it.
+        if (gate?.pending) return;
         const root = Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
         if(config.layer.grade && !current.graded)throw new Error('private mesh lacks native grading');
         if(config.layer.post_color && !current.post?.complete)throw new Error('private post-color chain incomplete');

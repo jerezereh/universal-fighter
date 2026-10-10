@@ -859,6 +859,9 @@ latest image and saves it after teardown in `latest-layer`; frame receipts retai
 counter/order/hash metadata. Full-scene pixels are omitted. Matching private images remain
 a readiness candidate, not atomic pose acceptance. State/telemetry logging is bounded by
 the check; an indefinite host producer is not implemented. Capabilities stay false.
-Native rolling acceptance is pending after missing candidates and D3D9 device loss.
-Restore the SIGN display and derive fresh graphics evidence before reuse; do not reuse
-bindings from a failed preparation.
+After display recovery and fresh preparation, native neutral rolling verification passes
+20 credits and 21 linked images with clean restoration. Queued credits wait for existing
+renderer-owned private frames to release; pending credits suppress new replay. Source/
+render overlap was observed and rejected before this guard. Non-neutral rolling coverage
+and indefinite transport still remain pending. Restore a lost SIGN display and derive
+fresh graphics evidence before reuse; do not reuse bindings from a failed preparation.
