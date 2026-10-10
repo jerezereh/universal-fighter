@@ -493,6 +493,12 @@ a clean 78-credit suppression/recovery check. Native original-contact regression
 again after teardown. Continue external native result/reaction application and real host
 transport; bounded suppression alone does not complete universal-contact capability.
 
+Requested native normal-hit application now passes with all automatic source dispatcher
+stages suppressed: one Ky proxy Punch damages Sol and produces native stop/reaction with
+clean recovery. This is a bounded diagnostic, not arbitrary typed HostHitResult mapping.
+Continue host damage/guard/stun/push/KO translation and training health recovery ownership,
+then atomic rendered guest responses and a live mixed IKEMEN match. Capabilities stay off.
+
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a
 deliverable. Every behavior change needs focused validation; visual match acceptance

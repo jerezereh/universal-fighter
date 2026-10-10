@@ -21,6 +21,25 @@ def dispatch_candidate(code,code_rva,local,pair_rva):
     return dict(rva=rva,before=body[:32].hex())
 
 
+def contact_callees(code,code_rva,local):
+    if type(local)!=list or not 1<=len(local)<=16:raise ValueError('contact callee observation requires 1..16 selected entries')
+    seen=set()
+    for c in local:
+        if type(c)!=dict or set(c)!={'rva','before','return_rvas'} or type(c['rva'])!=int:
+            raise ValueError('invalid contact callee candidate')
+        at=c['rva']-code_rva
+        if not 0<at<at+32<=len(code) or code[at-1]!=0xcc or code[at]==0xcc or code[at:at+32].hex()!=c['before'] or c['rva'] in seen:
+            raise ValueError('contact callee entry changed/aliased')
+        seen.add(c['rva'])
+        if type(c['return_rvas'])!=list or not 1<=len(c['return_rvas'])<=64:raise ValueError('invalid contact callee callers')
+        for returned in c['return_rvas']:
+            if type(returned)!=int:raise ValueError('invalid contact callee caller')
+            call=returned-code_rva-5
+            if not 0<=call<call+5<=len(code) or code[call]!=0xe8 or returned+struct.unpack_from('<i',code,call+1)[0]!=c['rva']:
+                raise ValueError('contact callee caller code changed')
+    return local
+
+
 def dispatch_ownership(code,code_rva,dispatch,proof,thread):
     if (proof.get('errors') or not all(proof.get(k) for k in ('source_unchanged','detached',
             'loaded_code_restored','controlled_update_step_verified','native_contact_observer_restored')) or
@@ -68,6 +87,27 @@ def suppressed_contact_check(records,states,dispatches,contacts):
     return dict(passed=bool(overlap_steps and clean and ordered and not contacts),overlapping_active_steps=overlap_steps,
         native_health_stop_reaction_unchanged=clean,owned_dispatch_suppressed=ordered,native_pair_calls=len(contacts),
         observed_counter_phase=sorted(phases),universal_contact=False,external_results_applied=False)
+
+
+def external_contact_check(records,states,dispatches,contacts,events,step):
+    executed=[r for r in records if r['executed']]
+    native=contact_check(records,states,1)
+    if len(records)!=len(states) or len(events)!=1 or type(step)!=int or not 1<=step<=len(executed):raise ValueError('external native contact requires exactly one requested result')
+    event=events[0];frame=executed[step-1]
+    if any(type(event.get(k))!=list or len(event[k])!=2 or any(type(v)!=int or v<0 for v in event[k]) for k in ('before','after')):
+        raise ValueError('invalid external native health evidence')
+    linked=(event['request_index']==step and event['counter']==frame['after'] and event['thread']==frame['thread'] and
+        event['attacker']==1 and event['defender']==0 and event['source_collision_suppressed'] is True and
+        event['before'][0]>event['after'][0] and event['before'][1]==event['after'][1])
+    suppressed=len(dispatches)==3*len(executed) and all(
+        [c['argument'] for c in dispatches[i*3:i*3+3]]==[0,1,2] and all(
+            c.get('suppressed') is True and c['original_called'] is False and c['thread']==r['thread'] and
+            c['this_delta']==4 and c['counter']==r['after'] for c in dispatches[i*3:i*3+3])
+        for i,r in enumerate(executed))
+    requested=all(c.get('externally_requested') is True for c in contacts)
+    return native|dict(passed=bool(native['passed'] and linked and suppressed and requested),external_result_linked=linked,
+        source_dispatch_suppressed=suppressed,automatic_pair_calls=sum(c.get('externally_requested') is not True for c in contacts),
+        universal_contact=False,typed_host_result_applied=False)
 
 
 def combat_fields(code,code_rva,local):
@@ -131,7 +171,9 @@ def contact_observations(records,states,contacts):
         original_source_combat_preserved=True,source_contact_suppressed=False,universal_contact=False)
 
 
-def contact_check(records,states):
+def contact_check(records,states,attacker_slot=0):
+    if type(attacker_slot)!=int or attacker_slot not in (0,1):raise ValueError('invalid native attacker slot')
+    if attacker_slot==1:states=[s[::-1] for s in states]
     executed=[(r,s) for r,s in zip(records,states) if r['executed']]
     if len(executed)<20: raise ValueError('native contact capture is too short')
     scalar=lambda s,slot,name:s[slot]['scalar_observations'][name+'_candidate']

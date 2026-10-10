@@ -1,5 +1,6 @@
 """Authored named-input, native-layout and source-step association checks."""
 import struct
+import copy
 
 from xrd_input import input_mask, input_plan, position_plan, punch_plan, input_candidate, input_check, oracle_passed, input_scene_ready
 
@@ -11,6 +12,11 @@ def reject(action):
 
 
 def main():
+    position=dict(source_history_linked=True,opponent_neutral=True,grounded_at_end=True,airborne=False,
+        active_normal_steps=0,walk_left=False,walk_right=True)
+    assert oracle_passed('positioning',position)
+    for patch in (dict(source_history_linked=False),dict(airborne=True),dict(active_normal_steps=1),dict(walk_right=False)):
+        assert not oracle_passed('positioning',position|patch)
     assert len(punch_plan([dict(frames=1,input={'punch':True}),dict(frames=19,input={})],20))==20
     for data in ([dict(input={'kick':True})],[dict(input={'punch':True,'up':False})],[dict(input={})],
             [dict(input={'punch':True},accept_input=False)]):reject(lambda:punch_plan(data,1))
@@ -69,6 +75,11 @@ def main():
     calls=[dict(injected=True,counter=10,slot=i,incoming=mask) for i,mask in enumerate([16,0])]
     checked=input_check(records,states,calls)
     assert checked['source_history_linked'] and checked['standing_punch_activations']==1 and checked['active_normal_steps']==1
+    reverse_states=[[states[0][1],states[0][0]|dict(pose_candidates=[dict(value='kyk200_02')])]]
+    reverse_records=[records[0]|dict(requested_inputs=[0,16]),dict(executed=False,requested_inputs=None)]
+    reverse_calls=[c|dict(slot=1-c['slot']) for c in calls]
+    reverse=input_check(reverse_records,reverse_states+[copy.deepcopy(reverse_states[0])],reverse_calls,controlled_slot=1)
+    assert reverse['source_history_linked'] and reverse['standing_punch_activations']==1
     assert not input_check(records,states,calls[:-1])['source_history_linked']
     assert not input_check(records,states,[calls[0]|dict(incoming=0),calls[1]])['source_history_linked']
     fighter=lambda x,y,left:dict(x_raw=x,y_raw=y,facing_left=left,hit_count=0,state_candidates=[],pose_candidates=[])

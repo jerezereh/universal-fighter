@@ -1,5 +1,31 @@
 # Progress record
 
+## 2026-10-09 — Requested native hit with automatic contacts suppressed
+
+- Added bounded selected-callee observation and second-player contact controls. Broad
+  callee tracing had a failed teardown; it is not accepted evidence. The inventory is
+  now limited to 16 selected entries and detached callback owners remain referenced
+  until script unload. Single-callee observation restores and detaches cleanly.
+- Fresh scalar/source bundle `20261010-042922-749575` belongs to SIGN PID 18088.
+  Reverse original-contact receipt `boundary-20261010-050449-356147` verifies 78
+  credits, 234 original dispatcher stages, Ky Punch damage and native reaction.
+- Opt-in requested-pair receipt `boundary-20261010-051317-907929` passes 78 credits,
+  234 suppressed automatic dispatcher stages and one requested Ky-to-Sol hit at
+  step 39. Sol health changes 420 to 412, native stops reach 12/11, reaction and
+  countdown recover, and source code restoration/detach pass. A preceding attach
+  timeout installed no native changes and remains preserved as failed evidence.
+- Added source-only positioning checks and reverse input association, including held
+  samples without requested inputs. Authored regressions reject replay, wrong frame,
+  wrong thread, malformed health, unordered stages and automatic pair calls. Combat,
+  input, boundary, native and stream Python checks plus JavaScript syntax pass.
+  Rechecking the accepted native receipt with the strengthened ownership checker passes.
+- This is a native normal-hit experiment, not typed IKEMEN result translation. It
+  relies on the active native proxy Punch data; universal contact stays disabled.
+  Training later restores health to 420/420, so recovery/lifecycle ownership needs
+  resolution alongside arbitrary host damage, guard, stun, push and KO mapping.
+  Current bundle has no refreshed private-render preparation. Foot pivot, atomic
+  playable response, latency and a live mixed IKEMEN match remain pending.
+
 ## 2026-10-09 — Clean bounded suppression and recovery
 
 - Restarted SIGN is PID 12556; Rev2 PID 3824 remains untouched. Fresh preparation

@@ -61,13 +61,14 @@ def punch_plan(data,expected_frames):
     return frames
 
 
-def input_scene_ready(fighters,oracle,requests):
+def input_scene_ready(fighters,oracle,requests,controlled_slot=0):
     if len(fighters)!=2 or any(f['y_raw'] or f['hit_count'] for f in fighters):return False
-    if not any(re.fullmatch(r'sol00[01]_[0-9]{2}',n['value']) for n in fighters[0]['pose_candidates']):return False
+    prefix=('sol','kyk')[controlled_slot]
+    if not any(re.fullmatch(prefix+r'00[01]_[0-9]{2}',n['value']) for n in fighters[controlled_slot]['pose_candidates']):return False
     distance=abs(fighters[0]['x_raw']-fighters[1]['x_raw'])
     if oracle=='contact':return distance<=350000
     # A pure retreat can safely create spacing without a guessed position write.
-    if oracle=='render-position' and requests and all(q['accept_input'] and q['input'] in ({},{'back':True}) for q in requests) and any(q['input'].get('back') for q in requests):return True
+    if oracle in ('render-position','positioning') and requests and all(q['accept_input'] and q['input'] in ({},{'back':True}) for q in requests) and any(q['input'].get('back') for q in requests):return True
     if oracle=='render-facing':
         from xrd_combat import world_boxes
         left,right=sorted(fighters,key=lambda f:f['x_raw'])
@@ -76,7 +77,13 @@ def input_scene_ready(fighters,oracle,requests):
     return distance>=350000
 
 
-def input_check(records,states,inputs,requests=()):
+def input_check(records,states,inputs,requests=(),controlled_slot=0):
+    if type(controlled_slot)!=int or controlled_slot not in (0,1):raise ValueError('invalid controlled source slot')
+    if controlled_slot==1:
+        records=[r|dict(requested_inputs=r['requested_inputs'][::-1] if r['requested_inputs'] is not None else None) for r in records]
+        states=[s[::-1] for s in states]
+        inputs=[i|dict(slot=1-i['slot']) for i in inputs]
+    normal_prefix=('sol200_','kyk200_')[controlled_slot]
     executed=[(r,s) for r,s in zip(records,states) if r['executed']]
     by_counter={}
     for i in inputs:
@@ -87,7 +94,7 @@ def input_check(records,states,inputs,requests=()):
         linked &= len(calls)==2 and sorted(i['slot'] for i in calls)==[0,1] and all(i['incoming']==r['requested_inputs'][i['slot']] for i in calls)
     walk_left=walk_right=airborne=False;normal_activations=0;was_normal=False
     for index,(r,s) in enumerate(executed):
-        sol=s[0];normal=any(n['value']=='NmlAtk5A' for n in sol['state_candidates']) and any(n['value'].startswith('sol200_') for n in sol['pose_candidates'])
+        sol=s[0];normal=any(n['value']=='NmlAtk5A' for n in sol['state_candidates']) and any(n['value'].startswith(normal_prefix) for n in sol['pose_candidates'])
         if normal and not was_normal: normal_activations+=1
         was_normal=normal
         airborne |= sol['y_raw']>0
@@ -122,6 +129,8 @@ def input_check(records,states,inputs,requests=()):
 
 
 def oracle_passed(kind,result):
+    if kind=='positioning':
+        return result['source_history_linked'] and result['opponent_neutral'] and result['grounded_at_end'] and not result['airborne'] and result['active_normal_steps']==0 and (result['walk_left'] or result['walk_right'])
     if kind=='movement':
         return all(result[k] for k in ('walk_left','walk_right','airborne','grounded_at_end','opponent_neutral')) and result['standing_punch_activations']>=2 and result['active_normal_steps']>0
     if kind=='crossover':

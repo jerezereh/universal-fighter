@@ -17,12 +17,53 @@ let contactSamples = 0;
 let dispatchObserver=null;
 let dispatchSamples=0;
 let dispatchReplacement=null;
+let activeContact=null;
+let contactCallObservers=[];
+let contactCallSamples=0;
+let contactCallUnsupported=[];
+let externalPair=null;
 
 function observeNativeContact(p) {
     const target=Process.mainModule.base.add(p.contact.rva);
     if(hex(bytes(target,32))!==p.contact.before)throw new Error('native contact entry changed');
+    if(p.external_pair_step)externalPair=new NativeFunction(target,'void',['pointer','pointer','int'],{abi:'thiscall',exceptions:'propagate'});
     contactSamples=0;
     dispatchSamples=0;
+    contactCallSamples=0;
+    contactCallUnsupported=[];
+    for(const c of p.contact.callees || []) {
+        const entry=Process.mainModule.base.add(c.rva);
+        if(hex(bytes(entry,32))!==c.before)throw new Error('native contact callee changed');
+        const scalars=actors=>actors.map(a=>['health_candidate','hitstop_candidate'].map(k=>a.add(p.state.scalar_fields[k]).readS32()));
+        let observer;
+        try {observer=Interceptor.attach(entry,{
+            onEnter(args) {
+                this.call=null;
+                const owner=activeContact;
+                if(!owner || !gate || !gate.executing || this.threadId!==owner.thread)return;
+                const returned=this.returnAddress.sub(Process.mainModule.base).toUInt32();
+                if(!c.return_rvas.includes(returned))return;
+                this.call={actors:owner.actors,rva:c.rva,return_rva:returned,thread:this.threadId,counter:owner.counter,
+                    object_slot:owner.actors.findIndex(a=>a.equals(this.context.ecx)),before:scalars(owner.actors),
+                    argument_words:[args[0].toUInt32(),args[1].toUInt32()],
+                    argument_actor_slots:[args[0],args[1]].map(value=>owner.actors.findIndex(a=>a.equals(value)))};
+            },
+            onLeave() {
+                if(!this.call)return;
+                const value=this.call;contactCallSamples++;
+                if(contactCallSamples<=256)send({kind:'native-contact-callee',rva:value.rva,return_rva:value.return_rva,
+                    thread:value.thread,counter:value.counter,object_slot:value.object_slot,before:value.before,
+                    after:scalars(value.actors),argument_words:value.argument_words,argument_actor_slots:value.argument_actor_slots,
+                    argument_semantics_verified:false,original_called:true});
+                else if(contactCallSamples===257)send({kind:'error',phase:'contact-callees',message:'native contact callee bound exceeded'});
+            }
+        });} catch(error) {
+            if(!String(error).includes('unable to intercept function'))throw error;
+            contactCallUnsupported.push({rva:c.rva,reason:String(error)});
+            continue;
+        }
+        contactCallObservers.push({observer,entry,before:c.before});
+    }
     if(p.contact.dispatch) {
         const d=p.contact.dispatch,entry=Process.mainModule.base.add(d.rva);
         if(hex(bytes(entry,32))!==d.before)throw new Error('native dispatch entry changed');
@@ -79,15 +120,19 @@ function observeNativeContact(p) {
                 const health=()=>actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32());
                 this.contact={attacker,defender,argument:args[1].toInt32(),thread:this.threadId,
                     return_rva:this.returnAddress.sub(Process.mainModule.base).toUInt32(),
-                    counter:root.add(4+p.candidate.counter_field).readU32(),before:health(),actors};
+                    counter:root.add(4+p.candidate.counter_field).readU32(),before:health(),actors,
+                    externally_requested:gate.externalApplying===true};
+                if(activeContact!==null)throw new Error('nested native pair contact is unsupported');
+                activeContact=this.contact;
             } catch(error) {send({kind:'error',phase:'contact-observe',message:String(error)});}
         },
         onLeave() {
             if(!this.contact)return;
+            activeContact=null;
             const c=this.contact;contactSamples++;
             if(contactSamples<=256)send({kind:'native-contact-observation',attacker:c.attacker,defender:c.defender,
                 argument:c.argument,thread:c.thread,return_rva:c.return_rva,counter:c.counter,before:c.before,
-                after:c.actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32()),original_called:true});
+                after:c.actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32()),original_called:true,externally_requested:c.externally_requested});
             else if(contactSamples===257)send({kind:'error',phase:'contact-observe',message:'contact observation bound exceeded'});
         }
     });
@@ -676,7 +721,7 @@ function installGate(target, p) {
         frameReady: null,
         lastCounter: null, heldState: null,
         ownsState: p.transactions || p.renewable && p.state.ownership_age_field!==undefined,
-        executing: false, inputs: [0, 0], initialCounter: null};
+        executing: false, inputs: [0, 0], initialCounter: null,externalPairs:0,externalApplying:false};
     const replacement = new NativeCallback(function(object) {
         const g = gate;
         if (g === null || g.resumed) { original(object); return; }
@@ -706,7 +751,23 @@ function installGate(target, p) {
         if (g.initialCounter === null) g.initialCounter = s.before;
         if (execute) {
             g.credits = 0; g.executing = true;
-            try { original(object); } finally { g.executing = false; }
+            try {
+                original(object);
+                const index=(object.add(p.candidate.counter_field).readU32()-g.initialCounter)>>>0;
+                if(p.external_pair_step && index===p.external_pair_step) {
+                    if(g.externalPairs!==0)throw new Error('external pair replay');
+                    const actors=[0,1].map(i=>g.root.add(p.state.fields.slots+4*i).readPointer());
+                    if(actors.some(a=>a.isNull()) || actors[1].add(p.state.fields.hit_count).readS32()<=0)
+                        throw new Error('external pair requires an active native proxy normal');
+                    g.externalApplying=true;
+                    const before=actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32());
+                    try {externalPair(actors[1],actors[0],0);} finally {g.externalApplying=false;}
+                    g.externalPairs++;
+                    send({kind:'external-pair-result',request_index:index,counter:object.add(p.candidate.counter_field).readU32(),
+                        thread:this.threadId,attacker:1,defender:0,before,
+                        after:actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32()),source_collision_suppressed:true});
+                }
+            } finally { g.executing = false; }
         }
         try {
             const after=object.add(p.candidate.counter_field).readU32();
@@ -797,10 +858,15 @@ function verifyGateOwner(checkState=true) {
 
 function finishStop() {
     let contactRestored=true;
+    for(const c of contactCallObservers)c.observer.detach();
+    Interceptor.flush();
+    contactRestored=contactCallObservers.every(c=>hex(bytes(c.entry,32))===c.before);
+    // Retain detached callback owners until script unload, like the native replacement.
+    activeContact=null;
     if(dispatchObserver) {
         dispatchObserver.detach();dispatchObserver=null;Interceptor.flush();
         // Keep the native callback alive until script unload, including any retiring call.
-        contactRestored=hex(bytes(Process.mainModule.base.add(config.contact.dispatch.rva),32))===config.contact.dispatch.before;
+        contactRestored=contactRestored && hex(bytes(Process.mainModule.base.add(config.contact.dispatch.rva),32))===config.contact.dispatch.before;
     }
     if(contactObserver) {
         contactObserver.detach();contactObserver=null;Interceptor.flush();
@@ -823,7 +889,7 @@ function finishStop() {
     }
     stopRequested = false;
     return {detached: true, samples: sequence, render_code_restored: renderRestored, render_targets: renderTargets,
-        diagnostic_mesh_draws_skipped: skipped,contact_observer_code_restored:contactRestored,contact_samples:contactSamples,dispatch_samples:dispatchSamples};
+        diagnostic_mesh_draws_skipped: skipped,contact_observer_code_restored:contactRestored,contact_samples:contactSamples,dispatch_samples:dispatchSamples,contact_callee_samples:contactCallSamples,contact_callee_unsupported:contactCallUnsupported};
 }
 
 rpc.exports = {

@@ -2,7 +2,7 @@
 import copy
 import struct
 
-from xrd_combat import combat_fields, contact_check, contact_observations, world_boxes, dispatch_candidate, dispatch_ownership, suppressed_contact_check
+from xrd_combat import combat_fields, contact_check, contact_observations, world_boxes, dispatch_candidate, dispatch_ownership, suppressed_contact_check, contact_callees, external_contact_check
 import hashlib
 
 
@@ -25,6 +25,12 @@ def main():
         native_contact_observer_restored=True,contact_check=dict(passed=True),native_contact_pair_check=dict(passed=True),
         native_dispatch_observations=calls,gate_check=dict(executed=20))
     assert dispatch_ownership(candidate_code,base,dispatch,proof,9)['return_rvas']==returns
+    selected=dict(rva=entry,before=bytes(candidate_code[32:64]).hex(),return_rvas=returns)
+    assert contact_callees(candidate_code,base,[selected])==[selected]
+    reject(lambda:contact_callees(candidate_code,base,[selected]*17))
+    reject(lambda:contact_callees(candidate_code,base,[selected,selected]))
+    reject(lambda:contact_callees(candidate_code,base,[selected|dict(before='bad')]))
+    reject(lambda:contact_callees(candidate_code,base,[selected|dict(return_rvas=[base+5])]))
     reject(lambda:dispatch_ownership(candidate_code,base,dispatch,proof,8))
     reject(lambda:dispatch_candidate(candidate_code,base,local|dict(sha256='bad'),pair))
     bad=copy.deepcopy(proof);bad['native_dispatch_observations'][3]['argument']=2
@@ -79,6 +85,24 @@ def main():
             for _ in range(2): records.append(dict(executed=False));states.append(copy.deepcopy(s))
     checked=contact_check(records,states)
     assert checked['passed'] and len(checked['damage_events'])==1 and checked['max_stop']==[5,5]
+    reverse=[s[::-1] for s in states]
+    assert contact_check(records,reverse,1)['passed']
+    owned=copy.deepcopy(records);counter=0
+    for r in owned:
+        r.update(before=counter,after=counter+int(r['executed']),thread=9)
+        counter=r['after']
+    suppressed=[dict(argument=stage,counter=r['after'],thread=9,this_delta=4,suppressed=True,original_called=False)
+        for r in owned if r['executed'] for stage in range(3)]
+    event=dict(request_index=2,counter=2,thread=9,attacker=1,defender=0,source_collision_suppressed=True,before=[420,420],after=[410,420])
+    check=lambda events=[event],dispatches=suppressed,contacts=[]:external_contact_check(owned,reverse,dispatches,contacts,events,2)
+    assert check()['passed'] and not check()['typed_host_result_applied']
+    reject(lambda:check(events=[event,event]))
+    reject(lambda:check(events=[event|dict(after=[])]))
+    for patch in (dict(counter=3),dict(thread=8),dict(attacker=0),dict(source_collision_suppressed=False)):
+        assert not check(events=[event|patch])['passed']
+    for patch in (dict(argument=2),dict(counter=0),dict(thread=8),dict(this_delta=0),dict(original_called=True)):
+        assert not check(dispatches=[suppressed[0]|patch]+suppressed[1:])['passed']
+    assert not check(contacts=[dict(externally_requested=False)])['passed']
     bad=copy.deepcopy(states);bad[2][0]['scalar_observations']['hitstop_candidate']-=1
     assert not contact_check(records,bad)['passed']
     bad=copy.deepcopy(states)
