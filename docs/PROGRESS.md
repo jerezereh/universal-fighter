@@ -1,5 +1,27 @@
 # Progress record
 
+## 2026-10-09 — Clean bounded suppression and recovery
+
+- Restarted SIGN is PID 12556; Rev2 PID 3824 remains untouched. Fresh preparation
+  `20261010-041124-246820` passes all render/source stages and stable scene identity.
+- Retain the dispatcher NativeCallback until script unload rather than releasing its
+  reference during reversion. Fresh suppression retry `boundary-20261010-041439-188245`
+  restores source/render/observer code and detaches cleanly; it still rejects the initial
+  idle-family check when Ky switches between verified `kyk001` and `kyk000` poses.
+  The checker now accepts both idle families and continues rejecting reaction families.
+- Final `boundary-20261010-041534-366856` passes 78 credits/234 suppressed dispatch
+  observations, four overlapping active steps, unchanged health 420/420, zero native stop
+  and zero pair-handler calls. Native input history, held-state guards, full code
+  restoration and detach pass. Authored alternating-idle/reaction/ownership regressions
+  and boundary/native streaming checks pass; the timing check remains strict per run.
+- Original contact proof `boundary-20261010-041414-880444` and post-suppression recovery
+  `boundary-20261010-041644-312521` both pass 78 credits, native damage 420 to 410,
+  stops 12/11, reaction and recovery. This verifies that original stepping and contacts
+  resume after suppression removal. Earlier failed receipts remain preserved.
+- This is bounded source contact ownership evidence, not an external result application
+  or a connected playable guest. Continue native reaction/result entry investigation,
+  foot pivot and actual IKEMEN producer. Full capabilities remain disabled.
+
 ## 2026-10-09 — Enclosing contact dispatch; suppression recovery pending
 
 - Derive an ignored enclosing dispatch candidate from the witnessed pair caller and

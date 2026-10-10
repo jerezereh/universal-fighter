@@ -1,6 +1,7 @@
 """Derive local scalar access fields and check native contact/stop observations."""
 import struct
 import hashlib
+import re
 
 
 def dispatch_candidate(code,code_rva,local,pair_rva):
@@ -49,11 +50,10 @@ def suppressed_contact_check(records,states,dispatches,contacts):
     health=lambda s:[f['scalar_observations']['health_candidate'] for f in s]
     overlap_steps=sum(any(overlap(a,b) for a in world_boxes(s[0],1) for b in world_boxes(s[1],0)) for _,s in executed)
     defender=states[0][1]
-    idle_families={n['value'].rsplit('_',1)[0] for n in defender['pose_candidates']}
-    clean=bool(idle_families) and all(health(s)==health(states[0]) and
+    idle=lambda f:bool(f['pose_candidates']) and all(re.fullmatch(r'kyk00[01]_[0-9]{2}',n['value']) for n in f['pose_candidates'])
+    clean=idle(defender) and all(health(s)==health(states[0]) and
         all(f['scalar_observations']['hitstop_candidate']==0 for f in s) and
-        s[1]['state_candidates']==defender['state_candidates'] and bool(s[1]['pose_candidates']) and
-        all(n['value'].rsplit('_',1)[0] in idle_families for n in s[1]['pose_candidates']) for s in states)
+        s[1]['state_candidates']==defender['state_candidates'] and idle(s[1]) for s in states)
     phases=set()
     for i,(r,_) in enumerate(executed):
         group=dispatches[i*3:i*3+3]

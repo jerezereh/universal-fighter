@@ -488,6 +488,10 @@ defender, but instrumentation teardown times out and the source clock stays held
 restored entry bytes. Native suppression/recovery is unaccepted. Restart SIGN and reenter
 offline Sol/Ky training, resolve teardown, then require a clean recovery retry before
 external result application or playable guest publication. Rev2 remains untouched.
+After restart, callback lifetime retention and the verified dual idle-family check yield
+a clean 78-credit suppression/recovery check. Native original-contact regression passes
+again after teardown. Continue external native result/reaction application and real host
+transport; bounded suppression alone does not complete universal-contact capability.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

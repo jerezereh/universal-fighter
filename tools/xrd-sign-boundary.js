@@ -799,7 +799,7 @@ function finishStop() {
     let contactRestored=true;
     if(dispatchObserver) {
         dispatchObserver.detach();dispatchObserver=null;Interceptor.flush();
-        dispatchReplacement=null;
+        // Keep the native callback alive until script unload, including any retiring call.
         contactRestored=hex(bytes(Process.mainModule.base.add(config.contact.dispatch.rva),32))===config.contact.dispatch.before;
     }
     if(contactObserver) {

@@ -38,6 +38,8 @@ def main():
     ticks=[dict(before=i,after=i+1,thread=9,executed=True) for i in range(20)]
     blocked=[c|dict(counter=c['counter']+1,original_called=False,suppressed=True) for c in calls]
     assert suppressed_contact_check(ticks,source_states,blocked,[])['passed']
+    alternate=copy.deepcopy(source_states);alternate[0][1]['pose_candidates']=[dict(value='kyk001_23')]
+    assert suppressed_contact_check(ticks,alternate,blocked,[])['passed']
     mixed=copy.deepcopy(blocked);mixed[0]['counter']=0
     assert not suppressed_contact_check(ticks,source_states,mixed,[])['passed']
     bad=copy.deepcopy(source_states);bad[-1][1]['pose_candidates']=[dict(value='kyk050_00')]
