@@ -3184,3 +3184,9 @@ the synthetic architecture gate allows the first real-game adapter.
 - Fresh positioning passed 26 credits; original contact passed 78 credits/418 presentations, and the partial typed damage check passed 78 credits/420 presentations with exact 17-point damage, suppressed automatic contacts, zero native stop and host-owned freeze. Both contact runs restored code/observers and detached cleanly.
 - Corrected private snapshot search includes the actual original hurt-pose family. It exposes additional countdown candidates; none is verified stun and no candidate field was written.
 - Both captures returned Sol to full health by their final frame. Current-process health recovery remains unresolved despite the earlier setting confirmation; requested manual confirmation that ordinary damage persists. Live typed result transport, complete reaction/motion mapping and playable guest capabilities remain pending/off.
+
+### 2026-10-10 health recovery confirmation and scene preflight
+
+- User confirms ordinary damage persists. Current PID 7788 readout shows Ky at 377 health, consistent with that manual check. Sol is full health; this does not yet prove the requested Sol damage survives after detach.
+- The bounded typed-contact retry rejects at scene preflight because manual play left Ky outside the accepted contact-distance bounds. Zero test credits executed; all observers/code restored and detach passed. Requested one training position reset before retrying.
+- Read-only retained-snapshot comparison shows the other prefix countdowns continue after the native hurt pose returns to idle. They are not accepted as stun; no speculative field writes were performed. Continue actual reaction control derivation and typed-result persistence after scene reset.
