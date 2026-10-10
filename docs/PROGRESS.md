@@ -1,5 +1,36 @@
 # Progress record
 
+## 2026-10-09 — Experimental rolling private frame transactions
+
+- Added opt-in native streaming: one settled private state/image packet per counter,
+  no full-scene pixel readback, duplicate proof image or growing captured-step history.
+  The previous/current candidate is retained only while settling; credit/stop clears it.
+  Scene/age ownership, lease, one pending credit and stale-counter checks remain required.
+  Inventory capture is excluded; missing readiness by presentation 24 fails explicitly.
+- Added `--stream-check-steps 1..120`, using the existing development controller with a
+  60-second deadline. It checks frame order and held-state association, retains the latest
+  image, saves only that image after teardown and records compact frame hashes. Diagnostic
+  source snapshots/telemetry remain bounded logs. This is not an indefinite producer or
+  an IKEMEN connection; source capabilities remain disabled.
+- Authored 1,000-credit/wrap/retention/stale/pending/expiry/presentation-timeout checks pass.
+  Boundary, preparation, lease, replay, readback and transform checks pass; syntax passes.
+- Legacy native regression passes in ignored `20261009-232415-934921/
+  boundary-20261009-234054-618231`: three exact credits, 312 blocked updates, four paired
+  frames, zero gaps/errors and source/render restoration. New rolling native acceptance
+  remains pending: `boundary-20261009-234311-933803` stops after one credit/one frame;
+  `boundary-20261009-235846-872998` produces no private frame. Both preserve failed
+  receipts and restore hooks/code. Diagnostics show presentations without candidates.
+  Original clock advances after cleanup; screenshot shows offline training.
+- Fresh preparation `20261010-000019-698375` rejects a clean but insufficient 79-sample
+  owner observation. Changed owner observation from three to five seconds, retaining the
+  100-sample guard. Probe `20261010-000056-330275` obtains 136 clean owner samples, then
+  `boundary-20261010-000108-652878` fails GetRenderTargetData with D3D9 device-lost HRESULT
+  -2005530520. Detach, loaded-code restoration and EXE checks pass. UTC names cross midnight.
+- Next manual action: show the actual SIGN window in offline Sol/Ky training and confirm
+  the display updates. Re-derive graphics bindings, then rerun rolling verification.
+  Non-neutral streaming, continuous producer transport, contact suppression and external
+  results remain unverified. The final missing-frame guard has authored coverage only.
+
 ## 2026-10-09 — Repeatable source render preparation
 
 - Added `prepare-xrd-sign-render.py`, composing existing probe/state/owner/draw/mesh/

@@ -844,3 +844,21 @@ The ignored probe folder contains `render-preparation.json`, including stage pat
 does not retry failures or enable source capabilities. Scene changes require fresh
 preparation. This command prepares evidence for bounded experiments; it is not automatic
 live producer rebind, full input/combat acceptance or a distributable retail asset package.
+
+## Experimental rolling frame verification
+
+After successful fresh preparation, use `xrd-sign-boundary.py` with that probe's owner,
+draw, mesh and screen paths, the existing normalized settled graded/SMAA transaction
+options, the combat candidate, and `--stream-check-steps 20`. This enables neutral rolling
+capture instead of the four-frame diagnostic experiment. Counts are limited to 1..120
+credits and a 60-second deadline. Incomplete runs fail and preserve `stream-check.json`.
+The check requires offline Sol/Ky and performs no menu navigation.
+
+One private state/image packet is sent per readiness receipt. The controller retains the
+latest image and saves it after teardown in `latest-layer`; frame receipts retain only
+counter/order/hash metadata. Full-scene pixels are omitted. Matching private images remain
+a readiness candidate, not atomic pose acceptance. State/telemetry logging is bounded by
+the check; an indefinite host producer is not implemented. Capabilities stay false.
+Native rolling acceptance is pending after missing candidates and D3D9 device loss.
+Restore the SIGN display and derive fresh graphics evidence before reuse; do not reuse
+bindings from a failed preparation.

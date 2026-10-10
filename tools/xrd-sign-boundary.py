@@ -262,7 +262,11 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0):
+    if type(stream_frames)!=int or not 0<=stream_frames<=120:
+        raise ValueError('stream check steps must be 0..120')
+    if stream_frames and (not transactions or not combat_path or plan_path or transaction_loss or capture_passes or capture_screen_stages or inspect_screen or inspect_shaders or inspect_transforms):
+        raise ValueError('stream check requires neutral owned transactions with age guard and no inventory capture')
     if renewable and (not expire or not gate_receipt or plan_path or capture or trace_draws or layer_path):
         raise ValueError('renewable trace requires an exclusive gate recovery experiment')
     if transactions and (renewable or expire or not gate_receipt or not layer_path or not normalize or not settle or layer_steps not in (None,'0,1,2,3')):
@@ -391,6 +395,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];vertices=[];screens=[];layers=[];transforms=[];scene_packets=[];layer_packets=[];render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
     started=time.perf_counter();started_utc=datetime.datetime.now(datetime.timezone.utc).isoformat();completed=0;next_request=.5 if plan else 1;request_log=[]
     per_step=2 if settle else len(layer['presentations']) if layer else 0
+    stream_receipts=[];latest_layer=None
     with ReadOnlyProcess(state['pid'],EXE) as process:
         def unchanged():
             base,size=process.module_base()
@@ -411,6 +416,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             script=session.create_script(source)
             script.on('message',receive);bounded_call(frida,script.load)
             settings=dict(state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,capture_screen_stages=capture_screen_stages,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer,renewable=renewable or transactions,transactions=transactions,reset_observation=reset_observation)
+            settings['streaming']=bool(stream_frames)
             phase='start';native_start_attempted=True
             print(bounded_call(frida,lambda:script.exports_sync.start(settings)),flush=True)
             phase='observe'
@@ -422,10 +428,11 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                 while time.perf_counter()-started<seconds:
                     if overflow: raise ValueError('instrumentation queue overflow')
                     elapsed=time.perf_counter()-started
-                    frames_complete=transactions and completed==3 and len(layers)==8 and len(scene_packets)==8
+                    frames_complete=(completed==stream_frames and len(stream_receipts)==stream_frames+1) if stream_frames else transactions and completed==3 and len(layers)==8 and len(scene_packets)==8
                     if frames_complete and transaction_loss and controller_lost_at is None: controller_lost_at=elapsed
                     if controller_lost_at is None and (transactions or renewable and elapsed<seconds-14) and elapsed>=next_heartbeat:
-                        bounded_call(frida,script.exports_sync.heartbeat)
+                        heartbeat=bounded_call(frida,script.exports_sync.heartbeat)
+                        if stream_frames:diagnostics.append(dict(elapsed=elapsed,heartbeat=heartbeat))
                         next_heartbeat=elapsed+1
                     if layer and plan and completed==len(plan) and len(layers)==len(layer['capture_steps'])*per_step and len(scene_packets)==len(layers):
                         break
@@ -434,6 +441,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         sum(c['request_index']==requests for c in layers)==per_step and
                         sum(m['request_index']==requests for m,_,_ in scene_packets)==per_step)
                     image_ready &= not capture_screen_stages or bool(scene_packets)
+                    if stream_frames: image_ready=bool(stream_receipts) and stream_receipts[-1]['request_index']==requests
                     if plan and requests<len(plan) and requests==completed and image_ready and time.perf_counter()-started>=next_request:
                         if requests==0 and (not states or not input_scene_ready(states[0],oracle,plan)):
                             raise ValueError('input oracle requires grounded idle Sol/opponent within its scene distance bounds')
@@ -441,9 +449,9 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         counter=records[-1]['after'] if transactions else None
                         bounded_call(frida,lambda:script.exports_sync.step([mask,0],counter));request_log.append(dict(step=requests+1,mask=mask,**packet));requests+=1
                         next_request=time.perf_counter()-started+.03+packet['hold_ms']/1000
-                    elif not plan and gate_options and not expire and requests<3 and requests==completed and image_ready and time.perf_counter()-started>=next_request and (not capture_passes or draws):
+                    elif not plan and gate_options and not expire and requests<(stream_frames or 3) and requests==completed and image_ready and time.perf_counter()-started>=next_request and (not capture_passes or draws):
                         counter=records[-1]['after'] if transactions else None
-                        bounded_call(frida,lambda:script.exports_sync.step([0,0],counter));requests+=1;next_request=time.perf_counter()-started+1
+                        bounded_call(frida,lambda:script.exports_sync.step([0,0],counter));requests+=1;next_request=time.perf_counter()-started+(.03 if stream_frames else 1)
                     if expire and elapsed>(seconds-1.5 if renewable else 12.5) and not automatic_restore:
                         automatic_restore=unchanged()
                     if controller_lost_at is not None and elapsed-controller_lost_at>12.5 and not automatic_restore:
@@ -487,6 +495,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                     if message['type']=='send' and message['payload'].get('kind')=='mesh-layer-skipped':
                         diagnostics.append(message['payload']);continue
                     if message['type']=='send' and message['payload'].get('kind')=='layer-readiness':
+                        if stream_frames: continue
                         if not settle or len(diagnostics)>=128: raise ValueError('readiness diagnostic limit')
                         diagnostics.append(message['payload']);continue
                     if message['type']=='send' and message['payload'].get('kind')=='layer-transform':
@@ -499,6 +508,19 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         passes.append((message['payload'],data));continue
                     if message['type']=='send' and message['payload'].get('kind') in ('render-layer','render-hdr-layer'):
                         native=message['payload']
+                        if stream_frames:
+                            pixels,_=render_pixels(native,data)
+                            observation=observe(CapturedMemory(native['segments'],data[:native['state_size']]),state)
+                            matches=[s for r,s in zip(records,states) if r['after']==native['counter']]
+                            if (native['request_index']!=len(stream_receipts) or native['request_index']!=completed or
+                                not matches or any(s!=observation['fighters'] for s in matches) or
+                                native.get('frame_readiness_candidate') is not True or native.get('identical_native_pixels') is not True or
+                                native.get('source_graphics_state_verified') is not True):
+                                raise ValueError('unlinked or unordered streaming frame')
+                            stream_receipts.append(dict(counter=native['counter'],request_index=native['request_index'],
+                                settled_pair=native['settled_pair'],raw_sha256=hashlib.sha256(pixels).hexdigest()))
+                            latest_layer=(native,data,observation)
+                            continue
                         if native['kind']=='render-hdr-layer':
                             if not hdr or not 1<=native['state_size']<=0x80000: raise ValueError('unexpected/unbounded HDR layer')
                         else: render_pixels(native,data)
@@ -569,6 +591,23 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             cleanup_receipt['render_verification_after_detach']=detached
     if not restored: errors.append(dict(cleanup_error='loaded source code was not restored'))
     if fingerprint(EXE)!=SIGN_HASH: errors.append(dict(source_error='source executable fingerprint changed'))
+    if stream_frames:
+        gaps=sum(b['before']!=a['after'] for a,b in zip(records,records[1:]))
+        if requests!=completed or completed!=stream_frames or len(stream_receipts)!=stream_frames+1:
+            errors.append(dict(stream_error='bounded check ended without all requested state/image transactions'))
+        passed=requests==completed==stream_frames and len(stream_receipts)==stream_frames+1 and gaps==0 and not errors and detached and restored and bool(cleanup_receipt and cleanup_receipt.get('render_code_restored'))
+        result=dict(passed=passed,requested_steps=requests,completed_steps=completed,frames=stream_receipts,
+            continuity_gaps=gaps,errors=errors,detached=detached,loaded_code_restored=restored,
+            cleanup=cleanup_receipt,diagnostics=diagnostics,seconds=seconds,elapsed=time.perf_counter()-started,
+            source_capabilities_enabled=False,live_host_producer=False,
+            rolling_image_retention=True,bounded_verification=True)
+        if latest_layer:
+            folder=out/'latest-layer';folder.mkdir()
+            save_render(folder,*latest_layer)
+        (out/'stream-check.json').write_text(json.dumps(result,indent=2))
+        print('Rolling stream check:',passed,'steps',completed,'frames',len(stream_receipts),';',out,flush=True)
+        if not passed: raise RuntimeError('rolling stream check failed; see preserved receipt')
+        return out
     # Encode RGB previews/histograms only after native hooks and session have been removed.
     captures=[save_render(out,native,data,observation) for native,data,observation in scene_packets]
     layers=[]
@@ -734,6 +773,7 @@ if __name__=='__main__':
     p.add_argument('--reset-observation',action='store_true',help='with --gate and --combat-candidate: 46-second no-credit renewable hold for a manual reset, followed by recovery; no private rendering')
     p.add_argument('--transaction-check',action='store_true',help='renew ownership across an initial hold, then three counter-bound steps with settled frames; optional three-frame positioning plan requires combat profile')
     p.add_argument('--transaction-loss-check',action='store_true',help='run transaction check, then cease renewal and verify automatic source/renderer-hook recovery')
+    p.add_argument('--stream-check-steps',type=int,default=0,help='1..120 neutral credits using rolling private image retention; bounded verification, no live host producer')
     p.add_argument('--transaction-hold-seconds',type=float,default=13,help='13..45 seconds for the initial normal transaction hold, allowing a synchronized manual reset test')
     p.add_argument('--input-candidate',type=Path,help='ignored local sampler/writer/ingress discovery JSON')
     p.add_argument('--input-plan',type=Path,help='bounded named-input oracle plan, with --gate and --input-candidate')
@@ -760,6 +800,8 @@ if __name__=='__main__':
     p.add_argument('--post-color-layer',type=Path,help='with private source-view grading: clean stage inventory for private blur/composite replay; --smaa-layer extends it through SMAA')
     p.add_argument('--smaa-layer',action='store_true',help='extend private post-color replay through native SMAA; terminal alpha retains binary mesh coverage')
     a=p.parse_args()
+    if not 0<=a.stream_check_steps<=120:p.error('--stream-check-steps must be 0..120')
+    if a.stream_check_steps:a.transaction_check=True
     if a.reset_observation:
         if not a.combat_candidate or a.renewable_check or a.transaction_check or a.transaction_loss_check:
             p.error('--reset-observation requires exclusive --combat-candidate observation')
@@ -771,8 +813,8 @@ if __name__=='__main__':
     if a.lease_check and not a.gate: p.error('--lease-check requires --gate')
     if a.renewable_check and (not a.gate or a.lease_check or a.input_plan or a.capture_render or a.trace_draws or a.capture_layer):
         p.error('--renewable-check requires an exclusive gate recovery experiment')
-    trace(a.probe.resolve(),a.candidate.resolve(),60 if a.reset_observation else 34 if a.transaction_loss_check else a.transaction_hold_seconds+15 if a.transaction_check else 28 if a.renewable_check else 13 if a.lease_check else 10 if a.capture_layer and a.input_plan else 8 if a.capture_passes or a.capture_layer else 7 if a.input_plan else 4.5 if a.gate else a.seconds,
+    trace(a.probe.resolve(),a.candidate.resolve(),60 if a.reset_observation or a.stream_check_steps else 34 if a.transaction_loss_check else a.transaction_hold_seconds+15 if a.transaction_check else 28 if a.renewable_check else 13 if a.lease_check else 10 if a.capture_layer and a.input_plan else 8 if a.capture_passes or a.capture_layer else 7 if a.input_plan else 4.5 if a.gate else a.seconds,
           a.gate.resolve() if a.gate else None,a.lease_check or a.renewable_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps)

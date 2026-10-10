@@ -110,3 +110,7 @@ if __name__=='__main__': main()
 for hold in (12,46,float('nan'),float('inf')):
     reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,transaction_hold=hold))
 reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,transaction_hold=45))
+for count in (-1,121,True,1.5):
+    reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,stream_frames=count))
+reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,stream_frames=20))
+reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,stream_frames=20,transactions=True,combat_path=Path('unused'),capture_passes=True))

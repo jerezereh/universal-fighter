@@ -14,6 +14,16 @@ let pendingLayer=null, previousCandidate=null;
 let pixelCompare=null, pixelScratch=null;
 let privateViewOffset=null;
 
+function layerRequestSelected(index) {
+    // Streaming retains one readiness receipt; the next credit consumes it.
+    return config.streaming ? gate.frameReady === null : config.layer.capture_steps.includes(index);
+}
+
+function assertLayerWindow() {
+    if (config.streaming && gate.frameReady===null && !gate.pending && !gate.executing && renderCapture.presentations>24)
+        throw new Error('streaming frame missed bounded presentation window; refresh graphics bindings');
+}
+
 function layerPresentationSelected() {
     const p=config.layer, index=renderCapture.presentations+1;
     return p.settle ? index>=3 && index<=24 : p.presentations.includes(index);
@@ -61,12 +71,15 @@ function finishSettledPair(scene) {
             Date.now()>gate.deadline || gate.frameReady !== null))
             throw new Error('transaction owner changed during frame readiness');
         const pair=[prior.layer.metadata.presentation_index,layer.metadata.presentation_index];
-        for(const candidate of [prior,{layer,scene}]) {
+        for(const candidate of (config.streaming ? [{layer,scene}] : [prior,{layer,scene}])) {
             const proof={settled_pair:pair,identical_native_pixels:true,frame_readiness_candidate:true,diagnostic_settling:true};
             send({...candidate.layer.metadata,...proof},candidate.layer.data);
-            send({...candidate.scene.metadata,...proof},candidate.scene.data);
+            if (!config.streaming) send({...candidate.scene.metadata,...proof},candidate.scene.data);
         }
-        layerCaptures+=2;layerCapturedSteps.add(layer.metadata.request_index+':settled');previousCandidate=null;
+        if (!config.streaming) {
+            layerCaptures+=2;layerCapturedSteps.add(layer.metadata.request_index+':settled');
+        }
+        previousCandidate=null;
         if (config.transactions) {
             gate.frameReady=layer.metadata.counter;
         }
@@ -140,7 +153,7 @@ function observeBodyAnchor(device,d) {
     if (d.indexBuffer!==body.index_buffer || d.vertexBuffer!==body.vertex_buffer) return;
     const root=Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
     const counter=root.add(4+config.candidate.counter_field).readU32(), presentation=renderCapture.presentations+1;
-    if (renderCapture.counter!==counter || !config.layer.capture_steps.includes((counter-gate.initialCounter)>>>0) ||
+    if (renderCapture.counter!==counter || !layerRequestSelected((counter-gate.initialCounter)>>>0) ||
         config.layer.settle && layerCapturedSteps.has(((counter-gate.initialCounter)>>>0)+':settled') ||
         bodyAnchor && bodyAnchor.counter===counter && bodyAnchor.presentation===presentation) return;
     const binding=p.origins[d.vertexShader];
@@ -412,13 +425,13 @@ function inspectLayerTransform(device,d,counter,viewport) {
 
 function replayMeshDraw(device, original, values, d) {
     const g = gate, p = config.layer;
-    if (layerDrawing || layerFailed || layerStopping || g === null || g.resumed || g.executing || Date.now() > g.deadline || layerCaptures >= p.capture_steps.length * (p.settle?2:p.presentations.length) ||
+    if (layerDrawing || layerFailed || layerStopping || g === null || g.resumed || g.executing || Date.now() > g.deadline || !config.streaming && layerCaptures >= p.capture_steps.length * (p.settle?2:p.presentations.length) ||
         d.currentTarget !== p.target || !layerPresentationSelected() || !p.programs[d.pixelShader]) return;
     const root = Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
     const counter = root.add(4 + config.candidate.counter_field).readU32();
     const requestIndex = (counter - g.initialCounter) >>> 0;
     if (g.initialCounter === null || renderCapture.counter !== counter ||
-        !p.capture_steps.includes(requestIndex) || layerCapturedSteps.has(requestIndex + ':' + (p.settle?'settled':renderCapture.presentations+1))) return;
+        !layerRequestSelected(requestIndex) || layerCapturedSteps.has(requestIndex + ':' + (p.settle?'settled':renderCapture.presentations+1))) return;
     let block = ptr(0), sourceShader = ptr(0), sourceDepth = ptr(0), vertexBefore = null;
     const targets = [], viewport = Memory.alloc(24);
     const before = [...[14,15,19,20,23,27,52,168,171,206,207,208,209],...(p.projection?[7,22]:[])].map(id => [id, renderState(device, id)]);

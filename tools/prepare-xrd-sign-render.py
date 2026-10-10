@@ -48,7 +48,8 @@ def prepare(pid,candidate,combat,meshes):
             receipt['stages'][name]=folder.name
             if scene_identity(probe)!=identity: raise ValueError('source scene changed during preparation')
             return folder
-        owner=stage('owner',3)
+        # Keep the existing 100-sample evidence guard at reduced background frame rates.
+        owner=stage('owner',5)
         draws=stage('draws',4.5,gate_receipt=owner,capture=True,trace_draws=True)
         load('xrd-sign-draw-identity.py')['derive'](draws,meshes)
         buffers=draws/'draw-identity.json'

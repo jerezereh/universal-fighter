@@ -425,6 +425,13 @@ inventory and bounded private-render verification with scene identity checks. Au
 failure/scene-change tests and a full native command pass. Its prepared receipt keeps
 capabilities and automatic-live-rebind false. Continue continuous transaction/image
 lifetime and contact/result ownership; do not equate preparation with a live producer.
+Experimental rolling capture now removes fixed frame history and sends one private image
+per readiness receipt. Authored 1,000-credit/wrap/retention checks and legacy native
+four-frame regression pass. New bounded stream verification is implemented but native
+acceptance fails with missing layers; fresh preparation subsequently reports D3D9 device
+loss. Keep capabilities disabled. Recover the actual SIGN display manually, derive fresh
+graphics bindings and verify rolling credits before continuous transport/contact/results.
+Five-second owner observation preserves the 100-sample guard at reduced background FPS.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

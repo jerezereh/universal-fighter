@@ -459,9 +459,10 @@ function observePresent() {
                         }
                         // Default third presentation, or explicitly requested settling samples; no delay acceptance.
                         ++renderCapture.presentations;
+                        if (config.streaming) assertLayerWindow();
                         if (config.layer && config.layer.settle) {
                             if (pendingLayer!==null) {
-                                this.capture=captureBackBuffer(args[0],root,this.counter);
+                                this.capture=config.streaming ? {metadata:{counter:this.counter,presentation_index:renderCapture.presentations}} : captureBackBuffer(args[0],root,this.counter);
                                 this.capture.metadata.request_index=(this.counter-gate.initialCounter)>>>0;
                             }
                         } else if ((config.layer ? config.layer.presentations.includes(renderCapture.presentations) : renderCapture.presentations === (config.capture_screen_stages?1:3)) && renderCapture.attempts < 8 &&
@@ -711,6 +712,7 @@ function verifyGateOwner(checkState=true) {
 }
 
 function finishStop() {
+    if (config?.streaming) { pendingLayer=null; previousCandidate=null; pixelScratch=null; }
     const skipped = drawFilter === null ? 0 : drawFilter.skipped;
     removeDrawFilter();
     removeInputHooks();
@@ -735,8 +737,12 @@ rpc.exports = {
         if (listener || gate) throw new Error('already observing');
         if (p.renewable !== undefined && typeof p.renewable !== 'boolean') throw new Error('invalid renewable mode');
         if (p.transactions !== undefined && typeof p.transactions !== 'boolean') throw new Error('invalid transaction mode');
+        if (p.streaming !== undefined && typeof p.streaming !== 'boolean') throw new Error('invalid streaming mode');
+        if (p.streaming && !p.transactions) throw new Error('streaming requires owned transactions');
+        if (p.streaming && (p.capture_passes || p.capture_screen_stages || p.inspect_mesh_shaders || p.inspect_screen_shaders))
+            throw new Error('streaming excludes inventory capture');
         if (p.transactions && (!p.renewable || !p.gate || !p.capture || !p.trace_draws || !p.suppress_draws ||
-            !p.layer?.settle || !p.layer.projection || p.layer.capture_steps.join(',') !== '0,1,2,3'))
+            !p.layer?.settle || !p.layer.projection || !p.streaming && p.layer.capture_steps.join(',') !== '0,1,2,3'))
             throw new Error('transaction experiment requires four consecutive normalized settled frames');
         if (p.renewable && !p.transactions && (!p.gate || p.capture || p.trace_draws || p.layer || p.suppress_draws))
             throw new Error('renewable control requires a gate without private rendering');
@@ -792,11 +798,12 @@ rpc.exports = {
         if (Date.now() > gate.deadline) throw new Error('gate lease expired');
         if (config.transactions && (!Number.isInteger(expectedCounter) || expectedCounter < 0 || expectedCounter > 0xffffffff ||
             gate.frameReady === null || expectedCounter !== gate.frameReady ||
-            ((expectedCounter-gate.initialCounter)>>>0) >= 3))
+            !config.streaming && ((expectedCounter-gate.initialCounter)>>>0) >= 3))
             throw new Error('transaction frame not ready, stale or exhausted');
         if (gate.ownsState) verifyGateOwner();
         if (!gate.renewable) gate.deadline = Date.now() + 8000;
         gate.frameReady = null;
+        if (config.streaming) { pendingLayer=null; previousCandidate=null; }
         gate.inputs = inputs.slice();
         gate.pending = true; gate.credits = 1;
         return {accepted: true};
@@ -808,7 +815,9 @@ rpc.exports = {
         if(gate.ownsState)verifyGateOwner(!gate.pending && !gate.executing);
         gate.deadline = Date.now() + 8000;
         armGateRemoval();
-        return {renewed: true, lease_seconds: 8};
+        return {renewed: true, lease_seconds: 8,...(config.streaming ? {stream:{counter:gate.lastCounter,
+            ready:gate.frameReady,pending:gate.pending,presentation:renderCapture.presentations,
+            layer_failed:layerFailed,previous_counter:previousCandidate?.layer.metadata.counter??null}} : {})};
     },
     stop() {
         if (stopReceipt !== null) return stopReceipt;
