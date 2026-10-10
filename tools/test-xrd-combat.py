@@ -2,7 +2,8 @@
 import copy
 import struct
 
-from xrd_combat import combat_fields, contact_check, contact_observations, world_boxes
+from xrd_combat import combat_fields, contact_check, contact_observations, world_boxes, dispatch_candidate, dispatch_ownership, suppressed_contact_check
+import hashlib
 
 
 def reject(action):
@@ -12,6 +13,37 @@ def reject(action):
 
 
 def main():
+    candidate_code=bytearray(b'\xcc'*512);base=4096;entry=base+32;pair=base+400
+    candidate_code[32:96]=b'\x90'*64;candidate_code[32:35]=b'\x83\xec\x50'
+    candidate_code[48:53]=b'\xe8'+struct.pack('<i',pair-(base+53));candidate_code[93:96]=b'\xc2\x04\x00'
+    local=dict(rva=entry,size=64,pair_return_rva=base+53,sha256=hashlib.sha256(candidate_code[32:96]).hexdigest())
+    dispatch=dispatch_candidate(candidate_code,base,local,pair)
+    returns=[base+201,base+225,base+249]
+    for returned in returns:candidate_code[returned-base-5:returned-base]=b'\xe8'+struct.pack('<i',entry-returned)
+    calls=[dict(argument=stage,this_delta=4,thread=9,result=0,original_called=True,counter=index,return_rva=returns[stage]) for index in range(20) for stage in range(3)]
+    proof=dict(errors=[],source_unchanged=True,detached=True,loaded_code_restored=True,controlled_update_step_verified=True,
+        native_contact_observer_restored=True,contact_check=dict(passed=True),native_contact_pair_check=dict(passed=True),
+        native_dispatch_observations=calls,gate_check=dict(executed=20))
+    assert dispatch_ownership(candidate_code,base,dispatch,proof,9)['return_rvas']==returns
+    reject(lambda:dispatch_ownership(candidate_code,base,dispatch,proof,8))
+    reject(lambda:dispatch_candidate(candidate_code,base,local|dict(sha256='bad'),pair))
+    bad=copy.deepcopy(proof);bad['native_dispatch_observations'][3]['argument']=2
+    reject(lambda:dispatch_ownership(candidate_code,base,dispatch,bad,9))
+    frame=dict(x_raw=0,y_raw=0,rotation_raw=0,scale_raw=[1000,1000],facing_left=False,
+        scalar_observations=dict(health_candidate=420,hitstop_candidate=0),boxes=[[1,0,-10,20,20]],
+        state_candidates=[dict(value='CmnActStand')],pose_candidates=[dict(value='sol000_00')])
+    defender=copy.deepcopy(frame);defender.update(facing_left=True,boxes=[[0,-10,-10,20,20]],
+        state_candidates=[dict(value='CmnActNokezoriHighLv1'),dict(value='CmnActStand')],pose_candidates=[dict(value='kyk000_00')])
+    source_states=[copy.deepcopy([frame,defender]) for _ in range(20)]
+    ticks=[dict(before=i,after=i+1,thread=9,executed=True) for i in range(20)]
+    blocked=[c|dict(counter=c['counter']+1,original_called=False,suppressed=True) for c in calls]
+    assert suppressed_contact_check(ticks,source_states,blocked,[])['passed']
+    mixed=copy.deepcopy(blocked);mixed[0]['counter']=0
+    assert not suppressed_contact_check(ticks,source_states,mixed,[])['passed']
+    bad=copy.deepcopy(source_states);bad[-1][1]['pose_candidates']=[dict(value='kyk050_00')]
+    assert not suppressed_contact_check(ticks,bad,blocked,[])['passed']
+    bad=copy.deepcopy(source_states);bad[-1][1]['scalar_observations']['health_candidate']=410
+    assert not suppressed_contact_check(ticks,bad,blocked,[])['passed']
     records=[dict(before=5,executed=True,thread=9)]
     states=[[dict(scalar_observations=dict(health_candidate=420)),dict(scalar_observations=dict(health_candidate=410))]]
     c=dict(original_called=True,attacker=0,defender=1,argument=0,counter=5,thread=9,before=[420,420],after=[420,410])

@@ -482,6 +482,12 @@ the diagnostic standing-normal oracle does not enable universal-contact capabili
 Native pair-handler observation now links one original damage call to the owned source
 counter and post-health, with restoration. The caller performs additional hit bookkeeping;
 derive the enclosing suppression boundary before claiming host-owned native contacts.
+Enclosing three-stage dispatch is now observed and restored with 78 original native ticks.
+Opt-in suppression records four overlapping active steps with unchanged health/stop/idle
+defender, but instrumentation teardown times out and the source clock stays held despite
+restored entry bytes. Native suppression/recovery is unaccepted. Restart SIGN and reenter
+offline Sol/Ky training, resolve teardown, then require a clean recovery retry before
+external result application or playable guest publication. Rev2 remains untouched.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

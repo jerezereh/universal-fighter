@@ -1,5 +1,73 @@
 """Derive local scalar access fields and check native contact/stop observations."""
 import struct
+import hashlib
+
+
+def dispatch_candidate(code,code_rva,local,pair_rva):
+    """Check an inspected enclosing thiscall entry and its witnessed pair call."""
+    rva=local.get('rva');size=local.get('size');returned=local.get('pair_return_rva')
+    if any(type(v)!=int for v in (rva,size,returned)) or not 32<=size<=8192:
+        raise ValueError('invalid contact-dispatch candidate bounds')
+    at=rva-code_rva;call=returned-code_rva-5
+    if (not 2<=at<at+size<=len(code) or code[at-2:at]!=b'\xcc\xcc' or rva%16 or
+            not at<=call<call+5<=at+size or code[call]!=0xe8 or
+            returned+struct.unpack_from('<i',code,call+1)[0]!=pair_rva):
+        raise ValueError('dispatch does not enclose witnessed native pair call')
+    body=code[at:at+size]
+    if (hashlib.sha256(body).hexdigest()!=local.get('sha256') or body[:3]!=b'\x83\xec\x50' or
+            not body.rstrip(b'\xcc').endswith(b'\xc2\x04\x00')):
+        raise ValueError('dispatch body/thiscall stack cleanup changed')
+    return dict(rva=rva,before=body[:32].hex())
+
+
+def dispatch_ownership(code,code_rva,dispatch,proof,thread):
+    if (proof.get('errors') or not all(proof.get(k) for k in ('source_unchanged','detached',
+            'loaded_code_restored','controlled_update_step_verified','native_contact_observer_restored')) or
+            not proof.get('contact_check',{}).get('passed') or not proof.get('native_contact_pair_check',{}).get('passed')):
+        raise ValueError('requires clean original native contact evidence')
+    calls=proof.get('native_dispatch_observations',[]);count=proof['gate_check']['executed']
+    if not 20<=count<=85 or len(calls)!=3*count:raise ValueError('missing bounded three-stage dispatch proof')
+    returns={}
+    for index in range(count):
+        group=calls[index*3:index*3+3]
+        if ([c['argument'] for c in group]!=[0,1,2] or len({c['counter'] for c in group})!=1 or
+                any(c['this_delta']!=4 or c['thread']!=thread or c['result']!=0 or c['original_called'] is not True for c in group)):
+            raise ValueError('dispatch ownership/stage ordering changed')
+        for c in group:
+            returned=c['return_rva'];at=returned-code_rva-5
+            if not 0<=at<at+5<=len(code) or code[at]!=0xe8 or returned+struct.unpack_from('<i',code,at+1)[0]!=dispatch['rva']:
+                raise ValueError('dispatch caller bytes disagree with observed entry')
+            stage=c['argument']
+            if stage in returns and returns[stage]!=returned:raise ValueError('dispatch stage caller changed')
+            returns[stage]=returned
+    return dict(thread=thread,return_rvas=[returns[i] for i in range(3)])
+
+
+def suppressed_contact_check(records,states,dispatches,contacts):
+    executed=[(r,s) for r,s in zip(records,states) if r['executed']]
+    if not 20<=len(executed)<=85:raise ValueError('suppressed contact check is unbounded/too short')
+    health=lambda s:[f['scalar_observations']['health_candidate'] for f in s]
+    overlap_steps=sum(any(overlap(a,b) for a in world_boxes(s[0],1) for b in world_boxes(s[1],0)) for _,s in executed)
+    defender=states[0][1]
+    idle_families={n['value'].rsplit('_',1)[0] for n in defender['pose_candidates']}
+    clean=bool(idle_families) and all(health(s)==health(states[0]) and
+        all(f['scalar_observations']['hitstop_candidate']==0 for f in s) and
+        s[1]['state_candidates']==defender['state_candidates'] and bool(s[1]['pose_candidates']) and
+        all(n['value'].rsplit('_',1)[0] in idle_families for n in s[1]['pose_candidates']) for s in states)
+    phases=set()
+    for i,(r,_) in enumerate(executed):
+        group=dispatches[i*3:i*3+3]
+        if group and all(c['counter']==r['before'] for c in group):phases.add('before')
+        elif group and all(c['counter']==r['after'] for c in group):phases.add('after')
+        else:phases.add('unlinked')
+    ordered=len(dispatches)==3*len(executed) and all(
+        [c['argument'] for c in dispatches[i*3:i*3+3]]==[0,1,2] and all(
+            c.get('suppressed') is True and c['original_called'] is False and
+            c['thread']==r['thread'] and c['this_delta']==4 for c in dispatches[i*3:i*3+3])
+        for i,(r,_) in enumerate(executed)) and len(phases)==1 and 'unlinked' not in phases
+    return dict(passed=bool(overlap_steps and clean and ordered and not contacts),overlapping_active_steps=overlap_steps,
+        native_health_stop_reaction_unchanged=clean,owned_dispatch_suppressed=ordered,native_pair_calls=len(contacts),
+        observed_counter_phase=sorted(phases),universal_contact=False,external_results_applied=False)
 
 
 def combat_fields(code,code_rva,local):

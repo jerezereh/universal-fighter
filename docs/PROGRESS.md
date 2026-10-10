@@ -1,5 +1,34 @@
 # Progress record
 
+## 2026-10-09 — Enclosing contact dispatch; suppression recovery pending
+
+- Derive an ignored enclosing dispatch candidate from the witnessed pair caller and
+  inspected native function boundary. Check complete body hash, aligned entry, relative
+  call to the pair handler and one-argument thiscall cleanup. `--contact-dispatch-candidate`
+  observes original calls, without changing combat. Native
+  `boundary-20261010-040048-730172` passes 78 source credits and 234 dispatch calls:
+  stages 0/1/2 once per update, root+4, owned thread, stable stage callers and zero return.
+  Original health/stop/reaction oracle and both observer restorations pass.
+- Added opt-in development `--suppress-source-contact <original-proof-folder>`; it requires
+  clean original contact/dispatch evidence and revalidates caller code and ownership.
+  Only owned dispatch calls are skipped. Other calls retain native execution. No runtime
+  capability is enabled. Authored candidate/body/caller/thread/stage rejection tests pass.
+- Native suppression `boundary-20261010-040320-653584` executes 78 credits and suppresses
+  234 dispatch calls. Four active hitbox-overlap steps produce zero pair-handler calls;
+  health remains 420/420 and stop 0/0. Ky keeps its initial state candidates and idle pose
+  family. Suppression events consistently observe the enclosing tick's after-counter.
+  The original receipt initially fails the before-counter and stale-reaction-string
+  checks; offline reassessment records these observed timing/idle semantics separately.
+  Tests reject mixed/unlinked phases, fresh reaction poses and changed health.
+- **Native experiment is not accepted:** stop, unload and detach time out; controller
+  receipt reports failed teardown. Independent read-only audit finds source and all four
+  D3D entry witnesses restored, but six clock reads remain 656652. No clean recovery or
+  playable passthrough is claimed. Manual SIGN restart and offline Sol/Ky training reentry
+  are needed before further native tests. Keep Rev2 untouched. Receipts and disassembly
+  remain ignored under `20261010-033610-229066`.
+- Next: resolve replacement teardown and require a clean suppression/recovery retry,
+  then original result/reaction application, foot pivot and the actual IKEMEN producer.
+
 ## 2026-10-09 — Native pair-contact boundary observation
 
 - Added opt-in `--observe-native-contact` to bounded scalar/update experiments. Entry

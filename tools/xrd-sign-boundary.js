@@ -14,11 +14,57 @@ let stopRequested = false;
 let stopReceipt = null;
 let contactObserver = null;
 let contactSamples = 0;
+let dispatchObserver=null;
+let dispatchSamples=0;
+let dispatchReplacement=null;
 
 function observeNativeContact(p) {
     const target=Process.mainModule.base.add(p.contact.rva);
     if(hex(bytes(target,32))!==p.contact.before)throw new Error('native contact entry changed');
     contactSamples=0;
+    dispatchSamples=0;
+    if(p.contact.dispatch) {
+        const d=p.contact.dispatch,entry=Process.mainModule.base.add(d.rva);
+        if(hex(bytes(entry,32))!==d.before)throw new Error('native dispatch entry changed');
+        if(d.owner) {
+            const original=new NativeFunction(entry,'int',['pointer','int'],{abi:'thiscall',exceptions:'propagate'});
+            dispatchReplacement=new NativeCallback(function(object,stage) {
+                if(!gate || !gate.executing || gate.resumed)return original(object,stage);
+                const root=Process.mainModule.base.add(p.state.engine_global_rva).readPointer();
+                const returned=this.returnAddress.sub(Process.mainModule.base).toUInt32();
+                if(!root.equals(gate.root) || !object.equals(root.add(4)) || !this.context.ecx.equals(object) ||
+                        this.threadId!==d.owner.thread || stage<0 || stage>2 || returned!==d.owner.return_rvas[stage]) {
+                    send({kind:'error',phase:'contact-suppress',message:'native dispatch owner changed; original called'});
+                    return original(object,stage);
+                }
+                dispatchSamples++;
+                if(dispatchSamples<=256)send({kind:'native-dispatch-observation',argument:stage,this_delta:4,
+                    thread:this.threadId,return_rva:returned,counter:root.add(4+p.candidate.counter_field).readU32(),
+                    result:0,original_called:false,suppressed:true});
+                else if(dispatchSamples===257)send({kind:'error',phase:'contact-suppress',message:'suppression observation bound exceeded'});
+                return 0;
+            },'int',['pointer','int'],'thiscall');
+            Interceptor.replace(entry,dispatchReplacement);
+            dispatchObserver={detach(){Interceptor.revert(entry);}};
+        } else dispatchObserver=Interceptor.attach(entry,{
+            onEnter(args) {
+                this.dispatch=null;
+                if(!gate || !gate.executing || gate.resumed)return;
+                const root=Process.mainModule.base.add(p.state.engine_global_rva).readPointer();
+                if(!root.equals(gate.root))return;
+                this.dispatch={kind:'native-dispatch-observation',argument:args[0].toInt32(),
+                    this_delta:this.context.ecx.sub(root).toInt32(),thread:this.threadId,
+                    return_rva:this.returnAddress.sub(Process.mainModule.base).toUInt32(),
+                    counter:root.add(4+p.candidate.counter_field).readU32()};
+            },
+            onLeave(result) {
+                if(!this.dispatch)return;
+                dispatchSamples++;
+                if(dispatchSamples<=256)send({...this.dispatch,result:result.toInt32(),original_called:true});
+                else if(dispatchSamples===257)send({kind:'error',phase:'dispatch-observe',message:'dispatch observation bound exceeded'});
+            }
+        });
+    }
     contactObserver=Interceptor.attach(target,{
         onEnter(args) {
             this.contact=null;
@@ -751,9 +797,14 @@ function verifyGateOwner(checkState=true) {
 
 function finishStop() {
     let contactRestored=true;
+    if(dispatchObserver) {
+        dispatchObserver.detach();dispatchObserver=null;Interceptor.flush();
+        dispatchReplacement=null;
+        contactRestored=hex(bytes(Process.mainModule.base.add(config.contact.dispatch.rva),32))===config.contact.dispatch.before;
+    }
     if(contactObserver) {
         contactObserver.detach();contactObserver=null;Interceptor.flush();
-        contactRestored=hex(bytes(Process.mainModule.base.add(config.contact.rva),32))===config.contact.before;
+        contactRestored=contactRestored && hex(bytes(Process.mainModule.base.add(config.contact.rva),32))===config.contact.before;
     }
     if (config?.streaming) { pendingLayer=null; previousCandidate=null; pixelScratch=null; }
     const skipped = drawFilter === null ? 0 : drawFilter.skipped;
@@ -772,7 +823,7 @@ function finishStop() {
     }
     stopRequested = false;
     return {detached: true, samples: sequence, render_code_restored: renderRestored, render_targets: renderTargets,
-        diagnostic_mesh_draws_skipped: skipped,contact_observer_code_restored:contactRestored,contact_samples:contactSamples};
+        diagnostic_mesh_draws_skipped: skipped,contact_observer_code_restored:contactRestored,contact_samples:contactSamples,dispatch_samples:dispatchSamples};
 }
 
 rpc.exports = {
