@@ -1,5 +1,27 @@
 # Progress record
 
+## 2026-10-10 — Bounded reaction snapshots and rejected countdown hypothesis
+
+- Opt-in reaction-memory retention saves at most 85 already-captured Sol blocks; it
+  adds no native memory reads or unknown-field writes. Private binary snapshots stay
+  ignored. The first run `20261010-042922-749575/boundary-20261010-073604-354633` passes
+  its 78-credit gameplay checks but fails renderer/observer teardown and detach.
+  Its countdown match is candidate evidence only, not accepted stun mapping.
+- SIGN is subsequently PID 3296 and already in offline training. Fresh read-only bundle
+  `20261010-074309-902046`, owner `boundary-20261010-074324-850600` and approach
+  `boundary-20261010-074523-821919` pass. Original-contact capture
+  `boundary-20261010-074558-074687` passes 78 credits/416 presentations and native
+  stop/reaction/recovery with clean full restoration/detach. It retains exactly 78
+  fixed-size actor blocks. Original dispatch evidence now belongs to this new process.
+- Comparing the candidate against original native stop rejects it as a stun counter:
+  it reaches zero before the hurt animation ends. No hypothesis field is written or
+  promoted. Actual native stun control remains unresolved.
+- The new instance restores health after the original hit, so regeneration is enabled
+  again despite the previous process setting. User setup is requested before further
+  result tests. Boundary and generic typed-result checks pass; failed old-session
+  receipts remain preserved. Source render bindings still need full fresh preparation
+  before private-image/live producer checks. All playable capabilities remain off.
+
 ## 2026-10-10 — Generic typed result reader and partial native damage probe
 
 - Add a game-independent validator for the exact host `HitResult` fields, booleans,

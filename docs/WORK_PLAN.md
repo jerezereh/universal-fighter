@@ -525,6 +525,10 @@ Generic host HitResult validation and an explicit partial JSON damage probe now 
 native verification. Nonzero unmapped fields reject before attachment; receipts list
 the remaining fields and keep full typed application/live transport disabled. Continue
 stun/motion mapping and the real producer rather than treating file input as live IPC.
+Bounded retained actor snapshots expose a countdown, but original-contact comparison
+rejects it as stun. A failed old-session teardown is preserved; fresh PID 3296 original
+stepping/contact/snapshot capture restores cleanly. Reapply disabled regeneration in the
+new process, then investigate the real reaction control and prepare fresh render bindings.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a
