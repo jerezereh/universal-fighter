@@ -1,5 +1,21 @@
 # Progress record
 
+## 2026-10-10 — Isolated fatal/crumple presentation retry passes
+
+- Foreground SIGN restores successful presentations. Initial scene-distance rejection
+  `20261010-042922-749575/boundary-20261010-071328-045601` applies no inputs and
+  restores cleanly. Source-only approach `boundary-20261010-071359-557555` then passes.
+- Following-update reaction request `boundary-20261010-071422-487311` passes 78 exact
+  credits, 419 successful presentations, 234 suppressed automatic dispatcher stages,
+  linked native fatal damage, stable source health sentinel, observed fatal/crumple
+  pose, held-state freeze and resumed reaction age. No training lifecycle change or
+  native stop countdown is observed. Full code/observer restoration and detach pass.
+- This verifies the delayed native reaction request with source lifecycle isolation;
+  it does not complete typed IKEMEN defeat handling, permanent defeated-state/input
+  ownership, or round reset. The source fighter intentionally retains one health.
+  Playable capabilities remain off. Restore full source health via training reset before
+  further nonfatal damage/guard tests, then continue typed result producer and lifecycle.
+
 ## 2026-10-10 — Source fatal isolation and named reaction candidate
 
 - Derive the fatal global load/bit write from the actual health-result callee tail,

@@ -517,6 +517,10 @@ Private fatal-bit isolation plus one source health prevents the observed global 
 and training reset, but the source plays an ordinary hurt reaction. A named-state wrapper
 is witnessed; dispatch-phase invocation is overwritten. Retry the following-update
 schedule with rendering active before claiming an isolated defeat presentation.
+The following-update retry now passes with 78 credits/419 presentations and the native
+fatal/crumple pose while the source retains one health and avoids its global fatal/reset
+lifecycle. Continue typed host defeat/input/round ownership and the other result fields;
+the bounded presentation proof leaves complete defeat semantics and capabilities off.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a
