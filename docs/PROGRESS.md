@@ -1,5 +1,21 @@
 # Progress record
 
+## 2026-10-09 — Fresh live rolling geometry verification
+
+- After the user's display recovery, fresh preparation `20261010-033610-229066`
+  passes owner, draw, mesh, screen and paired-frame verification. Source scene identity
+  stays stable; refreshed render thread is 17852. No readiness bounds were widened.
+- `boundary-20261010-033732-885502` passes twenty back/forward/neutral input credits,
+  twenty-one linked geometry/image receipts and 445 retained source samples. Source and
+  render code restore and hooks detach. This verifies the prior receipt integration live.
+- Offline horizontal regression over those receipts yields 0.4299127154 world units per
+  source logical unit, intercept -0.00002104 and maximum residual 0.000008631 world units.
+  All vertical positions are zero, so this is horizontal evidence only. Full two-axis unit
+  calibration, anatomical foot pivot and host publication remain unaccepted. Local receipt
+  `horizontal-geometry-check.json` preserves the calculation; retail metadata stays ignored.
+- Next: bounded vertical input/render coverage and two-axis calibration, followed by foot
+  pivot evidence, source contact/result ownership and the actual IKEMEN guest connection.
+
 ## 2026-10-09 — Rolling body-geometry evidence; live retry pending
 
 - Rolling frame receipts now retain native absolute body origin, target dimensions,

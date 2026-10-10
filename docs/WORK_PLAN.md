@@ -466,6 +466,10 @@ calibration, preserving duration retention bounds. Authored and historical metad
 pass; fresh live verification stops before credits on render readiness and D3D9 readback
 failure. Restore SIGN's visible training display, refresh bindings and verify receipts
 before collecting horizontal/vertical calibration samples. Foot pivot remains unaccepted.
+After display recovery, fresh render preparation and twenty-step rolling geometry checks
+pass (21 linked frames, clean restoration). Horizontal body-origin regression has residual
+below 0.000009 world units. Continue vertical coverage/two-axis fitting and anatomical pivot
+validation; horizontal-only evidence does not enable host capabilities.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a
