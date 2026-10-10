@@ -264,7 +264,10 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False):
+    if type(frame_control)!=bool or frame_control and (not input_path or plan_path):
+        raise ValueError('source control requires exclusive native input profile without a local plan')
+    if frame_control:frame_tap=True
     if type(frame_tap)!=bool or frame_tap and (not stream_frames or stream_duration or transaction_loss):
         raise ValueError('frame tap requires exclusive fixed-count rolling verification')
     if type(stream_duration)!=bool or stream_duration and (stream_frames or plan_path or input_path or not 28<=seconds<=120):
@@ -370,7 +373,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             raise ValueError('settled rendering requires normalized projection, up to four steps and no fixed samples/transform inspection')
         if len(layer['presentations'])>1 and oracle!='render-settle': raise ValueError('repeated render captures require the settling oracle')
     elif layer_steps or layer_presentations or oracle.startswith('render-'): raise ValueError('selected render oracle requires a private layer')
-    if oracle.startswith('render-') and not plan_path: raise ValueError('render oracle requires a named input plan')
+    if oracle.startswith('render-') and not plan_path and not frame_control: raise ValueError('render oracle requires a named input plan')
     if inspect_transforms and not layer: raise ValueError('vertex observation requires a private layer')
     if normalize and not layer: raise ValueError('normalized projection requires a private layer')
     if settle and not layer: raise ValueError('settled rendering requires a private layer')
@@ -404,7 +407,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];vertices=[];screens=[];layers=[];transforms=[];scene_packets=[];layer_packets=[];render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
     started=time.perf_counter();started_utc=datetime.datetime.now(datetime.timezone.utc).isoformat();completed=0;next_request=.5 if plan else 1;request_log=[]
     per_step=2 if settle else len(layer['presentations']) if layer else 0
-    stream_receipts=[];latest_layer=None
+    stream_receipts=[];latest_layer=None;controller_lost_at=None
     audit=RollingAudit() if stream_duration else None
     credit_until=seconds-(19 if transaction_loss else 5)
     if audit:
@@ -419,8 +422,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         phase='preflight';native_start_attempted=False;clock_preflight=None;abi=None
         try:
             if frame_tap:
-                tap=FrameTap(out/'frame-tap-ready.json','ggxrd-sign')
-                print('Read-only frame tap:',out/'frame-tap-ready.json',flush=True)
+                tap=FrameTap(out/'frame-tap-ready.json','ggxrd-sign',frame_control)
+                print('Diagnostic source control:' if frame_control else 'Read-only frame tap:',out/'frame-tap-ready.json',flush=True)
                 tap.await_subscriber() # No native gate is installed while awaiting the observer.
             if gate_options:
                 clock_preflight=read_clock(process,state,candidate)
@@ -462,14 +465,29 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         sum(m['request_index']==requests for m,_,_ in scene_packets)==per_step)
                     image_ready &= not capture_screen_stages or bool(scene_packets)
                     if stream_mode: image_ready=bool(stream_receipts) and stream_receipts[-1]['request_index']==requests
-                    if plan and requests<len(plan) and requests==completed and image_ready and time.perf_counter()-started>=next_request:
+                    if frame_control and requests<stream_frames and requests==completed and image_ready and elapsed>=next_request:
+                        packet=tap.poll_step()
+                        if packet is not None:
+                            if set(packet['input'])-{'left','right','forward','back'}:raise ValueError('source control supports horizontal input only')
+                            if requests==0 and not input_scene_ready(states[0],'render-position',[packet]):
+                                raise ValueError('source control requires grounded idle Sol/opponent at safe spacing')
+                            mask=input_mask(packet['input'],states[-1][0]['facing_left'],packet['accept_input'])
+                            sol,opponent=states[-1]
+                            inward=bool(mask&(4 if sol['facing_left'] else 8))
+                            if inward and abs(sol['x_raw']-opponent['x_raw'])<350000:
+                                raise ValueError('source control refuses unverified close-range contact')
+                            counter=records[-1]['after']
+                            bounded_call(frida,lambda:script.exports_sync.step([mask,0],counter))
+                            request_log.append(dict(step=requests+1,mask=mask,input=packet['input'],accept_input=packet['accept_input']))
+                            requests+=1;next_request=elapsed+.03
+                    elif plan and requests<len(plan) and requests==completed and image_ready and time.perf_counter()-started>=next_request:
                         if requests==0 and (not states or not input_scene_ready(states[0],oracle,plan)):
                             raise ValueError('input oracle requires grounded idle Sol/opponent within its scene distance bounds')
                         packet=plan[requests];mask=input_mask(packet['input'],states[-1][0]['facing_left'],packet['accept_input'])
                         counter=records[-1]['after'] if transactions else None
                         bounded_call(frida,lambda:script.exports_sync.step([mask,0],counter));request_log.append(dict(step=requests+1,mask=mask,**packet));requests+=1
                         next_request=time.perf_counter()-started+.03+packet['hold_ms']/1000
-                    elif not plan and gate_options and not expire and (elapsed<credit_until if audit else requests<(stream_frames or 3)) and requests==completed and image_ready and time.perf_counter()-started>=next_request and (not capture_passes or draws):
+                    elif not frame_control and not plan and gate_options and not expire and (elapsed<credit_until if audit else requests<(stream_frames or 3)) and requests==completed and image_ready and time.perf_counter()-started>=next_request and (not capture_passes or draws):
                         counter=records[-1]['after'] if transactions else None
                         bounded_call(frida,lambda:script.exports_sync.step([0,0],counter));requests+=1;next_request=time.perf_counter()-started+(.03 if stream_mode else 1)
                     if expire and elapsed>(seconds-1.5 if renewable else 12.5) and not automatic_restore:
@@ -636,7 +654,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             if not all(recovery[k] for k in ('lease_resumed','hard_lifetime_removed_hook')):
                 errors.append(dict(stream_error='duration stream controller-loss recovery not verified'))
         stream_input=None
-        if plan:
+        if plan or frame_control:
             stream_input=input_check(records,states,inputs,request_log)
             executed=[r for r in records if r['executed']]
             stream_input['requested_masks_linked']=len(executed)==len(request_log)==stream_frames and all(
@@ -650,7 +668,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             if not stream_input['passed']:errors.append(dict(stream_error='rolling positioning/input history not verified'))
         passed=counts_verified and gaps==0 and not errors and detached and restored and bool(cleanup_receipt and cleanup_receipt.get('render_code_restored'))
         result=dict(passed=passed,requested_steps=requests,completed_steps=completed,frames=list(stream_receipts),frames_received=frames_received,
-            continuity_gaps=gaps,errors=errors,detached=detached,loaded_code_restored=restored,
+            continuity_gaps=gaps,errors=errors,detached=detached,loaded_code_restored=restored,native_start_attempted=native_start_attempted,
             cleanup=cleanup_receipt,diagnostics=list(diagnostics),seconds=seconds,elapsed=time.perf_counter()-started,
             source_capabilities_enabled=False,live_host_producer=False,
             rolling_image_retention=True,bounded_verification=True,input_check=stream_input,duration_check=stream_duration,
@@ -832,6 +850,7 @@ if __name__=='__main__':
     p.add_argument('--stream-check-steps',type=int,default=0,help='1..120 rolling credits; optional exact-count horizontal render-position plan, no live host producer')
     p.add_argument('--stream-duration-check',action='store_true',help='neutral rolling capture for --seconds (28..120), bounded recent metadata, no fixed credit count')
     p.add_argument('--frame-tap',action='store_true',help='fixed-count rolling check: read-only loopback source observation subscriber; no playable capabilities')
+    p.add_argument('--frame-control',action='store_true',help='fixed-count rolling check: request-driven horizontal diagnostic control; requires input candidate, no local plan')
     p.add_argument('--transaction-hold-seconds',type=float,default=13,help='13..45 seconds for the initial normal transaction hold, allowing a synchronized manual reset test')
     p.add_argument('--input-candidate',type=Path,help='ignored local sampler/writer/ingress discovery JSON')
     p.add_argument('--input-plan',type=Path,help='bounded named-input oracle plan, with --gate and --input-candidate')
@@ -878,4 +897,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check or a.renewable_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control)

@@ -1,5 +1,41 @@
 # Progress record
 
+## 2026-10-09 — Request-driven diagnostic source controls
+
+- Added explicit `source-control-tap` mode alongside the existing read-only observer.
+  `--frame-control` requires a native input candidate and fixed rolling credit budget,
+  with no controller-local input plan. A separate client now requests each credit using
+  the last acknowledged sequence and native counter, named horizontal input and a boolean
+  accept-input flag. No automatic credits are issued in this mode. Withholding requests
+  holds the source while existing heartbeats renew ownership; one packet advances one tick.
+- Transport checks reject stale/duplicate counters or sequences, malformed input/accept
+  flags, unexpected fields and EOF. Generic packet handling does not branch on game ID;
+  the SIGN adapter restricts controls to horizontal movement/neutral and refuses inward
+  movement below the existing 350000 raw spacing threshold. No resets/results/menus or
+  unsupported attacks/vertical controls are enabled. Capabilities and units remain false.
+- The separate receiver can drive an exact-length named test plan and withhold requests
+  for a bounded pause. Native input history and requested masks remain authoritative
+  checks, alongside paired normalized/private images, grounded state and movement in
+  every requested direction. Authored socket tests cover idle/no-request behavior, stale
+  counter/sequence, duplicate credit, disabled input, malformed flags and peer closure.
+- Native ignored `20261010-000623-001413/boundary-20261010-010446-288378` passes twenty
+  network-requested back/forward/neutral credits and twenty-one acknowledged linked frames,
+  both absolute/relative movement directions, exact native input history, zero gaps/errors
+  and complete source/graphics restoration/detach. Total elapsed is 43.16 seconds; maximum
+  send/ACK time is 65.61 ms, excluding native readiness. Independent pause classification
+  verifies 66 held samples at counter 315852 over 4.04 seconds with unchanged observed
+  fighter state after the client withholds requests for three seconds.
+- Initial client dispatch missed the unchanged thirty-second pre-hook connection window
+  (`boundary-20261010-010349-847176`) and exposed an uninitialized recovery-report variable.
+  Initialized it before preflight; no connection/native timeout was widened. Native negative
+  regression `boundary-20261010-010840-640502` now preserves a failed stream receipt with
+  preflight TimeoutError, zero controls/credits/frames and restored/detached status. No
+  native hook is installed before a subscriber connects. Startup-attempt status is now
+  included in subsequent stream reports. Boundary/input/stream/protocol checks pass.
+- This validates diagnostic network-controlled stepping/pause, not integration into the
+  running IKEMEN receiver. Broader inputs, unit/pivot mapping, original contact suppression,
+  external universal results and continuous live guest transport remain unaccepted.
+
 ## 2026-10-09 — Read-only source observation transport
 
 - Added a stdlib IPv4 loopback frame tap and separate generic receiver. This is a distinct

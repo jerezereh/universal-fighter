@@ -455,6 +455,12 @@ unaccepted units/pivot. Generic two-game authored checks and a real early TCP di
 verify framing/identity/ACK rejection and source/render recovery. Host-driven transport,
 continuous network lifetime, broader inputs and contact/result ownership still remain;
 the observation tap is not the playable IKEMEN guest protocol.
+Request-driven diagnostic controls now pass twenty network back/forward/neutral credits,
+twenty-one linked frames and native input history. Withholding requests preserves counter/
+observed state over 4.04 seconds; source/render restoration passes. Stale/duplicate controls
+reject, and pre-hook connection timeout now preserves failure reporting. Continue broader
+input and unit/pivot mapping, contact suppression/results and live host guest transport;
+the control tap remains distinct from the playable IKEMEN protocol with capabilities off.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

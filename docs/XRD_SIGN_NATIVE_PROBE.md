@@ -934,3 +934,27 @@ the saved native BGRA after independent channel conversion. Maximum measured sen
 44.88 ms, excluding native render/readiness work. Closing the receiver after five packets
 preserves a failed raw stream and verifies restoration plus resumed source clock. Actual
 playable transport and continuous network/host input lifetime remain unimplemented.
+
+## Request-driven diagnostic control
+
+Use `--frame-control --input-candidate $inputCandidate` with a fixed-count rolling check,
+without a server-side input plan. The printed ready file has kind `source-control-tap`.
+Connect the separate client with the existing twenty-credit positioning plan:
+
+```powershell
+python tools/receive-source-frames.py $readyFile --frames 21 --input-plan $planFile `
+  --pause-after 5 --pause-seconds 3 --report $receiverReport
+```
+
+Each acknowledged observation permits one `step` request bound to its nonce/game/sequence
+and source counter. The request supplies `input` and boolean `accept_input`. The producer
+polls without granting credits while no request is available; heartbeats maintain the
+held source. Replayed/stale requests or malformed packets fail and restore instrumentation.
+The SIGN adapter currently permits only horizontal/neutral input and checks safe native
+spacing before moving inward. The protocol does not accept resets or universal results.
+
+The native network test passes twenty credits/twenty-one images and exact source input
+history. Its three-second client pause yields 4.04 seconds of unchanged observed state/
+counter. This implements diagnostic client-driven stepping and withholding, not actual
+IKEMEN integration or accepted combat/units. Source capabilities stay empty. The original
+read-only `--frame-tap` mode continues to issue its bounded neutral credits automatically.

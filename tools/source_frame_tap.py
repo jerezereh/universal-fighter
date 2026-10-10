@@ -1,10 +1,11 @@
-"""Read-only development observations. Not the playable IKEMEN guest protocol."""
+"""Development source observations and optional steps, not the playable guest protocol."""
 import base64
 import json
 import math
 from pathlib import Path
 import re
 import secrets
+import select
 import socket
 import struct
 import time
@@ -56,7 +57,7 @@ def identity(packet,ready,operation,sequence=None):
 
 def ready_address(ready):
     if (type(ready)!=dict or set(ready)!={'schema','kind','session','game','address'} or
-        type(ready['schema'])!=int or ready['schema']!=1 or ready['kind']!='source-frame-tap' or
+        type(ready['schema'])!=int or ready['schema']!=1 or ready['kind'] not in ('source-frame-tap','source-control-tap') or
         type(ready['game'])!=str or not 1<=len(ready['game'])<=128 or
         not isinstance(ready['session'],str) or not re.fullmatch('[0-9a-f]{32}',ready['session']) or type(ready['address'])!=str):
         raise ValueError('invalid frame tap ready receipt')
@@ -94,10 +95,12 @@ def frame_pixels(packet,ready,sequence,initial_counter=None):
 
 
 class FrameTap:
-    def __init__(self,path,game):
+    def __init__(self,path,game,control=False):
+        if type(control)!=bool:raise ValueError('invalid source control mode')
         self.listener=socket.socket();self.conn=None;self.sequence=0;self.bytes_sent=0;self.max_ack_ms=0
+        self.control=control;self.control_sequence=0;self.controls_received=0;self.last_counter=None
         self.listener.bind(('127.0.0.1',0));self.listener.listen(1);self.listener.settimeout(.5)
-        self.ready=dict(schema=1,kind='source-frame-tap',session=secrets.token_hex(16),game=game,
+        self.ready=dict(schema=1,kind='source-control-tap' if control else 'source-frame-tap',session=secrets.token_hex(16),game=game,
             address='127.0.0.1:'+str(self.listener.getsockname()[1]))
         try:
             ready_address(self.ready)
@@ -126,6 +129,22 @@ class FrameTap:
         identity(read_packet(self.conn,16384),self.ready,'ack',sequence)
         self.max_ack_ms=max(self.max_ack_ms,(time.perf_counter()-started)*1000)
         self.sequence=sequence;self.bytes_sent+=len(rgba)
+        self.last_counter=metadata['counter']
+
+    def poll_step(self):
+        if not self.control:raise ValueError('observation tap does not accept steps')
+        if not select.select([self.conn],[],[],0)[0]:return None
+        packet=read_packet(self.conn,16384)
+        fields={'schema','session','game','operation','sequence','counter','input','accept_input'}
+        if type(packet)!=dict or set(packet)!=fields:raise ValueError('invalid source control fields')
+        identity({k:v for k,v in packet.items() if k not in ('counter','input','accept_input')},self.ready,'step',self.sequence)
+        if (self.control_sequence==self.sequence or type(packet['counter'])!=int or packet['counter']!=self.last_counter or
+            type(packet['accept_input'])!=bool or type(packet['input'])!=dict or len(packet['input'])>10 or
+            any(type(k)!=str or not 1<=len(k)<=32 or type(v)!=bool for k,v in packet['input'].items())):
+            raise ValueError('stale or invalid source step')
+        self.control_sequence=self.sequence
+        self.controls_received+=1
+        return packet
 
     def close(self):
         if self.conn is not None:self.conn.close()
@@ -133,4 +152,5 @@ class FrameTap:
 
     def receipt(self):
         return dict(frames_acknowledged=self.sequence,rgba_bytes=self.bytes_sent,max_ack_ms=self.max_ack_ms,
-            source_capabilities_enabled=False,playable_guest_protocol=False)
+            source_capabilities_enabled=False,playable_guest_protocol=False,request_driven=self.control,
+            controls_received=self.controls_received)

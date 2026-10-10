@@ -37,6 +37,23 @@ with tempfile.TemporaryDirectory() as folder:
         tap.close()
         reject(lambda:identity(dict(schema=1,session=tap.ready['session'],game=game,operation='step'),tap.ready,'ack',1))
         reject(lambda:ready_address(tap.ready|dict(address='0.0.0.0:1')))
+    tap=FrameTap(Path(folder)/'control.json','authored-control',True)
+    server,client=socket.socketpair();tap.conn=server;tap.sequence=1;tap.last_counter=123
+    request=dict(schema=1,session=tap.ready['session'],game=tap.ready['game'],operation='step',
+        sequence=1,counter=123,input={'left':True},accept_input=True)
+    with client:
+        assert tap.poll_step() is None # Holding without requests grants nothing.
+        for change in (dict(counter=122),dict(sequence=0),dict(accept_input=1),dict(input={'left':1}),dict(extra=1)):
+            write_packet(client,request|change);reject(tap.poll_step)
+        assert tap.control_sequence==0
+        write_packet(client,request);assert tap.poll_step()==request
+        write_packet(client,request);reject(tap.poll_step) # No duplicate credit at the same ready frame.
+        assert tap.control_sequence==tap.controls_received==1
+        tap.sequence=2;tap.last_counter=124
+        write_packet(client,request|dict(sequence=2,counter=124,input={},accept_input=False))
+        assert tap.poll_step()['accept_input'] is False
+        assert tap.controls_received==2
+    reject(tap.poll_step);tap.close()
     # Fragments arrive through normal TCP reads; reject lengths before reading their payload.
     left,right=socket.socketpair()
     with left,right:
