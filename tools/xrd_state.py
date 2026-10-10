@@ -156,11 +156,13 @@ def observe(process, p):
                 if kind not in (0,1) or not all(math.isfinite(v) and abs(v)<1e6 for v in (bx,by,w,h)) or w<0 or h<0:
                     raise ValueError('invalid native collision record')
                 boxes.append([kind,bx,by,w,h])
-        names=process.read(address,0x2600)
+        scalar_offsets=list(p.get('scalar_fields',{}).values())
+        if any(type(v)!=int or not 0<=v<=0x10000-4 or v%4 for v in scalar_offsets):raise ValueError('invalid scalar observation span')
+        names=process.read(address,max([0x2600]+[v+4 for v in scalar_offsets]))
         # Names occupy aligned native buffers; inspect overlapping prefixes so adjacent
         # scalar bytes cannot hide a valid name or add a spurious leading character.
-        poses=[dict(offset=m.start(),value=m[1][:-1].decode()) for m in re.finditer(rb'(?=([a-z]{2,4}[0-9]{3}_[0-9]{2}\0))',names) if m.start()%4==0]
-        states=[dict(offset=m.start(),value=m[0][:-1].decode()) for m in re.finditer(rb'(?:CmnAct|NmlAtk)[A-Za-z0-9_]{1,28}\0',names)]
+        poses=[dict(offset=m.start(),value=m[1][:-1].decode()) for m in re.finditer(rb'(?=([a-z]{2,4}[0-9]{3}_[0-9]{2}\0))',names[:0x2600]) if m.start()%4==0]
+        states=[dict(offset=m.start(),value=m[0][:-1].decode()) for m in re.finditer(rb'(?:CmnAct|NmlAtk)[A-Za-z0-9_]{1,28}\0',names[:0x2600])]
         result.append(dict(slot=slot,x_raw=x,y_raw=y,facing_left=bool(facing),hurt_count=hurt,hit_count=hit,
                            scale_raw=[integer('scale_x'),integer('scale_y')],rotation_raw=integer('rotation') if 'rotation' in f else None,
                            boxes=boxes,pose_candidates=poses,state_candidates=states))

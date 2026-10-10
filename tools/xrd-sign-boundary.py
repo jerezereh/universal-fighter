@@ -17,7 +17,7 @@ from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
 from xrd_state import assembly_rows, boundary_candidate, observe, read_clock, unique
 from xrd_input import input_candidate, input_mask, input_plan, position_plan, punch_plan, input_check, oracle_passed, input_scene_ready
 from host_hit_result import read_result,damage_probe,FIELDS as HIT_RESULT_FIELDS
-from xrd_combat import combat_fields, contact_check, contact_observations, dispatch_candidate, dispatch_ownership, suppressed_contact_check, contact_callees, external_contact_check, guard_contact_check, dispatch_result_fields, fatal_global_field, state_transition_candidate
+from xrd_combat import combat_fields, contact_check, contact_observations, dispatch_candidate, dispatch_ownership, suppressed_contact_check, contact_callees, external_contact_check, guard_contact_check, dispatch_result_fields, fatal_global_field, state_transition_candidate, reaction_timer_field
 from xrd_render import render_pixels, save_render, render_check, draw_check, save_pass
 from xrd_shader import opaque_alpha_variant, screen_packet
 from xrd_layer import layer_pixels, save_layer_preview, save_hdr_layer, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle
@@ -265,11 +265,15 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None,capture_reaction_memory=False,reaction_memory_bytes=0x2600):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None,capture_reaction_memory=False,reaction_memory_bytes=0x2600,external_stun=0,reaction_timer_path=None):
     typed_result=read_result(host_result_path) if host_result_path else None
     if typed_result is not None:
         if external_damage or external_guard or external_ko or external_pair_control or not external_pair_step or not external_host_stop:raise ValueError('typed damage probe requires exclusive requested pair with host-owned freeze')
-        external_damage=damage_probe(typed_result)
+        if external_stun:raise ValueError('typed stun conflicts with standalone stun argument')
+        external_damage=damage_probe(typed_result,allow_stun=bool(reaction_timer_path))
+        external_stun=typed_result['Stun']
+
+    if type(external_stun)!=int or not 0<=external_stun<=30 or bool(external_stun)!=bool(reaction_timer_path) or external_stun and (external_ko or external_pair_control or not external_pair_step or not external_host_stop or not capture_reaction_memory):raise ValueError('stun probe requires exclusive nonfatal requested reaction, host stop and retained memory')
     if type(capture_reaction_memory)!=bool or capture_reaction_memory and (not plan_path or not combat_path or oracle!='contact'):raise ValueError('reaction memory requires a bounded contact plan')
     if type(reaction_memory_bytes)!=int or not 0x2600<=reaction_memory_bytes<=0x10000 or reaction_memory_bytes%4 or reaction_memory_bytes!=0x2600 and not capture_reaction_memory:raise ValueError('expanded reaction memory requires explicit capture and 9728..65536 aligned bytes')
     if type(frame_control)!=bool or frame_control and (not input_path or plan_path):
@@ -336,6 +340,9 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         state.setdefault('scalar_fields',{}).update(derived)
         state['ownership_age_field']=derived['age_candidate']
         combat_profile=dict(candidates=local_combat,fields=derived,validated_semantics=False)
+    reaction_timer=reaction_timer_field(code,state['code_rva'],json.loads(reaction_timer_path.read_text())) if reaction_timer_path else None
+    if reaction_timer and reaction_timer['field']+4>reaction_memory_bytes:raise ValueError('reaction timer lies outside retained snapshot')
+    if reaction_timer:state['scalar_fields']['reaction_timer_candidate']=reaction_timer['field']
     ko_isolation=fatal_global_field(code,state['code_rva'],json.loads(isolate_ko_path.read_text()),state['module_base']+state['engine_global_rva']) if isolate_ko_path else None
     ko_transition=state_transition_candidate(code,state['code_rva'],json.loads(ko_reaction_path.read_text()),state['module_base'],receipt['image_size']) if ko_reaction_path else None
     local=json.loads(candidate_path.read_text())
@@ -420,6 +427,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             raise ValueError('bounded input plan requires a native gate and validated input ingress')
         plan=(punch_plan if stream_frames and oracle=='render-attack' else position_plan if stream_frames or oracle=='positioning' else input_plan)(json.loads(plan_path.read_text()),stream_frames or (3 if transactions else None))
         if capture_reaction_memory and len(plan)>85:raise ValueError('reaction memory exceeds 85 owned frames')
+        if external_stun and len(plan)<external_pair_step+external_stun+4:raise ValueError('stun probe plan must cover initialization and complete recovery')
         if external_pair_step>len(plan):raise ValueError('external pair step exceeds the bounded input plan')
         if layer and (not oracle.startswith('render-') or not stream_frames and layer['capture_steps'][-1]!=len(plan)):
             raise ValueError('private render plan must use a render oracle and capture its final requested step')
@@ -491,7 +499,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             abi=validate_device_calls([source],(ROOT/'local-cache/msys64/mingw64/include/d3d9.h').read_text())
             script=session.create_script(source)
             script.on('message',receive);bounded_call(frida,script.load)
-            settings=dict(reaction_memory_bytes=reaction_memory_bytes,ko_transition=ko_transition,ko_isolation=ko_isolation,external_ko=external_ko,external_guard_commit=external_guard_commit,external_pair_control=external_pair_control,external_guard=external_guard,external_host_stop=external_host_stop,external_damage=external_damage,external_pair_step=external_pair_step,contact=contact,state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,capture_screen_stages=capture_screen_stages,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer,renewable=renewable or transactions,transactions=transactions,reset_observation=reset_observation)
+            settings=dict(external_stun=external_stun,reaction_timer=reaction_timer,reaction_memory_bytes=reaction_memory_bytes,ko_transition=ko_transition,ko_isolation=ko_isolation,external_ko=external_ko,external_guard_commit=external_guard_commit,external_pair_control=external_pair_control,external_guard=external_guard,external_host_stop=external_host_stop,external_damage=external_damage,external_pair_step=external_pair_step,contact=contact,state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,capture_screen_stages=capture_screen_stages,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer,renewable=renewable or transactions,transactions=transactions,reset_observation=reset_observation)
             settings['streaming']=stream_mode
             phase='start';native_start_attempted=True
             print(bounded_call(frida,lambda:script.exports_sync.start(settings)),flush=True)
@@ -559,6 +567,9 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         presents.append(message['payload']);continue
                     if message['type']=='send' and message['payload'].get('kind')=='input':
                         inputs.append(message['payload']);continue
+                    if message['type']=='send' and message['payload'].get('kind')=='external-stun-result':
+                        if not external_stun or any(d.get('kind')=='external-stun-result' for d in diagnostics):raise ValueError('unrequested/replayed stun result')
+                        diagnostics.append(message['payload']);continue
                     if message['type']=='send' and message['payload'].get('kind')=='external-pair-result':
                         if not external_pair_step or external_events:raise ValueError('unrequested/replayed external native pair result')
                         external_events.append(message['payload']);continue
@@ -905,9 +916,27 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                 errors.append(dict(check_error=str(error)))
             result['input_oracle_passed']=result['contact_check']['passed']
         (out/'requests.json').write_text(json.dumps(request_log,indent=2))
+    if external_stun:
+        events=[d for d in diagnostics if d.get('kind')=='external-stun-result'];event=events[0] if len(events)==1 else None
+        values=[]
+        if event:
+            for step in range(event['request_index'],completed+1):
+                raw=(out/('reaction-%03d.bin'%step)).read_bytes();values.append(int.from_bytes(raw[reaction_timer['field']:reaction_timer['field']+4],'little',signed=True))
+        expected=list(range(external_stun,-1,-1))
+        executed_states=[s for r,s in zip(records,states) if r.get('executed')]
+        poses=[[v['value'] for v in s[0]['pose_candidates']] for s in executed_states]
+        onset=event['request_index']-1 if event else 0
+        active=lambda names:any(name=='sol040_03' if external_guard else re.fullmatch(r'sol05[012]_[0-9]{2}',name) for name in names)
+        reaction_verified=bool(event and all(active(names) for names in poses[onset:onset+external_stun]) and len(poses)>onset+external_stun and not active(poses[onset+external_stun]) and any(any(name.startswith('sol000_') or name.startswith('sol001_') for name in names) for names in poses[onset+external_stun:]))
+        held={}
+        for record,actors in zip(records,states):
+            if not record.get('executed'):held.setdefault(record['after'],set()).add(actors[0]['scalar_observations']['reaction_timer_candidate'])
+        frozen=bool(held and any(any(v>0 for v in values) for values in held.values()) and all(len(values)==1 for values in held.values()))
+        verified=bool(frozen and reaction_verified and event and values[:len(expected)]==expected and all(v==0 for v in values[len(expected):]) and restored and detached and result['controlled_update_step_verified'])
+        result['stun_probe']=dict(requested=external_stun,event=event,countdown=values,frozen_timer_verified=frozen,native_reaction_duration_verified=reaction_verified,native_countdown_verified=verified,typed_host_result_applied=False)
     if typed_result is not None:
-        mapped=['Accepted','Damage','Hitstop']
-        verified=result.get('contact_check',{}).get('passed',False) and result['controlled_update_step_verified'] and restored and detached
+        mapped=['Accepted','Damage','Hitstop']+(['Stun'] if external_stun else [])
+        verified=result.get('contact_check',{}).get('passed',False) and result['controlled_update_step_verified'] and restored and detached and (not external_stun or result['stun_probe']['native_countdown_verified'])
         result['typed_result_probe']=dict(result=typed_result,native_effects_verified=bool(verified),mapped_fields=mapped if verified else [],unmapped_fields=sorted(HIT_RESULT_FIELDS-set(mapped)),typed_host_result_applied=False,live_host_transport=False)
     (out/'inspection.json').write_text(json.dumps(result,indent=2))
     print('Boundary trace:',len(records),'samples; counter deltas',dict(deltas),'gaps',gaps,'errors',len(errors),';',out,flush=True)
@@ -918,6 +947,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if capture: print('Render checks:',result['render_check'],flush=True)
     if trace_draws: print('Draw checks:',{k:v for k,v in result['draw_check'].items() if k not in ('groups','targets')},flush=True)
     if capture_passes: print('Intermediate captures:',result['pass_captures'],'bytes:',pass_bytes,flush=True)
+    if external_stun and not result['stun_probe']['native_countdown_verified']:raise RuntimeError('requested native stun countdown failed')
     if errors or not records or not restored or not detached: raise RuntimeError('boundary trace failed; inspect local receipt')
     if expire and not all(result['lease_check'].values()): raise RuntimeError('gate lease recovery failed')
     if transactions and not all(result['transaction_check'][k] for k in ('exact_three_steps','four_paired_frames','held_before_first_step')):
@@ -961,6 +991,8 @@ if __name__=='__main__':
     p.add_argument('--external-pair-control',action='store_true',help='negative guard control: skip native pair invocation')
     p.add_argument('--external-guard',action='store_true',help='diagnostic defender back input around one requested normal')
     p.add_argument('--external-host-stop',action='store_true',help='diagnostic host-owned freeze: clear native stops after requested reaction')
+    p.add_argument('--external-stun',type=int,default=0,help='bounded 1..30 frame native reaction timer diagnostic')
+    p.add_argument('--reaction-timer-candidate',type=Path,help='private inspected native timer decrement witness')
     p.add_argument('--reaction-memory-bytes',type=int,default=0x2600,help='opt-in actor snapshot span, 9728..65536 bytes; requires reaction capture')
     p.add_argument('--capture-reaction-memory',action='store_true',help='retain at most 85 bounded Sol memory blocks for counter discovery')
     p.add_argument('--host-hit-result',type=Path,help='partial typed damage probe from host HitResult JSON; unsupported values reject')
@@ -1011,4 +1043,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check or a.renewable_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control,a.observe_native_contact,a.contact_dispatch_candidate.resolve() if a.contact_dispatch_candidate else None,a.suppress_source_contact.resolve() if a.suppress_source_contact else None,a.contact_callees.resolve() if a.contact_callees else None,a.input_slot,a.external_pair_step,a.external_damage,a.external_host_stop,a.external_guard,a.external_pair_control,a.external_guard_commit,a.external_ko,a.isolate_source_ko.resolve() if a.isolate_source_ko else None,a.ko_reaction.resolve() if a.ko_reaction else None,a.host_hit_result.resolve() if a.host_hit_result else None,a.capture_reaction_memory,a.reaction_memory_bytes)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control,a.observe_native_contact,a.contact_dispatch_candidate.resolve() if a.contact_dispatch_candidate else None,a.suppress_source_contact.resolve() if a.suppress_source_contact else None,a.contact_callees.resolve() if a.contact_callees else None,a.input_slot,a.external_pair_step,a.external_damage,a.external_host_stop,a.external_guard,a.external_pair_control,a.external_guard_commit,a.external_ko,a.isolate_source_ko.resolve() if a.isolate_source_ko else None,a.ko_reaction.resolve() if a.ko_reaction else None,a.host_hit_result.resolve() if a.host_hit_result else None,a.capture_reaction_memory,a.reaction_memory_bytes,a.external_stun,a.reaction_timer_candidate.resolve() if a.reaction_timer_candidate else None)

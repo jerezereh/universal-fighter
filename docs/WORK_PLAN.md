@@ -539,3 +539,8 @@ Current-session typed damage now persists after detach, and fresh bounded render
 are prepared. Opt-in wider reaction snapshots expose a native duration/timer path with
 matching hurt recovery; verify its consumers and guarded behavior before host stun writes.
 Full typed reaction/motion mapping and atomic live producer integration remain pending.
+
+Bounded 5/15-frame native hitstun and blockstun now change actual reaction duration,
+recover correctly and freeze with withheld credits. Unguarded host JSON Stun maps in
+the explicit partial diagnostic. Continue typed guard/chip, result phase ownership and
+motion/defeat mapping before atomic live producer and playable IKEMEN publication.

@@ -821,6 +821,15 @@ function installGate(target, p) {
                 if(!p.external_guard && !p.external_ko && p.external_pair_step && index===p.external_pair_step) {
                     applyExternalPair(p,index,this.threadId);
                 }
+                if(p.external_stun && g.externalPairs===1 && !g.stunApplied && index>p.external_pair_step) {
+                    const t=p.reaction_timer,actor=g.root.add(p.state.fields.slots).readPointer(),timer=actor.add(t.field),before=timer.readS32();
+                    if(index>p.external_pair_step+3 || before<0 || before>120)throw new Error('native reaction initialization did not match');
+                    if(before>0) {
+                        if(hex(bytes(Process.mainModule.base.add(t.rva),17))!==t.before)throw new Error('reaction timer witness changed');
+                        timer.writeS32(p.external_stun);g.stunApplied=true;
+                        send({kind:'external-stun-result',request_index:index,counter:object.add(p.candidate.counter_field).readU32(),before,after:timer.readS32(),guarded:p.external_guard===true});
+                    }
+                }
                 if(g.externalEvent) {send({...g.externalEvent,counter:object.add(p.candidate.counter_field).readU32()});g.externalEvent=null;}
                 // Diagnostic only: host withholding credits owns freeze; native reaction may queue stop later.
                 if(p.external_host_stop && g.externalPairs)for(let i=0;i<2;i++)

@@ -20,6 +20,9 @@ def main():
     for patch in (dict(Accepted=False),dict(Guarded=True),dict(Parried=True),dict(Damage=420),
                   dict(Stun=15),dict(Hitstop=[3,3]),dict(PushX=2.4),dict(ResourceCost=1)):
         reject(lambda:damage_probe(result|patch))
+    assert damage_probe(result|dict(Stun=15),allow_stun=True)==17
+    reject(lambda:damage_probe(result|dict(Stun=31),allow_stun=True))
+    reject(lambda:damage_probe(result|dict(Stun=15,PushX=2.4),allow_stun=True))
     # Generic validation accepts an arbiter result even when this partial probe rejects it.
     assert validate_result(result|dict(Stun=15,PushX=2.4))['Stun']==15
     with tempfile.TemporaryDirectory() as folder:

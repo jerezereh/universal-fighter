@@ -3211,3 +3211,12 @@ the held block pose transitions into its recovery poses. Static native reference
 its decrement/store and a guard-state recovery test. The later full idle transition is
 separate from blockstun expiration. Candidate offsets/bytes remain private; this is
 read-only timing evidence, not accepted arbitrary host blockstun application.
+
+### 2026-10-10 requested native hitstun and blockstun
+
+- Added opt-in bounded reaction timer application (1..30 frames), derived from an exact private decrement/load/store code witness. It requires a nonfatal requested native pair, host stop ownership, complete retained snapshots and a plan covering initialization/recovery. The runtime checks the witness again and writes once only after native reaction initialization (within three owned updates). No native offsets or proprietary bytes enter versioned profiles.
+- Receipts verify the requested countdown, active hurt/block pose for its duration, transition out of that pose at zero, eventual idle, and unchanged positive timers while credits are withheld. The shared observer now bounds optional scalar spans and retains the existing prefix for name discovery.
+- Native diagnostics pass 15-frame and 5-frame hitstun, and 15-frame and 5-frame blockstun. Shorter and longer durations change the real reaction/recovery. Guard tests retain health; hit tests retain exact requested 17-point damage. All completed diagnostics restore code/observers and detach cleanly. An initial guard witness parser rejection occurred before attachment; inspected guard flag cleanup explains its longer branch.
+- The game-independent host JSON damage probe can now accept nonzero Stun only with the explicit private timer witness and bounded native diagnostic. Final JSON test passes 64 credits/416 presentations, exact health 310 to 293, 15-frame hurt/countdown/recovery and timer freeze. Final guarded short test passes 60 credits/407 presentations and verified freeze/recovery.
+- Existing host schema, combat, state, input and boundary tests plus JavaScript syntax checks pass. Unsupported resource/motion/hitstop/guarded JSON fields still reject. Standalone guarded timer proof does not yet map typed chip or Guarded results.
+- This uses the existing active Ky normal proxy and deferred native reaction initialization, not arbitrary live host contact. Strict host-tick result timing, full motion/defeat mapping, atomic rendered guest responses and live IKEMEN producer integration remain pending. All playable capabilities stay disabled.

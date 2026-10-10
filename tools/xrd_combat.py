@@ -296,3 +296,15 @@ def contact_check(records,states,attacker_slot=0):
     return dict(passed=bool(passed),damage_events=damage,max_stop=max_stop,countdown_steps=countdown,
         held_animation_age_steps=held_age,frozen_stop_samples=frozen_samples,frozen_scalar_changes=frozen_changes,
         native_hit_reaction=bool(reaction),stop_recovered=recovered,animation_age_resumed=age_resumed)
+
+
+def reaction_timer_field(code,code_rva,local):
+    """Derive a private timer field from its inspected decrement/load/store witness."""
+    if type(local)!=dict or set(local)!={'rva','before'}:raise ValueError('invalid reaction timer profile')
+    rva=local.get('rva');before=local.get('before')
+    if type(rva)!=int or type(before)!=str or len(before)!=34:raise ValueError('invalid reaction timer witness')
+    at=rva-code_rva;body=code[at:at+17]
+    if at<0 or len(body)!=17 or body.hex()!=before or body[:2]!=b'\x8b\x86' or body[6:9]!=b'\x3b\xc3\x7e' or not 7<=body[9]<=32 or body[10]!=0x48 or body[11:13]!=b'\x89\x86' or body[2:6]!=body[13:17]:raise ValueError('reaction timer decrement witness changed')
+    field=struct.unpack_from('<I',body,2)[0]
+    if not 0<field<0x10000 or field%4:raise ValueError('unbounded reaction timer field')
+    return dict(rva=rva,before=before,field=field)

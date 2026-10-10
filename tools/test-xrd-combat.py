@@ -2,7 +2,7 @@
 import copy
 import struct
 
-from xrd_combat import combat_fields, contact_check, contact_observations, world_boxes, dispatch_candidate, dispatch_ownership, suppressed_contact_check, contact_callees, external_contact_check, guard_contact_check, dispatch_result_fields, fatal_global_field, state_transition_candidate
+from xrd_combat import combat_fields, contact_check, contact_observations, world_boxes, dispatch_candidate, dispatch_ownership, suppressed_contact_check, contact_callees, external_contact_check, guard_contact_check, dispatch_result_fields, fatal_global_field, state_transition_candidate, reaction_timer_field
 import hashlib
 
 
@@ -13,6 +13,11 @@ def reject(action):
 
 
 def main():
+    for skip in (7,18):
+        body=b'\x8b\x86'+struct.pack('<I',128)+b'\x3b\xc3\x7e'+bytes([skip])+b'\x48\x89\x86'+struct.pack('<I',128)
+        witness=dict(rva=8193,before=body.hex());assert reaction_timer_field(b'\xcc'+body,8192,witness)['field']==128
+        reject(lambda:reaction_timer_field(b'\xcc'+body[:-1]+b'\x01',8192,witness))
+        reject(lambda:reaction_timer_field(b'\xcc'+body,8192,witness|dict(rva=True)))
     transition=bytearray(b'\xcc'*512);transition[32:64]=b'\x90'*29+b'\xc2\x04\x00'
     transition[188:200]=b'\x68'+struct.pack('<I',32768+384)+b'\x8b\xce\xe8'+struct.pack('<i',8224-8392)
     transition_witness=dict(rva=8224,size=32,return_rva=8392,state_rva=384,name='CommonFall',before=transition[32:64].hex())
