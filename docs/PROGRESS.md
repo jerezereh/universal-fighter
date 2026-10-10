@@ -3205,3 +3205,9 @@ the synthetic architecture gate allows the first real-game adapter.
 - Original contact with wider snapshots passes all 64 credits/344 presentations and clean restoration. The statically traced hurt timer stays at 11 during native stop, then decrements to zero exactly as the observed hurt pose returns to idle. This distinguishes it from the rejected prefix countdowns. Native references include duration assignment and a zero-timer recovery branch.
 - Requested guarded contact passes all 60 credits/352 presentations, no damage, source-contact suppression and clean restoration. Its block reaction uses a separate path: the traced hurt timer remains zero throughout block recovery. A single shared source timer must not be assumed for host hitstun/blockstun.
 - No timer fields were written. Continue deriving the distinct guarded timer and precise application phase before accepting arbitrary typed Stun. Live host transport and playable capabilities remain pending.
+
+The retained guarded snapshots also expose a distinct countdown from eight to zero as
+the held block pose transitions into its recovery poses. Static native references show
+its decrement/store and a guard-state recovery test. The later full idle transition is
+separate from blockstun expiration. Candidate offsets/bytes remain private; this is
+read-only timing evidence, not accepted arbitrary host blockstun application.
