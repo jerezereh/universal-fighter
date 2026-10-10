@@ -905,3 +905,32 @@ renewal after that final frame, leaving time to verify the native lease's recove
 hook removal. The 90-second native check passes 75 credits/76 images and automatic recovery
 with clean restoration. This is simulated loss of renewal, not a forced controller crash
 or real network disconnect. Total process memory and indefinite transport are unverified.
+
+## Read-only source frame tap
+
+Add `--frame-tap` to a fixed-count rolling check such as `--stream-check-steps 20`.
+The command prints an ignored `frame-tap-ready.json` path and waits up to thirty seconds
+for its single observer before any native hook is installed. In another terminal:
+
+```powershell
+python tools/receive-source-frames.py $readyFile --frames 21 --report $receiverReport
+```
+
+Use the printed ready file and an ignored report path. Frame count includes initial frame
+zero plus each credit. The separate receiver is generic across game identities and reads
+raw source observations and RGBA, not calibrated host state. Source capabilities, units,
+pivot and atomic-pose acceptance remain false. This tap uses a distinct `source-observation`
+packet, not the playable guest handshake; the IKEMEN receiver remains unchanged.
+
+Packets use uint32-BE byte length plus strict JSON, at most 8 MiB. Ready data names a numeric
+IPv4 loopback endpoint and a fresh session nonce. Subscription/ACK packets are limited to
+16 KiB; all identities and sequence/counter/index checks must agree. Each ACK gates the
+next source credit. Send/ACK is limited to 500 ms; there is no reconnect. Receiver slow-down,
+disconnect or malformed ACK causes source instrumentation teardown. Observers cannot issue
+inputs, resets or universal results. Pixel payloads stay in local memory/ignored artifacts.
+
+Native delivery of 21 packets to a separate process passes, and its final RGBA hash matches
+the saved native BGRA after independent channel conversion. Maximum measured send/ACK is
+44.88 ms, excluding native render/readiness work. Closing the receiver after five packets
+preserves a failed raw stream and verifies restoration plus resumed source clock. Actual
+playable transport and continuous network/host input lifetime remain unimplemented.

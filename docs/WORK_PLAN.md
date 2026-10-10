@@ -449,6 +449,12 @@ aggregating all sample/frame/gap counts. A 90-second native experiment passes 75
 automatic controller-loss recovery and restoration. Fixed-count named-input regression
 passes. This proves retention/recovery, not an indefinite network producer or whole-process
 memory bounds. Continue transport integration, broader inputs and contact/result ownership.
+Read-only source-observation transport now delivers twenty native credits/twenty-one
+verified RGBA/state packets to a separate loopback receiver, with empty capabilities and
+unaccepted units/pivot. Generic two-game authored checks and a real early TCP disconnect
+verify framing/identity/ACK rejection and source/render recovery. Host-driven transport,
+continuous network lifetime, broader inputs and contact/result ownership still remain;
+the observation tap is not the playable IKEMEN guest protocol.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

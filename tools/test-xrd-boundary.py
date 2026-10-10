@@ -120,3 +120,5 @@ for options in (dict(stream_duration=1),dict(stream_duration=True,stream_frames=
 for seconds in (27,121,float('nan')):
     reject(lambda:boundary.trace(Path('unused'),Path('unused'),seconds,stream_duration=True))
 reject(lambda:boundary.trace(Path('unused'),Path('unused'),59,stream_duration=True,transaction_loss=True))
+for options in (dict(frame_tap=1),dict(frame_tap=True),dict(frame_tap=True,stream_frames=20,stream_duration=True)):
+    reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,**options))

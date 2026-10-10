@@ -1,5 +1,41 @@
 # Progress record
 
+## 2026-10-09 — Read-only source observation transport
+
+- Added a stdlib IPv4 loopback frame tap and separate generic receiver. This is a distinct
+  `source-observation` development protocol, not a playable IKEMEN GuestResponse. It uses
+  bounded uint32-BE/JSON framing, a fresh 128-bit session nonce, game identity, ordered
+  sequence/native counter/index, raw source state and top-down RGBA converted from native
+  BGRA. Source units/pivot/atomic-frame flags remain false and capabilities remain empty.
+  The receiver is game-independent; authored real-loopback checks pass for two game IDs.
+- `--frame-tap` is restricted to fixed-count rolling checks. It writes an ignored ready
+  receipt, waits at most thirty seconds for one authenticated subscriber before installing
+  native hooks, and requires an exact ACK before the next credit. Subscribe/ACK are the
+  only operations; game input/result/reset commands are unsupported. Socket send/ACK
+  timeout is 500 ms, messages are at most 8 MiB, subscription/ACK at most 16 KiB. No listener
+  replacement or hidden reconnect occurs. EOF/timeout/invalid ACK enters existing cleanup.
+- Generic receiver checks nonce/game/sequence/counter, unpromoted flags, image shape/pivot,
+  pixel length and base64, retaining only count/last-counter/hash. Framing rejects empty/
+  oversized messages, duplicate fields, nonfinite JSON and unexpected packet fields.
+  Authored color-channel, cross-game, stale/nonce/capability/operation/EOF checks pass,
+  alongside boundary and rolling-audit checks. No new runtime dependency or host edit.
+- Native ignored `20261010-000623-001413/boundary-20261010-004823-411179` passes twenty
+  credits and twenty-one linked/acknowledged frames to a separate receiver process.
+  41,287,680 RGBA bytes are acknowledged; maximum serialization/send/ACK time is 44.88 ms
+  (not total native frame latency), total check elapsed 32.20 seconds. Zero gaps/errors,
+  source/graphics restoration and detach pass. Final receiver RGBA SHA agrees with an
+  independent conversion of the saved native BGRA image. Ready/receiver receipts are ignored.
+- Real TCP disconnect test `boundary-20261010-005023-894321`: client ACKs five frames,
+  closes, and the next delivery raises Windows ConnectionAbortedError 10053. Raw stream
+  remains failed (five credits/six captured frames, five ACKs); no further credits follow
+  rejection. Source/render restoration/detach pass with zero gaps. Separate read-only
+  clock receipt confirms ordinary execution advances after teardown. This is negative
+  lifecycle evidence, not a successful complete twenty-credit stream.
+- Source capabilities remain disabled. This adds read-only observation delivery and real
+  peer-loss cleanup, not host-driven input, accepted unit mapping, continuous network
+  producer or live mixed-match combat. Those and broader source input/contact/results
+  remain subsequent work. Retail pixels and source profiles are not committed.
+
 ## 2026-10-09 — Bounded controller retention and duration recovery
 
 - Added a stdlib rolling audit retaining 64 recent source records/states and two compact

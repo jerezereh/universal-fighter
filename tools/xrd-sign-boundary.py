@@ -23,6 +23,7 @@ from xrd_layer import layer_pixels, save_layer_preview, save_hdr_layer, capture_
 from xrd_transform import transform_packet, transform_changes, projection_bindings, vertex_bindings
 from xrd_d3d import validate_device_calls
 from xrd_stream import RollingAudit
+from source_frame_tap import FrameTap
 
 ROOT=Path(__file__).resolve().parent.parent
 EXE=Path('C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-/Binaries/Win32/GuiltyGearXrd.exe')
@@ -263,7 +264,9 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False):
+    if type(frame_tap)!=bool or frame_tap and (not stream_frames or stream_duration or transaction_loss):
+        raise ValueError('frame tap requires exclusive fixed-count rolling verification')
     if type(stream_duration)!=bool or stream_duration and (stream_frames or plan_path or input_path or not 28<=seconds<=120):
         raise ValueError('duration stream requires exclusive neutral 28..120 second verification')
     if stream_duration and transaction_loss and seconds<60:
@@ -408,12 +411,17 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         records=audit.records;states=audit.states;stream_receipts=audit.frames
         presents=deque(maxlen=64);diagnostics=deque(maxlen=16)
     with ReadOnlyProcess(state['pid'],EXE) as process:
+        tap=None
         def unchanged():
             base,size=process.module_base()
             return base==state['module_base'] and size==receipt['image_size'] and hashlib.sha256(process.read(base+state['code_rva'],state['code_size'])).hexdigest()==state['code_sha256']
         if not unchanged(): raise ValueError('source session/code changed; run a fresh probe')
         phase='preflight';native_start_attempted=False;clock_preflight=None;abi=None
         try:
+            if frame_tap:
+                tap=FrameTap(out/'frame-tap-ready.json','ggxrd-sign')
+                print('Read-only frame tap:',out/'frame-tap-ready.json',flush=True)
+                tap.await_subscriber() # No native gate is installed while awaiting the observer.
             if gate_options:
                 clock_preflight=read_clock(process,state,candidate)
                 if not clock_preflight['advancing']: raise ValueError('original source clock is held or discontinuous; resume offline training before stepping')
@@ -539,6 +547,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                                 source_facing_left=observation['fighters'][0]['facing_left'])
                             if audit:audit.frame(frame_receipt)
                             else:stream_receipts.append(frame_receipt)
+                            if tap:tap.publish(native,pixels,observation['fighters'])
                             latest_layer=(native,data,observation)
                             continue
                         if native['kind']=='render-hdr-layer':
@@ -578,6 +587,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                     errors.append(message)
             errors.append(dict(controller_error=repr(error),controller_phase=phase))
         finally:
+            if tap:tap.close()
             # A failed RPC must not prevent script/session teardown from removing the hook.
             if script is not None:
                 if source_window:
@@ -618,6 +628,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         counts_verified=requests==completed and frames_received==completed+1 and (completed>=4 if audit else completed==stream_frames)
         if not counts_verified:
             errors.append(dict(stream_error='bounded check ended without all requested state/image transactions'))
+        if tap and tap.sequence!=frames_received:
+            errors.append(dict(stream_error='frame tap delivery was not acknowledged'))
         recovery=None
         if audit and transaction_loss:
             recovery=lease_check(records,presents,diagnostics,automatic_restore)
@@ -644,6 +656,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             rolling_image_retention=True,bounded_verification=True,input_check=stream_input,duration_check=stream_duration,
             retained_state_samples=len(records),total_state_samples=audit.samples if audit else len(records),
             controller_loss_recovery=recovery,controller_lost_at=controller_lost_at)
+        if tap:result['frame_tap']=tap.receipt()
         if latest_layer:
             folder=out/'latest-layer';folder.mkdir()
             save_render(folder,*latest_layer)
@@ -818,6 +831,7 @@ if __name__=='__main__':
     p.add_argument('--transaction-loss-check',action='store_true',help='run transaction check, then cease renewal and verify automatic source/renderer-hook recovery')
     p.add_argument('--stream-check-steps',type=int,default=0,help='1..120 rolling credits; optional exact-count horizontal render-position plan, no live host producer')
     p.add_argument('--stream-duration-check',action='store_true',help='neutral rolling capture for --seconds (28..120), bounded recent metadata, no fixed credit count')
+    p.add_argument('--frame-tap',action='store_true',help='fixed-count rolling check: read-only loopback source observation subscriber; no playable capabilities')
     p.add_argument('--transaction-hold-seconds',type=float,default=13,help='13..45 seconds for the initial normal transaction hold, allowing a synchronized manual reset test')
     p.add_argument('--input-candidate',type=Path,help='ignored local sampler/writer/ingress discovery JSON')
     p.add_argument('--input-plan',type=Path,help='bounded named-input oracle plan, with --gate and --input-candidate')
@@ -864,4 +878,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check or a.renewable_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap)
