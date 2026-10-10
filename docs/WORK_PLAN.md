@@ -475,6 +475,10 @@ matching X/Y scales near 0.42991279 world units per logical source unit. Repeata
 is `tools/fixtures/xrd-sign-body-calibration.json` (28 steps; select 0,8,20,28).
 Continue anatomical foot-pivot evidence and rolling/network vertical/normal coverage;
 selected airborne captures do not prove landing or enable playable host publication.
+Network standing Punch/neutral now passes twenty requested native credits/twenty-one
+linked frames with active hitboxes, source input history and unchanged native health.
+Next prioritize native contact suppression/result application and real host transport;
+the diagnostic standing-normal oracle does not enable universal-contact capabilities.
 
 Keep new protocol/runtime/combat code separate from host internals. Capture host edits as
 versioned patches or a maintained fork: ignored upstream checkout edits alone are not a

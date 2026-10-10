@@ -1,5 +1,20 @@
 # Progress record
 
+## 2026-10-09 — Network-requested standing normal
+
+- Added an explicit `render-attack` rolling oracle with standing Punch/neutral controls
+  only. Horizontal mode remains separate. Requests reject unsupported inputs, airborne
+  state and unsafe source spacing. Verification requires native input history and exact
+  requested masks, standing-normal activation, active hitboxes, neutral Ky, grounded
+  source and unchanged native health. A checked authored twenty-step plan is versioned.
+- Native `20261010-033610-229066/boundary-20261010-035035-103034` passes twenty
+  network-requested credits and twenty-one paired RGBA/state/geometry frames, with 441
+  source samples and clean source/render restoration. The separate generic receiver
+  receives every frame. Authored input, boundary and transport regressions pass.
+- This verifies original standing Punch through diagnostic TCP, without native contact.
+  It does not implement universal results, source contact suppression, rolling jumps,
+  native KO/reset or the playable IKEMEN guest protocol. Capabilities stay off.
+
 ## 2026-10-09 — Fresh two-axis body-origin calibration
 
 - Existing bounded walk/jump oracle passes in fresh scene bindings:

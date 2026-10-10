@@ -1,0 +1,4 @@
+[
+  {"frames": 1, "input": {"punch": true}, "label": "standing-punch"},
+  {"frames": 19, "input": {}, "label": "release-and-recover"}
+]

@@ -53,6 +53,14 @@ def position_plan(data,expected_frames):
     return frames
 
 
+def punch_plan(data,expected_frames):
+    frames=input_plan(data,expected_frames)
+    if any(set(q['input'])-{'punch'} for q in frames) or not any(
+            input_mask(q['input'],False,q['accept_input'])==16 for q in frames):
+        raise ValueError('rolling normal requires standing punch and neutral only')
+    return frames
+
+
 def input_scene_ready(fighters,oracle,requests):
     if len(fighters)!=2 or any(f['y_raw'] or f['hit_count'] for f in fighters):return False
     if not any(re.fullmatch(r'sol00[01]_[0-9]{2}',n['value']) for n in fighters[0]['pose_candidates']):return False

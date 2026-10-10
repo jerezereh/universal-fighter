@@ -15,7 +15,7 @@ import time
 
 from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
 from xrd_state import assembly_rows, boundary_candidate, observe, read_clock
-from xrd_input import input_candidate, input_mask, input_plan, position_plan, input_check, oracle_passed, input_scene_ready
+from xrd_input import input_candidate, input_mask, input_plan, position_plan, punch_plan, input_check, oracle_passed, input_scene_ready
 from xrd_combat import combat_fields, contact_check
 from xrd_render import render_pixels, save_render, render_check, draw_check, save_pass
 from xrd_shader import opaque_alpha_variant, screen_packet
@@ -283,7 +283,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         raise ValueError('renewable trace requires an exclusive gate recovery experiment')
     if transactions and (renewable or expire or not gate_receipt or not layer_path or not normalize or not settle or layer_steps not in (None,'0,1,2,3')):
         raise ValueError('transaction trace requires four consecutive normalized settled frames')
-    if transactions and plan_path and (oracle!='render-position' or not combat_path):
+    if transactions and plan_path and (oracle not in (('render-position','render-attack') if stream_frames else ('render-position',)) or not combat_path):
         raise ValueError('non-neutral transactions require age ownership and the positioning oracle')
     if transaction_loss and not transactions: raise ValueError('transaction loss requires transaction control')
     if not 13<=transaction_hold<=45 or transaction_hold!=13 and (not transactions or transaction_loss):
@@ -389,7 +389,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if plan_path:
         if not gate_options or not input_profile or expire or plan_path.stat().st_size>16384:
             raise ValueError('bounded input plan requires a native gate and validated input ingress')
-        plan=(position_plan if stream_frames else input_plan)(json.loads(plan_path.read_text()),stream_frames or (3 if transactions else None))
+        plan=(punch_plan if stream_frames and oracle=='render-attack' else position_plan if stream_frames else input_plan)(json.loads(plan_path.read_text()),stream_frames or (3 if transactions else None))
         if layer and (not oracle.startswith('render-') or not stream_frames and layer['capture_steps'][-1]!=len(plan)):
             raise ValueError('private render plan must use a render oracle and capture its final requested step')
     sys.path.insert(0,str(ROOT/'local-cache/xrd-tools/frida/python'))
@@ -468,11 +468,14 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                     if frame_control and requests<stream_frames and requests==completed and image_ready and elapsed>=next_request:
                         packet=tap.poll_step()
                         if packet is not None:
-                            if set(packet['input'])-{'left','right','forward','back'}:raise ValueError('source control supports horizontal input only')
+                            allowed={'punch'} if oracle=='render-attack' else {'left','right','forward','back'}
+                            if set(packet['input'])-allowed:raise ValueError('source control input is outside the selected oracle')
                             if requests==0 and not input_scene_ready(states[0],'render-position',[packet]):
                                 raise ValueError('source control requires grounded idle Sol/opponent at safe spacing')
                             mask=input_mask(packet['input'],states[-1][0]['facing_left'],packet['accept_input'])
                             sol,opponent=states[-1]
+                            if oracle=='render-attack' and (sol['y_raw'] or abs(sol['x_raw']-opponent['x_raw'])<350000):
+                                raise ValueError('standing normal control requires grounded safe source spacing')
                             inward=bool(mask&(4 if sol['facing_left'] else 8))
                             if inward and abs(sol['x_raw']-opponent['x_raw'])<350000:
                                 raise ValueError('source control refuses unverified close-range contact')
@@ -661,11 +664,16 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                 r['requested_inputs']==[q['mask'],0] for r,q in zip(executed,request_log))
             stream_input['directions_verified']=all(not any(q['mask']&bit for q in request_log) or stream_input[key]
                 for bit,key in ((4,'walk_left'),(8,'walk_right')))
-            stream_input['passed']=all(stream_input[k] for k in ('source_history_linked','requested_masks_linked','directions_verified','opponent_neutral','grounded_at_end')) and (
-                stream_input['walk_left'] or stream_input['walk_right']) and all(f[0]['y_raw']==0 and f[0]['hit_count']==0 for f in states)
+            linked=all(stream_input[k] for k in ('source_history_linked','requested_masks_linked','directions_verified','opponent_neutral','grounded_at_end'))
+            if oracle=='render-attack':
+                health=lambda f:f['scalar_observations']['health_candidate']
+                stream_input['source_health_unchanged']=all([health(f) for f in s]==[health(f) for f in states[0]] for s in states)
+                stream_input['passed']=linked and stream_input['standing_punch_activations']>0 and stream_input['active_normal_steps']>0 and stream_input['source_health_unchanged'] and all(f[0]['y_raw']==0 for f in states)
+            else:
+                stream_input['passed']=linked and (stream_input['walk_left'] or stream_input['walk_right']) and all(f[0]['y_raw']==0 and f[0]['hit_count']==0 for f in states)
             (out/'requests.json').write_text(json.dumps(request_log,indent=2))
             (out/'input.jsonl').write_text(''.join(json.dumps(r,separators=(',',':'))+'\n' for r in inputs))
-            if not stream_input['passed']:errors.append(dict(stream_error='rolling positioning/input history not verified'))
+            if not stream_input['passed']:errors.append(dict(stream_error='rolling input oracle/history not verified'))
         passed=counts_verified and gaps==0 and not errors and detached and restored and bool(cleanup_receipt and cleanup_receipt.get('render_code_restored'))
         result=dict(passed=passed,requested_steps=requests,completed_steps=completed,frames=list(stream_receipts),frames_received=frames_received,
             continuity_gaps=gaps,errors=errors,detached=detached,loaded_code_restored=restored,native_start_attempted=native_start_attempted,

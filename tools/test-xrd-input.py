@@ -1,7 +1,7 @@
 """Authored named-input, native-layout and source-step association checks."""
 import struct
 
-from xrd_input import input_mask, input_plan, position_plan, input_candidate, input_check, oracle_passed, input_scene_ready
+from xrd_input import input_mask, input_plan, position_plan, punch_plan, input_candidate, input_check, oracle_passed, input_scene_ready
 
 
 def reject(action):
@@ -11,6 +11,9 @@ def reject(action):
 
 
 def main():
+    assert len(punch_plan([dict(frames=1,input={'punch':True}),dict(frames=19,input={})],20))==20
+    for data in ([dict(input={'kick':True})],[dict(input={'punch':True,'up':False})],[dict(input={})],
+            [dict(input={'punch':True},accept_input=False)]):reject(lambda:punch_plan(data,1))
     assert input_mask({'forward':True,'punch':True})==24
     assert input_mask({'forward':True,'punch':True},True)==20
     assert input_mask({'back':True},True)==8
