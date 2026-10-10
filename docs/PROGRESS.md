@@ -3176,3 +3176,11 @@ the synthetic architecture gate allows the first real-game adapter.
 - Remaining: original menu pause, clash/superfreeze and human facing/render review;
   isolated source RGBA with state/image association, persistent transport and universal
   result/contact ownership. SIGN remains unconnected with full capabilities unaccepted.
+
+### 2026-10-10 refreshed SIGN session result checks
+
+- Refreshed bindings for the current offline SIGN process (PID 7788). One attachment timeout occurred before native hooks started; the single retry passed 300 consecutive source updates with clean restoration.
+- A saved dispatch-body witness rejected before attachment after ASLR changed absolute operands. Read-only comparison against the executable relocation table verified all 18 HIGHLOW words and identical remaining bytes; a fresh witness stays in ignored local evidence.
+- Fresh positioning passed 26 credits; original contact passed 78 credits/418 presentations, and the partial typed damage check passed 78 credits/420 presentations with exact 17-point damage, suppressed automatic contacts, zero native stop and host-owned freeze. Both contact runs restored code/observers and detached cleanly.
+- Corrected private snapshot search includes the actual original hurt-pose family. It exposes additional countdown candidates; none is verified stun and no candidate field was written.
+- Both captures returned Sol to full health by their final frame. Current-process health recovery remains unresolved despite the earlier setting confirmation; requested manual confirmation that ordinary damage persists. Live typed result transport, complete reaction/motion mapping and playable guest capabilities remain pending/off.
