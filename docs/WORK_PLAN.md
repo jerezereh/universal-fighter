@@ -658,3 +658,8 @@ Individual queued typed damage values now pass one bounded source session (eight
 thirteen damage), with ordinal ownership and per-contact audits. Continue live enqueueing
 through the existing owned transaction/control path; preloaded diagnostic queues do not
 establish renewable live result transport or playable mixed-match acceptance.
+
+Per-contact damage now arrives with its owned step RPC rather than a startup damage array,
+and two native contacts verify counter/ordinal ownership. Continue renewable source control
+and arbitrary live contact scheduling, then combine atomic state/image publication with
+host transport and geometry. The current driver and declared schedule remain bounded diagnostics.

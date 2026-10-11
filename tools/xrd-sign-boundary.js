@@ -29,8 +29,11 @@ function applyExternalPair(p,index,thread) {
     const g=gate;
     if((p.external_pair_steps || [p.external_pair_step])[g.externalPairs]!==index)
         throw new Error('external pair replay or out-of-order request');
-    const damage=p.external_pair_damages?p.external_pair_damages[g.externalPairs]:p.external_damage;
-    if(p.external_pair_damages && (!Number.isInteger(damage) || damage<1 || damage>419))
+    const queued=g.pendingContact;
+    if(p.dynamic_contact_results && (!queued || queued.step!==index || queued.ordinal!==g.externalPairs+1))
+        throw new Error('missing or stale per-credit contact');
+    const damage=p.dynamic_contact_results?queued.damage:p.external_damage;
+    if(p.dynamic_contact_results && (!Number.isInteger(damage) || damage<1 || damage>419))
         throw new Error('invalid per-contact damage');
     const actors=[0,1].map(i=>g.root.add(p.state.fields.slots+4*i).readPointer());
     const proxy=p.proxy_template;
@@ -81,7 +84,7 @@ function applyExternalPair(p,index,thread) {
         flags.writeU32(flags.readU32()|c.pending_mask);
     }
     if(damage)actors[0].add(p.state.scalar_fields.health_candidate).writeS32(before[0]-damage);
-    g.externalPairs++;
+    g.externalPairs++;g.pendingContact=null;
     g.externalEvent={kind:'external-pair-result',request_index:index,request_ordinal:g.externalPairs,counter:g.root.add(4+p.candidate.counter_field).readU32(),
         thread,attacker:1,defender:0,before,
         after:actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32()),
@@ -1088,13 +1091,25 @@ rpc.exports = {
         });
         return {installed: true, mutation: 'temporary Frida entry interception; original routine runs unchanged'};
     },
-    step(inputs, expectedCounter) {
+    step(inputs, expectedCounter, contact=null) {
         if (gate === null || gate.resumed || gate.pending || gate.credits !== 0)
             throw new Error('gate unavailable or step already pending');
         if (!Array.isArray(inputs) || inputs.length !== 2 || inputs.some(x => !Number.isInteger(x) || x < 0 || x > 0x3ff))
             throw new Error('invalid core input masks');
         if (!config.input && inputs.some(x => x !== 0)) throw new Error('native input ingress is not installed');
         if (Date.now() > gate.deadline) throw new Error('gate lease expired');
+        if(contact!==null && !config.dynamic_contact_results)throw new Error('contact ingress is not enabled');
+        if(config.dynamic_contact_results) {
+            const counter=gate.root.add(4+config.candidate.counter_field).readU32();
+            if(!Number.isInteger(expectedCounter) || expectedCounter!==counter || gate.initialCounter===null)
+                throw new Error('contact credit counter stale or unavailable');
+            const index=((counter-gate.initialCounter)>>>0)+1;
+            const due=config.external_pair_steps[gate.externalPairs]===index;
+            if(due!==(contact!==null) || contact!==null && (typeof contact!=='object' || Object.keys(contact).sort().join(',')!=='damage,ordinal,step' ||
+                contact.step!==index || contact.ordinal!==gate.externalPairs+1 || !Number.isInteger(contact.damage) || contact.damage<1 || contact.damage>419))
+                throw new Error('missing, unrequested or invalid contact credit');
+            if(inputs.some(x=>x!==0))throw new Error('idle proxy contact ingress requires neutral inputs');
+        }
         if (config.transactions && (!Number.isInteger(expectedCounter) || expectedCounter < 0 || expectedCounter > 0xffffffff ||
             gate.frameReady === null || expectedCounter !== gate.frameReady ||
             !config.streaming && ((expectedCounter-gate.initialCounter)>>>0) >= 3))
@@ -1104,6 +1119,7 @@ rpc.exports = {
         gate.frameReady = null;
         if (config.streaming) { pendingLayer=null; previousCandidate=null; }
         gate.inputs = inputs.slice();
+        gate.pendingContact=contact===null?null:{...contact};
         gate.pending = true; gate.credits = 1;
         return {accepted: true};
     },

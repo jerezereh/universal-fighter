@@ -554,7 +554,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             abi=validate_device_calls([source],(ROOT/'local-cache/msys64/mingw64/include/d3d9.h').read_text())
             script=session.create_script(source)
             script.on('message',receive);bounded_call(frida,script.load)
-            settings=dict(external_pair_damages=external_damages,external_pair_steps=external_steps,proxy_template=proxy,launch_horizontal=launch_horizontal,launch_velocity_x=launch_velocity_x,launch_transition=launch_transition,vertical_mode='ground-hit' if launch_path else 'airborne-hit' if oracle=='contact' else 'jump',vertical=vertical,jump_velocity=jump_velocity,jump_gravity=jump_gravity,external_recoil=external_recoil,recoil=recoil,external_pair_phase=external_pair_phase,external_stun=external_stun,reaction_timer=reaction_timer,reaction_memory_bytes=reaction_memory_bytes,ko_transition=ko_transition,ko_isolation=ko_isolation,external_ko=external_ko,external_guard_commit=external_guard_commit,external_pair_control=external_pair_control,external_guard=external_guard,external_host_stop=external_host_stop,external_damage=external_damage,external_pair_step=external_pair_step,contact=contact,state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,capture_screen_stages=capture_screen_stages,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer,renewable=renewable or transactions,transactions=transactions,reset_observation=reset_observation)
+            settings=dict(dynamic_contact_results=queued_results is not None,external_pair_steps=external_steps,proxy_template=proxy,launch_horizontal=launch_horizontal,launch_velocity_x=launch_velocity_x,launch_transition=launch_transition,vertical_mode='ground-hit' if launch_path else 'airborne-hit' if oracle=='contact' else 'jump',vertical=vertical,jump_velocity=jump_velocity,jump_gravity=jump_gravity,external_recoil=external_recoil,recoil=recoil,external_pair_phase=external_pair_phase,external_stun=external_stun,reaction_timer=reaction_timer,reaction_memory_bytes=reaction_memory_bytes,ko_transition=ko_transition,ko_isolation=ko_isolation,external_ko=external_ko,external_guard_commit=external_guard_commit,external_pair_control=external_pair_control,external_guard=external_guard,external_host_stop=external_host_stop,external_damage=external_damage,external_pair_step=external_pair_step,contact=contact,state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,capture_screen_stages=capture_screen_stages,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer,renewable=renewable or transactions,transactions=transactions,reset_observation=reset_observation)
             settings['streaming']=stream_mode
             phase='start';native_start_attempted=True
             print(bounded_call(frida,lambda:script.exports_sync.start(settings)),flush=True)
@@ -604,7 +604,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         if requests==0 and (not states or not input_scene_ready(states[0],oracle,plan,controlled_slot)):
                             raise ValueError('input oracle requires grounded idle Sol/opponent within its scene distance bounds')
                         packet=plan[requests];mask=input_mask(packet['input'],states[-1][controlled_slot]['facing_left'],packet['accept_input'])
-                        counter=records[-1]['after'] if transactions else None
+                        counter=records[-1]['after'] if transactions or queued_results is not None else None
                         masks=[0,0];masks[controlled_slot]=mask
                         if defender_jump_step and requests+1==defender_jump_step:masks[0]=input_mask({'up':True},states[-1][0]['facing_left'])
                         if external_guard and (external_pair_step or 39)-5<=requests<=(external_pair_step or 39)+2:masks[0]=input_mask({'back':True},states[-1][0]['facing_left'])
@@ -612,7 +612,12 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         if defeat_input_check and requests+1>=external_pair_step+3:
                             masks[0]=input_mask({'forward':True,'punch':True},states[-1][0]['facing_left'],False)
                             defeat_probe=dict(input={'forward':True,'punch':True},accept_input=False,mask=masks[0])
-                        bounded_call(frida,lambda:script.exports_sync.step(masks,counter));request_log.append(dict(step=requests+1,mask=mask,**packet))
+                        contact_credit=None
+                        if queued_results is not None and requests+1 in external_steps:
+                            ordinal=external_steps.index(requests+1)
+                            contact_credit=dict(step=requests+1,ordinal=ordinal+1,damage=external_damages[ordinal])
+                        bounded_call(frida,lambda:script.exports_sync.step(masks,counter,contact_credit));request_log.append(dict(step=requests+1,mask=mask,**packet))
+                        if contact_credit is not None:request_log[-1]['contact_credit']=contact_credit
                         if defeat_probe is not None:request_log[-1]['defeat_input_probe']=defeat_probe
                         requests+=1
                         next_request=time.perf_counter()-started+.03+packet['hold_ms']/1000
@@ -1014,7 +1019,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         verified=result.get('contact_check',{}).get('passed',False) and result['controlled_update_step_verified'] and restored and detached and (not external_stun or result['stun_probe']['native_countdown_verified'])
         result['typed_result_probe']=dict(result=typed_result,native_effects_verified=bool(verified),mapped_fields=mapped if verified else [],unmapped_fields=sorted(HIT_RESULT_FIELDS-set(mapped)),typed_host_result_applied=False,live_host_transport=False)
     if queued_results is not None:
-        result['typed_contact_queue_probe']=dict(requests=queued_results,native_effects_verified=bool(result.get('contact_check',{}).get('passed') and restored and detached),live_host_transport=False,typed_host_result_applied=False)
+        result['typed_contact_queue_probe']=dict(requests=queued_results,delivery='owned step RPC',native_effects_verified=bool(result.get('contact_check',{}).get('passed') and restored and detached),live_host_transport=False,typed_host_result_applied=False)
     if external_pair_phase=='dispatch':
         phase_verified=bool(len(external_events)==len(external_steps or [external_pair_step]) and all(e.get('result_phase')=='dispatch' and e.get('caller_result_committed') is True for e in external_events) and (not external_stun or (result['stun_probe'].get('event') or {}).get('request_index')==external_pair_step+1))
         result['native_result_phase_check']=dict(phase='dispatch',native_dispatch_phase_verified=phase_verified,next_update_reaction_verified=bool(external_stun and phase_verified),strict_live_host_tick_mapping=False)
