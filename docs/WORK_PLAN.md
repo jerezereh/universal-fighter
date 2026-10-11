@@ -611,3 +611,10 @@ Automatic background Escape reset remains pending: window messages, a scoped key
 pulse and the decoded engine key-event handler do not reset SIGN. Capture one working
 manual Escape reset before selecting a native reset hook; never treat posted input as
 proof of reset. Manual recovery is verified separately.
+
+Automatic background training reset now passes native health/position/age recovery and
+clean hook restoration without focus changes. Reuse `tools/xrd-sign-reset.py` with a
+private same-session reset candidate and combat candidate for ordinary training recovery.
+Its candidate derives from a captured manual reset and loaded code witnesses; regenerate
+after process/code drift. Verify isolated-defeat reset and live host round ownership next;
+standalone training reset is not live receiver transport or playable acceptance.

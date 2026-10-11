@@ -49,3 +49,40 @@ assert not scene(scene_receipt|dict(loaded_code_restored=False),observations,0)[
 assert not scene(scene_receipt|dict(errors=scene_receipt['errors']+[dict(unexpected=True)]),observations,0)['passed']
 assert not scene(receipt,observations,0)['passed']
 print('Scene-exit classification requires exact root-loss RPC rejection, zero credits, absent battle and restoration.')
+
+
+"""Small authored checks for reset evidence; no retail bytes or live process."""
+import copy
+import hashlib
+import importlib.util
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location('reset', Path(__file__).with_name('xrd-sign-reset.py'))
+reset = importlib.util.module_from_spec(spec); spec.loader.exec_module(reset)
+expected = [dict(x_raw=-100, y_raw=0, health=100), dict(x_raw=100, y_raw=0, health=100)]
+before = dict(fighters=[dict(slot=i, x_raw=0, y_raw=0, hit_count=0,
+    scalar_observations=dict(age_candidate=500, health_candidate=50, hitstop_candidate=0)) for i in range(2)])
+after = dict(fighters=[dict(slot=i, x_raw=e['x_raw'], y_raw=0, hit_count=0,
+    scalar_observations=dict(age_candidate=10, health_candidate=100, hitstop_candidate=0)) for i,e in enumerate(expected)])
+assert reset.reset_check(before, after, expected)
+for field, value in [('age_candidate', 510), ('age_candidate', 200), ('health_candidate', 50), ('hitstop_candidate', 1)]:
+    bad = copy.deepcopy(after); bad['fighters'][1]['scalar_observations'][field] = value
+    assert not reset.reset_check(before, bad, expected)
+for field, value in [('slot', 0), ('x_raw', 0), ('y_raw', 1), ('hit_count', 1)]:
+    bad = copy.deepcopy(after); bad['fighters'][1][field] = value
+    assert not reset.reset_check(before, bad, expected)
+assert not reset.reset_check(before, dict(fighters=after['fighters'][:1]), expected)
+p = dict(pid=123, module_base=4096, exe_sha256='hash', code_sha256=hashlib.sha256(bytes(64)).hexdigest(), code_rva=4096, code_size=64)
+c = dict(p, schema=1, manual_reset_verified=True, hwnd_offset=112, expected_fighters=expected,
+    poll_return_rva=4096, window_handler_rva=4128, poll_return_hex='00'*32, window_handler_hex='00'*32)
+reset.candidate_check(c, p, bytes(64))
+try: reset.candidate_check(c, p, bytes(63))
+except ValueError: pass
+else: raise AssertionError('changed code capture')
+for field, value in [('pid', 124), ('manual_reset_verified', False), ('hwnd_offset', -1),
+                     ('poll_return_hex', '01'*32), ('window_handler_rva', 8192)]:
+    bad = dict(c); bad[field] = value
+    try: reset.candidate_check(bad, p, bytes(64))
+    except ValueError: pass
+    else: raise AssertionError(field)
+print('reset evidence checks passed')
