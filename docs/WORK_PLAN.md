@@ -549,3 +549,7 @@ Typed guarded results and nonfatal chip now pass bounded native verification. Op
 normal dispatch timing matches original next-update reaction initialization. Continue
 host/source motion and defeat ownership, arbitrary contact setup and atomic guest
 responses before live IKEMEN publication; native phase proof is not live tick mapping.
+
+Read-only recoil getter/caller derivation and trajectory audit now agree on earlier
+contact motion and reject current wall-clamped evidence. Reset source positions before
+new native motion checks; host units and live motion application remain unverified.
