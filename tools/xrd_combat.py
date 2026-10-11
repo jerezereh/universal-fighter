@@ -264,7 +264,8 @@ def contact_observations(records,states,contacts):
         original_source_combat_preserved=True,source_contact_suppressed=False,universal_contact=False)
 
 
-def contact_check(records,states,attacker_slot=0):
+def contact_check(records,states,attacker_slot=0,airborne=False):
+    if type(airborne)!=bool:raise ValueError('invalid airborne contact mode')
     if type(attacker_slot)!=int or attacker_slot not in (0,1):raise ValueError('invalid native attacker slot')
     if attacker_slot==1:states=[s[::-1] for s in states]
     executed=[(r,s) for r,s in zip(records,states) if r['executed']]
@@ -291,9 +292,16 @@ def contact_check(records,states,attacker_slot=0):
                     damage.append(dict(step=index+1,before=scalar(previous,1,'health'),after=hp,mirrored_box_overlap=intersect))
     recovered=all(scalar(executed[-1][1],slot,'hitstop')==0 for slot in (0,1))
     reaction=any('Nokezori' in n['value'] for _,s in executed for n in s[1]['state_candidates'])
+    if airborne:
+        heights=[s[1]['y_raw'] for r,s in executed if s[1]['y_raw']>0 and
+            any(n['value'] in ('CmnActBDownUpper','CmnActBDownDown') for n in s[1]['state_candidates']) and
+            any(re.fullmatch(r'sol060_[0-9]{2}',n['value']) for n in s[1]['pose_candidates'])]
+        reaction=(attacker_slot==1 and len(damage)==1 and executed[damage[0]['step']-1][1][1]['y_raw']>0 and
+            len(heights)>=8 and any(b>a for a,b in zip(heights,heights[1:])) and any(b<a for a,b in zip(heights,heights[1:])))
     age_resumed=all(any(scalar(b,slot,'hitstop')==0 and scalar(a,slot,'hitstop')>0 and scalar(b,slot,'age')>scalar(a,slot,'age') for (_,a),(_,b) in zip(executed,executed[1:])) for slot in (0,1))
     passed=len(damage)==1 and all(d['mirrored_box_overlap'] for d in damage) and all(max_stop) and all(n>=3 for n in countdown) and all(n>=3 for n in held_age) and frozen_samples>=5 and frozen_changes==0 and recovered and reaction and age_resumed
-    return dict(passed=bool(passed),damage_events=damage,max_stop=max_stop,countdown_steps=countdown,
+    return dict(passed=bool(passed),airborne_contact=airborne,complete_airborne_recovery_verified=False,
+        damage_events=damage,max_stop=max_stop,countdown_steps=countdown,
         held_animation_age_steps=held_age,frozen_stop_samples=frozen_samples,frozen_scalar_changes=frozen_changes,
         native_hit_reaction=bool(reaction),stop_recovered=recovered,animation_age_resumed=age_resumed)
 

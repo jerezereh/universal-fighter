@@ -566,3 +566,8 @@ Native jump velocity/gravity witnesses, exact airborne integration and bounded c
 now pass with landing and freeze/recovery. Declared vertical units preserve Y sign.
 Continue original airborne hit/launch reaction derivation before typed PushY/Gravity;
 jump control alone does not complete universal contact or playable passthrough.
+
+
+Original airborne contact now passes a separate bounded native oracle with exact damage,
+stop/freeze recovery and rising/falling hurt poses. Complete landing/recovery remains
+pending; continue vertical reaction initialization before typed vertical/knockdown results.

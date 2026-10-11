@@ -112,6 +112,19 @@ def main():
     assert checked['passed'] and len(checked['damage_events'])==1 and checked['max_stop']==[5,5]
     reverse=[s[::-1] for s in states]
     assert contact_check(records,reverse,1)['passed']
+    airborne=copy.deepcopy(reverse);step=0
+    for record,actors in zip(records,airborne):
+        if record['executed']:step+=1
+        actors[0].update(y_raw=min(step,21-step)*1000,
+            state_candidates=[dict(value='CmnActBDownUpper')],pose_candidates=[dict(value='sol060_00')])
+    assert contact_check(records,airborne,1,True)['passed']
+    grounded=copy.deepcopy(airborne)
+    for actors in grounded:actors[0]['y_raw']=0
+    assert not contact_check(records,grounded,1,True)['passed']
+    stale=copy.deepcopy(airborne)
+    for actors in stale:actors[0]['pose_candidates']=[dict(value='sol000_00')]
+    assert not contact_check(records,stale,1,True)['passed']
+    reject(lambda:contact_check(records,reverse,1,1))
     owned=copy.deepcopy(records);counter=0
     for r in owned:
         r.update(before=counter,after=counter+int(r['executed']),thread=9)
