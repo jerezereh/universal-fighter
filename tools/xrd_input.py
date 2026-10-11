@@ -67,6 +67,8 @@ def input_scene_ready(fighters,oracle,requests,controlled_slot=0):
     if not any(re.fullmatch(prefix+r'00[01]_[0-9]{2}',n['value']) for n in fighters[controlled_slot]['pose_candidates']):return False
     distance=abs(fighters[0]['x_raw']-fighters[1]['x_raw'])
     if oracle=='contact':return distance<=350000
+    # Pure positioning uses native push collision and needs no attack/jump spacing.
+    if oracle=='positioning' and requests and all(q['accept_input'] and set(q['input'])<= {'left','right','forward','back'} for q in requests):return True
     # A pure retreat can safely create spacing without a guessed position write.
     if oracle in ('render-position','positioning') and requests and all(q['accept_input'] and q['input'] in ({},{'back':True}) for q in requests) and any(q['input'].get('back') for q in requests):return True
     if oracle=='render-facing':

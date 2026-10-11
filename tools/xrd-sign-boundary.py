@@ -440,7 +440,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             '-File',str(ROOT/'tools/xrd-source-window.ps1'),'-Action','restore','-SourceProcessId',str(state['pid'])],text=True,timeout=10))
         if source_window['pid']!=state['pid'] or source_window['minimized']:
             raise ValueError('source render window/session mismatch')
-    if defender_jump_step and (type(defender_jump_step)!=int or not 1<=defender_jump_step<=80 or controlled_slot!=1 or oracle!='contact' or not capture_reaction_memory or not plan_path or external_guard or external_pair_step or suppress_contact_path):raise ValueError('defender jump requires original second-player contact and retained snapshots')
+    if defender_jump_step and (type(defender_jump_step)!=int or not 1<=defender_jump_step<=80 or controlled_slot!=1 or oracle!='contact' or not combat_path or not plan_path or external_guard or external_pair_step or suppress_contact_path):raise ValueError('defender jump requires original second-player contact with combat observations')
     plan=None
     if plan_path:
         if not gate_options or not input_profile or expire or plan_path.stat().st_size>16384:

@@ -44,6 +44,7 @@ def main():
     assert not input_scene_ready(actors,'render-framing',forward)
     assert input_scene_ready(actors,'render-position',retreat)
     assert not input_scene_ready(actors,'render-position',forward)
+    assert input_scene_ready(actors,'positioning',forward)
     actors[1]['x_raw']=90000
     assert not input_scene_ready(actors,'render-facing',forward)
     assert input_scene_ready(actors,'render-position',retreat)

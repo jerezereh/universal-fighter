@@ -571,3 +571,8 @@ jump control alone does not complete universal contact or playable passthrough.
 Original airborne contact now passes a separate bounded native oracle with exact damage,
 stop/freeze recovery and rising/falling hurt poses. Complete landing/recovery remains
 pending; continue vertical reaction initialization before typed vertical/knockdown results.
+
+
+Full original airborne recovery now passes a state-only 100-credit native check with
+landing, bounce, down, get-up and grounded idle. Preserve native bounce behavior while
+validating vertical reaction overrides; typed vertical results and live producer remain pending.

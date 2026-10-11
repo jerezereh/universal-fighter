@@ -300,7 +300,18 @@ def contact_check(records,states,attacker_slot=0,airborne=False):
             len(heights)>=8 and any(b>a for a,b in zip(heights,heights[1:])) and any(b<a for a,b in zip(heights,heights[1:])))
     age_resumed=all(any(scalar(b,slot,'hitstop')==0 and scalar(a,slot,'hitstop')>0 and scalar(b,slot,'age')>scalar(a,slot,'age') for (_,a),(_,b) in zip(executed,executed[1:])) for slot in (0,1))
     passed=len(damage)==1 and all(d['mirrored_box_overlap'] for d in damage) and all(max_stop) and all(n>=3 for n in countdown) and all(n>=3 for n in held_age) and frozen_samples>=5 and frozen_changes==0 and recovered and reaction and age_resumed
-    return dict(passed=bool(passed),airborne_contact=airborne,complete_airborne_recovery_verified=False,
+    air_recovery=False
+    if airborne and passed:
+        phases=[]
+        for r,s in executed[damage[0]['step']-1:]:
+            f=s[1];poses=[n['value'] for n in f.get('pose_candidates',[])];names=[n['value'] for n in f['state_candidates']]
+            phase=('bound' if any(re.fullmatch(r'sol060_0[6-9]|sol060_1[01]',p) for p in poses) and 'CmnActBDownBound' in names else
+                'down' if 'sol060_12' in poses and f['y_raw']==0 and 'CmnActBDownLoop' in names else
+                'standup' if any(re.fullmatch(r'sol061_[0-9]{2}',p) for p in poses) and 'CmnActBDown2Stand' in names else
+                'idle' if f['y_raw']==0 and any(re.fullmatch(r'sol000_[0-9]{2}',p) for p in poses) else '')
+            if phase and (not phases or phase!=phases[-1]):phases.append(phase)
+        air_recovery=phases==['bound','down','standup','idle'] and phase=='idle' and all(f['y_raw']==0 for f in executed[-1][1])
+    return dict(passed=bool(passed),airborne_contact=airborne,complete_airborne_recovery_verified=bool(air_recovery),
         damage_events=damage,max_stop=max_stop,countdown_steps=countdown,
         held_animation_age_steps=held_age,frozen_stop_samples=frozen_samples,frozen_scalar_changes=frozen_changes,
         native_hit_reaction=bool(reaction),stop_recovered=recovered,animation_age_resumed=age_resumed)
