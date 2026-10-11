@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 import struct
@@ -48,6 +49,38 @@ def audit(probe,boundary,candidate):
     (boundary/'recoil-trajectory-check.json').write_text(json.dumps(result,indent=2))
     print({k:v for k,v in result.items() if k!='samples'}|dict(sample_count=len(samples)))
     return result
+
+
+
+
+def motion_units(calibration,display_scale):
+    """Declared display-scale conversion; anatomical pivot/live rendering stay pending."""
+    if type(calibration)!=dict:raise ValueError('invalid unit calibration')
+    if calibration.get('body_origin_mapping_verified') is not True or type(calibration.get('samples'))!=int or not 3<=calibration['samples']<=16:raise ValueError('requires verified body-origin calibration')
+    axes=calibration.get('axes');pixels=calibration.get('pixels_per_source_logical_unit')
+    valid=lambda v:type(v) in (int,float) and math.isfinite(v)
+    if type(axes)!=list or len(axes)!=2 or not valid(pixels) or not 0<pixels<=160 or not valid(display_scale) or not 0<display_scale<=1:raise ValueError('invalid motion unit geometry')
+    slopes=[]
+    for axis in axes:
+        if type(axis)!=dict:raise ValueError('invalid unit axis')
+        slope=axis.get('world_per_source_logical_unit');residual=axis.get('max_world_residual');origin=axis.get('intercept')
+        if not all(valid(v) for v in (slope,residual,origin)) or not 0<slope<=10 or not 0<=residual<=.001 or abs(origin)>.001:raise ValueError('invalid source axis fit')
+        slopes.append(slope)
+    if abs(slopes[0]/slopes[1]-1)>.001:raise ValueError('inconsistent source axis units')
+    coefficient=pixels*display_scale/1000
+    if not 1e-9<=coefficient<=1:raise ValueError('unit scale exceeds diagnostic precision')
+    return dict(host_per_source_raw=coefficient,display_scale=display_scale,body_origin_mapping_verified=True,foot_pivot_verified=False,live_host_units_verified=False)
+
+
+def host_push_to_recoil(push,units,getter):
+    if type(push) not in (int,float) or not math.isfinite(push):raise ValueError('invalid host push')
+    quantum=units['host_per_source_raw']*getter['numerator']/getter['denominator']
+    recoil=round(push/quantum)
+    if not -5000<=recoil<=5000:raise ValueError('host push exceeds native diagnostic range')
+    product=recoil*getter['numerator'];raw=(abs(product)//getter['denominator'])*(-1 if product<0 else 1)
+    represented=raw*units['host_per_source_raw'];error=abs(represented-push)
+    if error>quantum/2+units['host_per_source_raw']+1e-9:raise ValueError('host push conversion exceeds quantization error')
+    return dict(source_recoil=recoil,requested_host_push=push,represented_host_push=represented,max_quantization_error=quantum/2+units['host_per_source_raw'],actual_error=error,native_decay_before_displacement=True,live_motion_mapping=False)
 
 
 if __name__=='__main__':

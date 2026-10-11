@@ -557,3 +557,7 @@ new native motion checks; host units and live motion application remain unverifi
 Centered native recoil evidence now passes and smaller/zero recoil requests control
 real movement with clean recovery. Continue source-to-host unit conversion and vertical
 motion; a source-unit diagnostic does not yet implement typed PushX/PushY/Gravity.
+
+Declared .23 display-scale conversion now drives typed horizontal push in a bounded
+native diagnostic with measured integer quantization. Preserve the separate live unit/
+foot-pivot acceptance gate; continue vertical motion and host/source position ownership.

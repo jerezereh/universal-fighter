@@ -13,7 +13,7 @@ import sys
 import threading
 import time
 
-from xrd_motion import recoil_getter, audit as recoil_audit
+from xrd_motion import recoil_getter, motion_units, host_push_to_recoil, audit as recoil_audit
 from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
 from xrd_state import assembly_rows, boundary_candidate, observe, read_clock, unique
 from xrd_input import input_candidate, input_mask, input_plan, position_plan, punch_plan, input_check, oracle_passed, input_scene_ready
@@ -266,14 +266,15 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None,capture_reaction_memory=False,reaction_memory_bytes=0x2600,external_stun=0,reaction_timer_path=None,external_pair_phase='post-update',external_recoil=None,recoil_path=None):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None,capture_reaction_memory=False,reaction_memory_bytes=0x2600,external_stun=0,reaction_timer_path=None,external_pair_phase='post-update',external_recoil=None,recoil_path=None,motion_units_path=None,motion_display_scale=None):
     if external_pair_phase not in ('post-update','dispatch') or external_pair_phase=='dispatch' and not external_pair_step:raise ValueError('dispatch phase requires a requested native pair')
-    if (external_recoil is not None)!=bool(recoil_path) or external_recoil is not None and (type(external_recoil)!=int or not -5000<=external_recoil<=5000):raise ValueError('recoil requires a private witness and bounded integer request')
+    if bool(motion_units_path)!=(motion_display_scale is not None) or motion_units_path and (not host_result_path or not recoil_path or external_recoil is not None):raise ValueError('calibrated motion requires exclusive typed result and recoil witness')
+    if not motion_units_path and (external_recoil is not None)!=bool(recoil_path) or external_recoil is not None and (type(external_recoil)!=int or not -5000<=external_recoil<=5000):raise ValueError('recoil requires a private witness and bounded integer request')
     typed_result=read_result(host_result_path) if host_result_path else None
     if typed_result is not None:
         if external_damage or external_guard or external_guard_commit or external_ko or external_pair_control or not external_pair_step or not external_host_stop:raise ValueError('typed damage probe requires exclusive requested pair with host-owned freeze')
         if external_stun:raise ValueError('typed stun conflicts with standalone stun argument')
-        external_damage=damage_probe(typed_result,allow_stun=bool(reaction_timer_path),allow_guard=bool(reaction_timer_path))
+        external_damage=damage_probe(typed_result,allow_stun=bool(reaction_timer_path),allow_guard=bool(reaction_timer_path),allow_push_x=bool(motion_units_path))
         external_guard=typed_result['Guarded'];external_guard_commit=external_guard
         external_stun=typed_result['Stun']
 
@@ -349,6 +350,9 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if reaction_timer and reaction_timer['field']+4>reaction_memory_bytes:raise ValueError('reaction timer lies outside retained snapshot')
     if reaction_timer:state['scalar_fields']['reaction_timer_candidate']=reaction_timer['field']
     recoil=recoil_getter(code,state['code_rva'],json.loads(recoil_path.read_text())) if recoil_path else None
+    units=motion_units(json.loads(motion_units_path.read_text()),motion_display_scale) if motion_units_path else None
+    motion_conversion=host_push_to_recoil(typed_result['PushX'],units,recoil) if units else None
+    if motion_conversion:external_recoil=motion_conversion['source_recoil']
     if recoil:
         if max(recoil['field'],recoil['sink'])+4>reaction_memory_bytes:raise ValueError('recoil fields lie outside retained snapshot')
         state['scalar_fields']['recoil_candidate']=recoil['field']
@@ -963,6 +967,10 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                 zero_verified=zero_verified and all(int.from_bytes(raw[field:field+4],'little',signed=True)==0 for field in (recoil['field'],recoil['sink']))
         verified=bool(event.get('recoil_after')==external_recoil and (trajectory['source_recoil_trajectory_verified'] if external_recoil else zero_verified) and result['gate_check']['frozen_observed_state'])
         result['recoil_probe']=dict(requested_source_recoil=external_recoil,native_motion_verified=verified,zero_motion_verified=zero_verified,host_units_verified=False,live_motion_mapping=False)
+        if motion_conversion:
+            result['recoil_probe']['unit_conversion']=motion_conversion
+            result['recoil_probe']['declared_units']=units
+            if verified:result['typed_result_probe']['mapped_fields'].append('PushX');result['typed_result_probe']['unmapped_fields'].remove('PushX')
         (out/'inspection.json').write_text(json.dumps(result,indent=2))
     print('Boundary trace:',len(records),'samples; counter deltas',dict(deltas),'gaps',gaps,'errors',len(errors),';',out,flush=True)
     if gate_options: print('Gate checks:',{k:v for k,v in result['gate_check'].items() if k!='graphics_completions_per_held_counter'},flush=True)
@@ -1018,6 +1026,8 @@ if __name__=='__main__':
     p.add_argument('--external-pair-control',action='store_true',help='negative guard control: skip native pair invocation')
     p.add_argument('--external-guard',action='store_true',help='diagnostic defender back input around one requested normal')
     p.add_argument('--external-host-stop',action='store_true',help='diagnostic host-owned freeze: clear native stops after requested reaction')
+    p.add_argument('--motion-unit-calibration',type=Path,help='private verified source body/render unit fit for typed horizontal motion')
+    p.add_argument('--motion-display-scale',type=float,help='declared host display scale for calibrated horizontal motion')
     p.add_argument('--external-recoil',type=int,help='bounded source recoil diagnostic, -5000..5000; no host unit claim')
     p.add_argument('--recoil-candidate',type=Path,help='private native recoil getter/caller witness')
     p.add_argument('--external-pair-phase',choices=('post-update','dispatch'),default='post-update',help='opt-in normal result timing at witnessed native dispatch stage')
@@ -1073,4 +1083,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check or a.renewable_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control,a.observe_native_contact,a.contact_dispatch_candidate.resolve() if a.contact_dispatch_candidate else None,a.suppress_source_contact.resolve() if a.suppress_source_contact else None,a.contact_callees.resolve() if a.contact_callees else None,a.input_slot,a.external_pair_step,a.external_damage,a.external_host_stop,a.external_guard,a.external_pair_control,a.external_guard_commit,a.external_ko,a.isolate_source_ko.resolve() if a.isolate_source_ko else None,a.ko_reaction.resolve() if a.ko_reaction else None,a.host_hit_result.resolve() if a.host_hit_result else None,a.capture_reaction_memory,a.reaction_memory_bytes,a.external_stun,a.reaction_timer_candidate.resolve() if a.reaction_timer_candidate else None,a.external_pair_phase,a.external_recoil,a.recoil_candidate.resolve() if a.recoil_candidate else None)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control,a.observe_native_contact,a.contact_dispatch_candidate.resolve() if a.contact_dispatch_candidate else None,a.suppress_source_contact.resolve() if a.suppress_source_contact else None,a.contact_callees.resolve() if a.contact_callees else None,a.input_slot,a.external_pair_step,a.external_damage,a.external_host_stop,a.external_guard,a.external_pair_control,a.external_guard_commit,a.external_ko,a.isolate_source_ko.resolve() if a.isolate_source_ko else None,a.ko_reaction.resolve() if a.ko_reaction else None,a.host_hit_result.resolve() if a.host_hit_result else None,a.capture_reaction_memory,a.reaction_memory_bytes,a.external_stun,a.reaction_timer_candidate.resolve() if a.reaction_timer_candidate else None,a.external_pair_phase,a.external_recoil,a.recoil_candidate.resolve() if a.recoil_candidate else None,a.motion_unit_calibration.resolve() if a.motion_unit_calibration else None,a.motion_display_scale)
