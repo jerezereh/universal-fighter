@@ -27,7 +27,7 @@ def read_result(path):
     return validate_result(json.loads(path.read_text(encoding='utf-8'),object_pairs_hook=unique))
 
 
-def damage_probe(value,allow_stun=False,allow_guard=False,allow_push_x=False):
+def damage_probe(value,allow_stun=False,allow_guard=False,allow_push_x=False,allow_vertical=False):
     """Explicit partial diagnostic. Never advertise full typed result application."""
     validate_result(value)
     if type(allow_guard)!=bool or not value['Accepted'] or any(value[k] for k in FLAGS[2:]):raise ValueError('reaction probe requires an accepted normal result')
@@ -36,6 +36,8 @@ def damage_probe(value,allow_stun=False,allow_guard=False,allow_push_x=False):
     elif not 1<=value['Damage']<=419:raise ValueError('damage probe requires nonfatal damage')
     if type(allow_stun)!=bool or value['Stun']>(30 if allow_stun else 0):raise ValueError('stun requires a witnessed bounded reaction probe')
     if type(allow_push_x)!=bool or not allow_push_x and value['PushX']:raise ValueError('horizontal motion requires declared calibrated units')
-    if any(value[k] for k in ('ResourceCost','PushY','Gravity')) or value['Hitstop']!=[0,0]:
-        raise ValueError('damage probe cannot map resource, vertical motion or hitstop values')
+    if type(allow_vertical)!=bool or allow_vertical and (value['Guarded'] or value['Stun'] or value['PushX'] or value['PushY']>=0 or value['Gravity']<=0):raise ValueError('vertical probe requires unguarded airborne motion without a stun or horizontal override')
+    if not allow_vertical and (value['PushY'] or value['Gravity']):raise ValueError('vertical motion requires witnessed airborne reaction and declared units')
+    if value['ResourceCost'] or value['Hitstop']!=[0,0]:
+        raise ValueError('damage probe cannot map resource or nonzero hitstop values')
     return value['Damage']

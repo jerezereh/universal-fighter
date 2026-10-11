@@ -13,7 +13,7 @@ import sys
 import threading
 import time
 
-from xrd_motion import recoil_getter, motion_units, host_push_to_recoil, vertical_fields, vertical_audit, audit as recoil_audit
+from xrd_motion import recoil_getter, motion_units, host_push_to_recoil, vertical_fields, vertical_audit, host_vertical_to_source, audit as recoil_audit
 from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
 from xrd_state import assembly_rows, boundary_candidate, observe, read_clock, unique
 from xrd_input import input_candidate, input_mask, input_plan, position_plan, punch_plan, input_check, oracle_passed, input_scene_ready
@@ -268,15 +268,17 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
 
 def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None,capture_reaction_memory=False,reaction_memory_bytes=0x2600,external_stun=0,reaction_timer_path=None,external_pair_phase='post-update',external_recoil=None,recoil_path=None,motion_units_path=None,motion_display_scale=None,vertical_path=None,jump_velocity=None,jump_gravity=None,defender_jump_step=0):
     if external_pair_phase not in ('post-update','dispatch') or external_pair_phase=='dispatch' and not external_pair_step:raise ValueError('dispatch phase requires a requested native pair')
-    if bool(motion_units_path)!=(motion_display_scale is not None) or motion_units_path and (not host_result_path or not recoil_path or external_recoil is not None):raise ValueError('calibrated motion requires exclusive typed result and recoil witness')
+    typed_vertical=bool(host_result_path and vertical_path)
+    if bool(motion_units_path)!=(motion_display_scale is not None) or motion_units_path and (not host_result_path or not (recoil_path or vertical_path) or external_recoil is not None):raise ValueError('calibrated motion requires exclusive typed result and recoil witness')
     if not motion_units_path and (external_recoil is not None)!=bool(recoil_path) or external_recoil is not None and (type(external_recoil)!=int or not -5000<=external_recoil<=5000):raise ValueError('recoil requires a private witness and bounded integer request')
-    if bool(vertical_path)!=(jump_velocity is not None) or bool(vertical_path)!=(jump_gravity is not None):raise ValueError('vertical probe requires both bounded values and a private witness')
-    if vertical_path and (not (oracle=='jump' and controlled_slot==0 and capture_reaction_memory or oracle=='contact' and controlled_slot==1 and defender_jump_step) or external_pair_step or host_result_path or type(jump_velocity)!=int or type(jump_gravity)!=int or not 1<=jump_velocity<=40000 or not 1000<=jump_gravity<=5000 or jump_velocity>jump_gravity*20):raise ValueError('vertical probe requires a bounded recoverable native jump')
+    if not typed_vertical and bool(vertical_path)!=(jump_velocity is not None) or not typed_vertical and bool(vertical_path)!=(jump_gravity is not None):raise ValueError('vertical probe requires both bounded values and a private witness')
+    if vertical_path and (not (oracle=='jump' and controlled_slot==0 and capture_reaction_memory or oracle=='contact' and controlled_slot==1 and defender_jump_step) or external_pair_step and (not external_host_stop or external_pair_phase!='dispatch') or host_result_path and not motion_units_path or not typed_vertical and (type(jump_velocity)!=int or type(jump_gravity)!=int or not 1<=jump_velocity<=40000 or not 1000<=jump_gravity<=5000 or jump_velocity>jump_gravity*20)):raise ValueError('vertical probe requires a bounded recoverable native jump')
     typed_result=read_result(host_result_path) if host_result_path else None
     if typed_result is not None:
         if external_damage or external_guard or external_guard_commit or external_ko or external_pair_control or not external_pair_step or not external_host_stop:raise ValueError('typed damage probe requires exclusive requested pair with host-owned freeze')
         if external_stun:raise ValueError('typed stun conflicts with standalone stun argument')
-        external_damage=damage_probe(typed_result,allow_stun=bool(reaction_timer_path),allow_guard=bool(reaction_timer_path),allow_push_x=bool(motion_units_path))
+        external_damage=damage_probe(typed_result,allow_stun=bool(reaction_timer_path),allow_guard=bool(reaction_timer_path),allow_push_x=bool(motion_units_path and recoil_path),allow_vertical=typed_vertical)
+        if typed_vertical and (jump_velocity is not None or jump_gravity is not None or recoil_path):raise ValueError('typed vertical motion conflicts with raw or horizontal overrides')
         external_guard=typed_result['Guarded'];external_guard_commit=external_guard
         external_stun=typed_result['Stun']
 
@@ -353,7 +355,11 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if reaction_timer:state['scalar_fields']['reaction_timer_candidate']=reaction_timer['field']
     recoil=recoil_getter(code,state['code_rva'],json.loads(recoil_path.read_text())) if recoil_path else None
     units=motion_units(json.loads(motion_units_path.read_text()),motion_display_scale) if motion_units_path else None
-    motion_conversion=host_push_to_recoil(typed_result['PushX'],units,recoil) if units else None
+    motion_conversion=host_push_to_recoil(typed_result['PushX'],units,recoil) if units and recoil else None
+    vertical_conversion=host_vertical_to_source(typed_result['PushY'],typed_result['Gravity'],units) if typed_vertical else None
+    if vertical_conversion:
+        jump_velocity=vertical_conversion['source_velocity'];jump_gravity=vertical_conversion['source_gravity']
+        vertical_conversion['application_phase']='after_native_airborne_hurt_initialization'
     if motion_conversion:external_recoil=motion_conversion['source_recoil']
     if recoil:
         if max(recoil['field'],recoil['sink'])+4>reaction_memory_bytes:raise ValueError('recoil fields lie outside retained snapshot')
@@ -440,7 +446,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             '-File',str(ROOT/'tools/xrd-source-window.ps1'),'-Action','restore','-SourceProcessId',str(state['pid'])],text=True,timeout=10))
         if source_window['pid']!=state['pid'] or source_window['minimized']:
             raise ValueError('source render window/session mismatch')
-    if defender_jump_step and (type(defender_jump_step)!=int or not 1<=defender_jump_step<=80 or controlled_slot!=1 or oracle!='contact' or not combat_path or not plan_path or external_guard or external_pair_step or suppress_contact_path):raise ValueError('defender jump requires original second-player contact with combat observations')
+    if defender_jump_step and (type(defender_jump_step)!=int or not 1<=defender_jump_step<=80 or controlled_slot!=1 or oracle!='contact' or not combat_path or not plan_path or external_guard or (external_pair_step or suppress_contact_path) and not (vertical_path and external_pair_step and external_host_stop and external_pair_phase=='dispatch')):raise ValueError('defender jump requires original second-player contact with combat observations')
     plan=None
     if plan_path:
         if not gate_options or not input_profile or expire or plan_path.stat().st_size>16384:
@@ -864,7 +870,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         result['native_contact_observer_restored']=bool(cleanup_receipt and cleanup_receipt.get('contact_observer_code_restored'))
         if not result['native_contact_observer_restored']:errors.append(dict(contact_error='contact observer restoration failed'))
         try:
-            result['native_contact_pair_check']=(external_contact_check(records,states,dispatches,contacts,external_events,external_pair_step,external_damage,external_host_stop,external_guard,external_ko,bool(isolate_ko_path)) if external_pair_step else suppressed_contact_check(records,states,dispatches,contacts) if suppress_contact_path else guard_contact_check(records,states,contacts) if external_guard else contact_observations(records,states,contacts))
+            result['native_contact_pair_check']=(external_contact_check(records,states,dispatches,contacts,external_events,external_pair_step,external_damage,external_host_stop,external_guard,external_ko,bool(isolate_ko_path),bool(defender_jump_step)) if external_pair_step else suppressed_contact_check(records,states,dispatches,contacts) if suppress_contact_path else guard_contact_check(records,states,contacts) if external_guard else contact_observations(records,states,contacts))
             if not result['native_contact_pair_check']['passed']:errors.append(dict(contact_error='native pair health change not verified'))
         except ValueError as error:errors.append(dict(contact_error=str(error)))
     if gate_options:
@@ -936,7 +942,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                 result['render_oracle']=dict(passed=False,error=str(error));errors.append(dict(check_error=str(error)))
             result['input_oracle_passed']=result['render_oracle']['passed']
         if oracle=='contact' and combat_profile:
-            try: result['contact_check']=(external_contact_check(records,states,dispatches,contacts,external_events,external_pair_step,external_damage,external_host_stop,external_guard,external_ko,bool(isolate_ko_path)) if external_pair_step else suppressed_contact_check(records,states,dispatches,contacts) if suppress_contact_path else guard_contact_check(records,states,contacts) if external_guard else contact_check(records,states,controlled_slot,bool(defender_jump_step)))
+            try: result['contact_check']=(external_contact_check(records,states,dispatches,contacts,external_events,external_pair_step,external_damage,external_host_stop,external_guard,external_ko,bool(isolate_ko_path),bool(defender_jump_step)) if external_pair_step else suppressed_contact_check(records,states,dispatches,contacts) if suppress_contact_path else guard_contact_check(records,states,contacts) if external_guard else contact_check(records,states,controlled_slot,bool(defender_jump_step)))
             except ValueError as error:
                 result['contact_check']=dict(passed=False,error=str(error))
                 errors.append(dict(check_error=str(error)))
@@ -992,6 +998,12 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         hurt_phase=(oracle!='contact' or len(events)==1 and events[0]['request_index']==result['contact_check']['damage_events'][0]['step']+1 and any(re.fullmatch(r'sol060_[0-9]{2}',n['value']) for n in executed_states[events[0]['request_index']-1][0]['pose_candidates']))
         verified=bool(hurt_phase and gravity_persisted and len(events)==1 and events[0]['velocity_after']==jump_velocity and events[0]['gravity_after']==jump_gravity and motion['source_vertical_trajectory_verified'] and result['gate_check']['frozen_observed_state'] and (oracle!='contact' or result['contact_check']['complete_airborne_recovery_verified']))
         result['vertical_probe']=dict(application_phase_verified=hurt_phase,gravity_scope='first_hurt_arc' if oracle=='contact' else 'jump',event=events[0] if events else None,native_gravity_persisted=gravity_persisted,native_vertical_motion_verified=verified,live_vertical_hit_mapping=False)
+        if vertical_conversion:
+            result['vertical_probe']['unit_conversion']=vertical_conversion
+            result['vertical_probe']['declared_units']=units
+            if verified:
+                result['typed_result_probe']['mapped_fields']+=['PushY','Gravity']
+                result['typed_result_probe']['unmapped_fields']=[k for k in result['typed_result_probe']['unmapped_fields'] if k not in ('PushY','Gravity')]
         (out/'inspection.json').write_text(json.dumps(result,indent=2))
     print('Boundary trace:',len(records),'samples; counter deltas',dict(deltas),'gaps',gaps,'errors',len(errors),';',out,flush=True)
     if gate_options: print('Gate checks:',{k:v for k,v in result['gate_check'].items() if k!='graphics_completions_per_held_counter'},flush=True)

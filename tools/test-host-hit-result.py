@@ -33,6 +33,11 @@ def main():
     assert damage_probe(result|dict(PushX=-2.4),allow_push_x=True)==17
     reject(lambda:damage_probe(result|dict(PushX=-2.4,PushY=-4),allow_push_x=True))
     reject(lambda:damage_probe(result|dict(PushX=-2.4,Gravity=.35),allow_push_x=True))
+    vertical=result|dict(PushY=-4,Gravity=.35)
+    assert damage_probe(vertical,allow_vertical=True)==17
+    reject(lambda:damage_probe(vertical))
+    for patch in (dict(Guarded=True),dict(Stun=15),dict(PushX=1),dict(PushY=0),dict(Gravity=0),dict(Knockdown=True)):
+        reject(lambda:damage_probe(vertical|patch,allow_vertical=True,allow_stun=True,allow_guard=True))
     # Generic validation accepts an arbiter result even when this partial probe rejects it.
     assert validate_result(result|dict(Stun=15,PushX=2.4))['Stun']==15
     with tempfile.TemporaryDirectory() as folder:

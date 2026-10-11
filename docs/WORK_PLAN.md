@@ -581,3 +581,8 @@ validating vertical reaction overrides; typed vertical results and live producer
 Bounded original airborne hurt now accepts raw source velocity and first-arc gravity
 with exact integration, landing, native bounce and full recovery. Continue requested
 contact/typed vertical result initialization; raw native control is not live host mapping.
+
+
+Partial typed airborne results now pass requested-contact damage, declared PushY/Gravity,
+first-arc integration and full recovery with host-owned freeze and zero automatic pairs.
+Grounded launch/knockdown, combined motion and actual live host transport remain pending.

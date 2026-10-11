@@ -159,6 +159,18 @@ def main():
     host_event=mapped|dict(hitstop_owner='host')
     host_check=lambda samples=zero_states,e=host_event:external_contact_check(zero_records,samples,suppressed,[],[e],2,10,True)
     assert host_check()['passed'] and host_check()['host_freeze_verified']
+    air_by_counter={r['after']:s for r,s in zip(owned,recovery)}
+    air_states=[copy.deepcopy(air_by_counter[r['after']]) for r in zero_records]
+    for record,actors in zip(zero_records,air_states):
+        for f in actors:f['scalar_observations'].update(hitstop_candidate=0,age_candidate=record['after'])
+    air_event=host_event|dict(caller_result_committed=True)
+    airborne_check=external_contact_check(zero_records,air_states,suppressed,[],[air_event],2,10,True,False,False,False,True)
+    assert airborne_check['passed'] and airborne_check['complete_airborne_recovery_verified']
+    assert not external_contact_check(zero_records,air_states,suppressed,[],[air_event|dict(caller_result_committed=False)],2,10,True,False,False,False,True)['passed']
+    unfinished=copy.deepcopy(air_states)
+    for actors in unfinished:
+        if actors[0]['pose_candidates'][0]['value']=='sol000_00':actors[0]['pose_candidates']=[dict(value='sol061_00')]
+    assert not external_contact_check(zero_records,unfinished,suppressed,[],[air_event],2,10,True,False,False,False,True)['passed']
     assert not host_check(e=host_event|dict(hitstop_owner='source'))['passed']
     bad_zero=copy.deepcopy(zero_states);bad_zero[3][0]['scalar_observations']['age_candidate']+=1
     assert not host_check(samples=bad_zero)['passed']
