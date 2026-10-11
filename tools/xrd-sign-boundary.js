@@ -27,7 +27,7 @@ let koTransition=null;
 
 function applyExternalPair(p,index,thread) {
     const g=gate;
-    if((p.external_pair_steps || [p.external_pair_step])[g.externalPairs]!==index)
+    if(!p.dynamic_contact_results && (p.external_pair_steps || [p.external_pair_step])[g.externalPairs]!==index)
         throw new Error('external pair replay or out-of-order request');
     const queued=g.pendingContact;
     if(p.dynamic_contact_results && (!queued || queued.step!==index || queued.ordinal!==g.externalPairs+1))
@@ -84,7 +84,7 @@ function applyExternalPair(p,index,thread) {
         flags.writeU32(flags.readU32()|c.pending_mask);
     }
     if(damage)actors[0].add(p.state.scalar_fields.health_candidate).writeS32(before[0]-damage);
-    g.externalPairs++;g.pendingContact=null;
+    g.externalPairs++;g.lastContactStep=index;g.pendingContact=null;
     g.externalEvent={kind:'external-pair-result',request_index:index,request_ordinal:g.externalPairs,counter:g.root.add(4+p.candidate.counter_field).readU32(),
         thread,attacker:1,defender:0,before,
         after:actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32()),
@@ -162,7 +162,9 @@ function observeNativeContact(p) {
                     thread:this.threadId,return_rva:returned,counter:root.add(4+p.candidate.counter_field).readU32(),
                     result:0,original_called:false,suppressed:true});
                 else if(dispatchSamples===257)send({kind:'error',phase:'contact-suppress',message:'suppression observation bound exceeded'});
-                if((p.external_guard || p.external_ko || p.external_pair_phase==='dispatch') && stage===1 && (p.external_pair_steps || [p.external_pair_step]).includes(gate.currentIndex))applyExternalPair(p,gate.currentIndex,this.threadId);
+                if((p.external_guard || p.external_ko || p.external_pair_phase==='dispatch') && stage===1 &&
+                    (p.dynamic_contact_results?gate.pendingContact!==null:(p.external_pair_steps || [p.external_pair_step]).includes(gate.currentIndex)))
+                    applyExternalPair(p,gate.currentIndex,this.threadId);
                 return 0;
             },'int',['pointer','int'],'thiscall');
             Interceptor.replace(entry,dispatchReplacement);
@@ -805,7 +807,7 @@ function installGate(target, p) {
         frameReady: null,
         lastCounter: null, heldState: null,
         ownsState: p.transactions || p.renewable && p.state.ownership_age_field!==undefined,
-        executing: false, inputs: [0, 0], initialCounter: null,externalPairs:0,externalApplying:false};
+        executing: false, inputs: [0, 0], initialCounter: null,externalPairs:0,externalApplying:false,pendingContact:null,lastContactStep:null};
     const replacement = new NativeCallback(function(object) {
         const g = gate;
         if (g === null || g.resumed) { original(object); return; }
@@ -1104,10 +1106,13 @@ rpc.exports = {
             if(!Number.isInteger(expectedCounter) || expectedCounter!==counter || gate.initialCounter===null)
                 throw new Error('contact credit counter stale or unavailable');
             const index=((counter-gate.initialCounter)>>>0)+1;
-            const due=config.external_pair_steps[gate.externalPairs]===index;
-            if(due!==(contact!==null) || contact!==null && (typeof contact!=='object' || Object.keys(contact).sort().join(',')!=='damage,ordinal,step' ||
+            if(contact!==null && (typeof contact!=='object' || Object.keys(contact).sort().join(',')!=='damage,ordinal,step' ||
                 contact.step!==index || contact.ordinal!==gate.externalPairs+1 || !Number.isInteger(contact.damage) || contact.damage<1 || contact.damage>419))
                 throw new Error('missing, unrequested or invalid contact credit');
+            // Bounded diagnostic: keep recovery space and retention limits until renewable acceptance.
+            if(contact!==null && (index<2 || index>65 || gate.externalPairs>=4 ||
+                gate.lastContactStep!==null && index-gate.lastContactStep<20))
+                throw new Error('contact recovery window or diagnostic bound exhausted');
             if(inputs.some(x=>x!==0))throw new Error('idle proxy contact ingress requires neutral inputs');
         }
         if (config.transactions && (!Number.isInteger(expectedCounter) || expectedCounter < 0 || expectedCounter > 0xffffffff ||

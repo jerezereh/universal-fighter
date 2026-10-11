@@ -663,3 +663,8 @@ Per-contact damage now arrives with its owned step RPC rather than a startup dam
 and two native contacts verify counter/ordinal ownership. Continue renewable source control
 and arbitrary live contact scheduling, then combine atomic state/image publication with
 host transport and geometry. The current driver and declared schedule remain bounded diagnostics.
+
+The source now selects contacts from arriving credits without an installed step list;
+steps 10 and 50 pass natively under retained recovery/count limits. Continue renewable
+contact control and actual host-driven delivery, then atomic state/image publication
+and host geometry. The Python diagnostic still uses a preloaded bounded plan.
