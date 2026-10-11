@@ -642,3 +642,9 @@ profiles to obtain that witnessed conditional rule. Actual active parents still 
 Continue persistent multi-contact session/sequence ownership and typed idle-proxy results,
 then atomic live guest transport and host geometry; separate bounded captures are not a
 verified persistent producer.
+
+Two ordered normal contacts now pass within one native hook session, with replay guards,
+per-contact recovery/freeze and counter-wide metadata restoration. The session retains
+existing deadlines/85-credit bounds; renewable live input/result transport is still
+pending. Continue typed results and dynamic per-request queuing before atomic live guest
+publication and actual IKEMEN mixed-match acceptance.

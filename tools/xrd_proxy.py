@@ -6,6 +6,17 @@ import re
 import struct
 
 
+def pair_steps(values, first, frames):
+    if type(values)!=list or not 2<=len(values)<=4 or any(type(v)!=int for v in values) or values[0]!=first or first<2 or values!=sorted(set(values)) or values[-1]>frames-20 or any(b-a<20 for a,b in zip(values,values[1:])):
+        raise ValueError('multiple contacts require 2..4 ordered steps with bounded recovery windows')
+    return values
+
+
+def pair_result(event, steps, received):
+    if type(received)!=int or not 0<=received<len(steps) or type(event.get('request_index'))!=int or type(event.get('request_ordinal'))!=int or event.get('request_index')!=steps[received] or event.get('request_ordinal')!=received+1:
+        raise ValueError('unrequested/replayed/out-of-order native pair result')
+
+
 def attack_region(code, code_rva, local):
     caller, entry, size = (local.get(k) for k in ('caller_rva', 'initializer_rva', 'initializer_size'))
     if any(type(v) != int for v in (caller, entry, size)) or not 32 <= size <= 4096:

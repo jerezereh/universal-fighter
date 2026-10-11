@@ -27,7 +27,8 @@ let koTransition=null;
 
 function applyExternalPair(p,index,thread) {
     const g=gate;
-    if(g.externalPairs!==0)throw new Error('external pair replay');
+    if((p.external_pair_steps || [p.external_pair_step])[g.externalPairs]!==index)
+        throw new Error('external pair replay or out-of-order request');
     const actors=[0,1].map(i=>g.root.add(p.state.fields.slots+4*i).readPointer());
     const proxy=p.proxy_template;
     const proxyHit=actors[1].isNull()?-1:actors[1].add(p.state.fields.hit_count).readS32();
@@ -78,7 +79,7 @@ function applyExternalPair(p,index,thread) {
     }
     if(p.external_damage)actors[0].add(p.state.scalar_fields.health_candidate).writeS32(before[0]-p.external_damage);
     g.externalPairs++;
-    g.externalEvent={kind:'external-pair-result',request_index:index,counter:g.root.add(4+p.candidate.counter_field).readU32(),
+    g.externalEvent={kind:'external-pair-result',request_index:index,request_ordinal:g.externalPairs,counter:g.root.add(4+p.candidate.counter_field).readU32(),
         thread,attacker:1,defender:0,before,
         after:actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32()),
         native_pair_called:!p.external_pair_control,
@@ -155,7 +156,7 @@ function observeNativeContact(p) {
                     thread:this.threadId,return_rva:returned,counter:root.add(4+p.candidate.counter_field).readU32(),
                     result:0,original_called:false,suppressed:true});
                 else if(dispatchSamples===257)send({kind:'error',phase:'contact-suppress',message:'suppression observation bound exceeded'});
-                if((p.external_guard || p.external_ko || p.external_pair_phase==='dispatch') && stage===1 && gate.currentIndex===p.external_pair_step)applyExternalPair(p,gate.currentIndex,this.threadId);
+                if((p.external_guard || p.external_ko || p.external_pair_phase==='dispatch') && stage===1 && (p.external_pair_steps || [p.external_pair_step]).includes(gate.currentIndex))applyExternalPair(p,gate.currentIndex,this.threadId);
                 return 0;
             },'int',['pointer','int'],'thiscall');
             Interceptor.replace(entry,dispatchReplacement);

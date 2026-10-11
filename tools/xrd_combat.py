@@ -3,6 +3,7 @@ import struct
 import hashlib
 import re
 from xrd_proxy import idle_check
+from xrd_input import input_scene_ready
 
 
 def dispatch_candidate(code,code_rva,local,pair_rva):
@@ -193,6 +194,31 @@ def external_contact_check(records,states,dispatches,contacts,events,step,damage
         source_dispatch_suppressed=suppressed,automatic_pair_calls=sum(c.get('externally_requested') is not True for c in contacts),
         idle_proxy_metadata_verified=bool(proxy_verified),host_contact_geometry_verified=False,
         universal_contact=False,typed_host_result_applied=False)
+
+
+def multiple_contact_check(records,states,dispatches,contacts,events,steps,damage):
+    """Audit ordered normal contacts within one owned boundary, reusing single-hit checks."""
+    executed=[r for r in records if r['executed']]
+    if len(records)!=len(states) or not executed or len(events)!=len(steps) or [e.get('request_index') for e in events]!=steps or [e.get('request_ordinal') for e in events]!=list(range(1,len(steps)+1)) or len({e['thread'] for e in events})!=1:
+        raise ValueError('multiple contact order/count/thread mismatch')
+    if any(a['after']!=b['before'] for a,b in zip(events,events[1:])):
+        raise ValueError('health changed between requested contacts')
+    base=executed[0]['before'];checks=[]
+    for i,event in enumerate(events):
+        lower=0 if i==0 else steps[i]-1
+        upper=steps[i+1]-1 if i+1<len(steps) else len(executed)
+        selected=[(r,s) for r,s in zip(records,states) if lower<=(r['after']-base)&0xffffffff<=upper]
+        local_records=[r for r,s in selected];local_states=[s for r,s in selected]
+        counters={r['after'] for r in local_records if r['executed']}
+        local_step=sum(r['executed'] and r['after']!=event['counter'] for r in local_records if 0<=(event['counter']-r['after'])&0xffffffff<0x80000000)+1
+        check=external_contact_check(local_records,local_states,[d for d in dispatches if d['counter'] in counters],[c for c in contacts if c['counter'] in counters],[event|dict(request_index=local_step)],local_step,damage,True,idle_proxy=True)
+        # The original request index remains global; validate the local diagnostic index only.
+        checks.append(check)
+        if not all(input_scene_ready(local_states[-1],'positioning',[dict(input=dict(forward=True),accept_input=True)],slot) for slot in (0,1)):
+            raise ValueError('contact did not recover before the next request/end')
+    return dict(passed=all(c['passed'] for c in checks),requested_contacts=len(events),ordered_requests_verified=True,
+        persistent_contact_session_verified=all(c['passed'] for c in checks),contacts=checks,
+        universal_contact=False,typed_host_result_applied=False,host_contact_geometry_verified=False)
 
 
 def guard_contact_check(records,states,contacts):
