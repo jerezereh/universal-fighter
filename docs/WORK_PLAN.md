@@ -668,3 +668,8 @@ The source now selects contacts from arriving credits without an installed step 
 steps 10 and 50 pass natively under retained recovery/count limits. Continue renewable
 contact control and actual host-driven delivery, then atomic state/image publication
 and host geometry. The Python diagnostic still uses a preloaded bounded plan.
+
+Renewed contact ownership now passes a 13-second no-credit hold and two subsequent
+contacts in a 25-second native diagnostic. Continue combining live control/contact
+delivery with isolated frame publication and host coordinate ownership before enabling
+the real SIGN producer or inviting playable IKEMEN acceptance.

@@ -160,3 +160,6 @@ with tempfile.TemporaryDirectory() as folder:
     queue.write_text('[{"step":5,"step":45,"result":{}}]')
     reject(lambda:boundary.trace(folder/'missing-probe',folder/'candidate.json',7,**queued))
 print('Typed contact queue preflight, conflicting authority and duplicate field checks passed.')
+for seconds in (19,61,float('nan')):
+    reject(lambda:boundary.trace(Path('unused'),Path('unused'),seconds,renewable_contacts=True))
+reject(lambda:boundary.trace(Path('unused'),Path('unused'),25,renewable_contacts=True))
