@@ -1,6 +1,6 @@
 """Authored native-alpha bounds and rejection checks; no source assets."""
 import copy
-from xrd_layer import layer_pixels, hdr_layer_pixels, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle, unit_calibration
+from xrd_layer import layer_pixels, hdr_layer_pixels, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle, unit_calibration, scale_projection
 
 metadata=dict(width=3,height=2,kind='render-layer',format=21,native_coverage_verified=False,
     source_graphics_state_verified=True,replayed_draws=2)
@@ -150,3 +150,17 @@ for data,change in [(hdr.tobytes()[:-1],{}),(hdr.tobytes(),dict(isolated_rgba=Tr
     except ValueError: continue
     raise AssertionError('invalid HDR/alpha/publication accepted')
 print('Native float16 precision/coverage and nonfinite/partial-alpha/leaking/publication guards passed.')
+
+p=dict(width=640,height=768,pivot=[320,700],pixels_per_world_unit=2)
+for scale in (1,.5,.25):
+    q=scale_projection(p,scale)
+    assert q['pixels_per_world_unit']/q['width']==p['pixels_per_world_unit']/p['width']
+    assert q['pixels_per_world_unit']/q['height']==p['pixels_per_world_unit']/p['height']
+    assert [v/b for v,b in zip(q['pivot'],(q['width'],q['height']))]==[v/b for v,b in zip(p['pivot'],(p['width'],p['height']))]
+    assert q['pixels_per_world_unit']/scale==p['pixels_per_world_unit']
+assert p==dict(width=640,height=768,pivot=[320,700],pixels_per_world_unit=2)
+for scale in (True,0,.3,float('nan'),float('inf')):
+    try:scale_projection(p,scale)
+    except ValueError:continue
+    raise AssertionError('invalid projection scale accepted')
+print('Scaled target preserves normalized projection/pivot and compensated display size; invalid scales reject.')

@@ -167,3 +167,5 @@ for options in (dict(render_contacts=True),dict(render_contacts=1),
                 dict(render_contacts=True,stream_frames=41),dict(render_contacts=True,stream_frames=86),
                 dict(render_contacts=True,transactions=True,stream_frames=42,stream_duration=True)):
     reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,**options))
+for scale in (.5,.3,True,float('nan')):
+    reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,layer_scale=scale))

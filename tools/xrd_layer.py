@@ -3,6 +3,22 @@ import hashlib
 import math
 
 
+def scale_projection(projection,scale):
+    if type(scale) not in (int,float) or scale not in (1,.5,.25):
+        raise ValueError('layer scale must be 1, 0.5 or 0.25')
+    result=dict(projection)
+    for field in ('width','height'):
+        value=projection[field]*scale
+        if value!=int(value) or not 1<=value<=1024:raise ValueError('invalid scaled target')
+        result[field]=int(value)
+    pivot=[v*scale for v in projection['pivot']]
+    if any(v!=int(v) or not 0<=v<b for v,b in zip(pivot,(result['width'],result['height']))):
+        raise ValueError('invalid scaled pivot')
+    result['pivot']=[int(v) for v in pivot]
+    result['pixels_per_world_unit']=projection['pixels_per_world_unit']*scale
+    return result
+
+
 def layer_pixels(metadata,pixels):
     import numpy as np
     width,height=metadata['width'],metadata['height']

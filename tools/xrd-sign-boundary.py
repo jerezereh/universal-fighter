@@ -22,7 +22,7 @@ from host_hit_result import read_result,damage_probe,FIELDS as HIT_RESULT_FIELDS
 from xrd_combat import combat_fields, contact_check, contact_observations, dispatch_candidate, dispatch_ownership, suppressed_contact_check, contact_callees, external_contact_check, guard_contact_check, dispatch_result_fields, fatal_global_field, state_transition_candidate, reaction_timer_field, defeat_projection, multiple_contact_check
 from xrd_render import render_pixels, save_render, render_check, draw_check, save_pass
 from xrd_shader import opaque_alpha_variant, screen_packet
-from xrd_layer import layer_pixels, save_layer_preview, save_hdr_layer, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle
+from xrd_layer import layer_pixels, save_layer_preview, save_hdr_layer, capture_steps, capture_presentations, render_oracle, settling_oracle, settled_oracle, scale_projection
 from xrd_transform import transform_packet, transform_changes, projection_bindings, vertex_bindings
 from xrd_d3d import validate_device_calls
 from xrd_stream import RollingAudit,body_geometry
@@ -267,7 +267,7 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None,capture_reaction_memory=False,reaction_memory_bytes=0x2600,external_stun=0,reaction_timer_path=None,external_pair_phase='post-update',external_recoil=None,recoil_path=None,motion_units_path=None,motion_display_scale=None,vertical_path=None,jump_velocity=None,jump_gravity=None,defender_jump_step=0,launch_path=None,launch_horizontal_path=None,launch_velocity_x=None,defeat_input_check=False,proxy_path=None,external_steps=None,contact_results_path=None,renewable_contacts=False,render_contacts=False):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None,capture_reaction_memory=False,reaction_memory_bytes=0x2600,external_stun=0,reaction_timer_path=None,external_pair_phase='post-update',external_recoil=None,recoil_path=None,motion_units_path=None,motion_display_scale=None,vertical_path=None,jump_velocity=None,jump_gravity=None,defender_jump_step=0,launch_path=None,launch_horizontal_path=None,launch_velocity_x=None,defeat_input_check=False,proxy_path=None,external_steps=None,contact_results_path=None,renewable_contacts=False,render_contacts=False,layer_scale=1):
     if defeat_input_check and (not external_ko or not isolate_ko_path or not ko_reaction_path or host_result_path or launch_path or vertical_path or controlled_slot!=1):raise ValueError('defeat input check requires exclusive isolated KO reaction')
     if external_pair_phase not in ('post-update','dispatch') or external_pair_phase=='dispatch' and not external_pair_step:raise ValueError('dispatch phase requires a requested native pair')
     if launch_path and (not (external_damage or host_result_path) or not vertical_path or not external_pair_step or not external_host_stop or external_pair_phase!='dispatch' or defender_jump_step or external_stun or external_ko or external_guard or ko_reaction_path):raise ValueError('ground launch requires exclusive nonfatal motion and dispatch requested contact')
@@ -286,6 +286,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         queued_results=read_contact_results(contact_results_path)
         external_steps,external_damages=contact_results(queued_results,external_pair_step,len(input_plan(json.loads(plan_path.read_text()))))
         external_damage=external_damages[0]
+    if type(layer_scale) not in (int,float) or layer_scale not in (1,.5,.25) or layer_scale!=1 and (not layer_path or not normalize):
+        raise ValueError('scaled layers require normalized projection at scale 1, 0.5 or 0.25')
     if type(render_contacts)!=bool or render_contacts and (queued_results is None or not transactions or not 42<=stream_frames<=85 or not layer_path or renewable_contacts or stream_duration or frame_control or expire):
         raise ValueError('render contacts require exclusive 42..85-credit typed rolling transactions')
     if type(renewable_contacts)!=bool or renewable_contacts and (queued_results is None or not 20<=seconds<=60 or renewable or transactions or expire):
@@ -450,6 +452,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if layer_path:
         if not identity or inspect_shaders: raise ValueError('layer capture requires exclusive mesh identity')
         layer=layer_programs(layer_path,state,identity,normalize)
+        if normalize:layer['projection']=scale_projection(layer['projection'],layer_scale)
         layer['hdr']=hdr or bool(grade_path)
         layer['source_view']=source_view
         layer['source_color']=source_color
@@ -528,6 +531,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                 proof=json.loads((suppress_contact_path/'inspection.json').read_text())
                 if proof.get('pid')!=state['pid']:raise ValueError('source dispatch proof session changed')
                 contact['dispatch']['owner']=dispatch_ownership(code,state['code_rva'],contact['dispatch'],proof,gate_options['thread'])
+    request_times={}
+    latency_count=0;latency_total=0;latency_max=0
     stream_receipts=[];latest_layer=None;controller_lost_at=None
     audit=RollingAudit() if stream_duration else None
     credit_until=seconds-(19 if transaction_loss else 5)
@@ -604,6 +609,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                             if inward and abs(sol['x_raw']-opponent['x_raw'])<350000:
                                 raise ValueError('source control refuses unverified close-range contact')
                             counter=records[-1]['after']
+                            request_times[requests+1]=time.perf_counter()
                             bounded_call(frida,lambda:script.exports_sync.step([mask,0],counter))
                             request_log.append(dict(step=requests+1,mask=mask,input=packet['input'],accept_input=packet['accept_input']))
                             requests+=1;next_request=elapsed+.03
@@ -623,6 +629,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         if queued_results is not None and requests+1 in external_steps:
                             ordinal=external_steps.index(requests+1)
                             contact_credit=dict(step=requests+1,ordinal=ordinal+1,damage=external_damages[ordinal])
+                        request_times[requests+1]=time.perf_counter()
                         bounded_call(frida,lambda:script.exports_sync.step(masks,counter,contact_credit));request_log.append(dict(step=requests+1,mask=mask,**packet))
                         if contact_credit is not None:request_log[-1]['contact_credit']=contact_credit
                         if defeat_probe is not None:request_log[-1]['defeat_input_probe']=defeat_probe
@@ -630,6 +637,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         next_request=time.perf_counter()-started+.03+packet['hold_ms']/1000+(1 if render_contacts and contact_credit is not None else 0)
                     elif not frame_control and not plan and gate_options and not expire and (elapsed<credit_until if audit else requests<(stream_frames or 3)) and requests==completed and image_ready and time.perf_counter()-started>=next_request and (not capture_passes or draws):
                         counter=records[-1]['after'] if transactions else None
+                        request_times[requests+1]=time.perf_counter()
                         bounded_call(frida,lambda:script.exports_sync.step([0,0],counter));requests+=1;next_request=time.perf_counter()-started+(.03 if stream_mode else 1)
                     if expire and elapsed>(seconds-1.5 if renewable else 12.5) and not automatic_restore:
                         automatic_restore=unchanged()
@@ -723,6 +731,12 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                                 coverage_bounds=coverage['native_coverage_bounds'],
                                 source_x=observation['fighters'][0]['x_raw'],source_y=observation['fighters'][0]['y_raw'],
                                 source_facing_left=observation['fighters'][0]['facing_left'])|body_geometry(native)
+                            sent=request_times.pop(native['request_index'],None)
+                            if sent is not None:
+                                latency=(wall-sent)*1000
+                                if latency<0:raise ValueError('frame precedes its owned request')
+                                frame_receipt['latency_ms']=latency
+                                latency_count+=1;latency_total+=latency;latency_max=max(latency_max,latency)
                             if audit:audit.frame(frame_receipt)
                             else:stream_receipts.append(frame_receipt)
                             if tap:tap.publish(native,pixels,observation['fighters'])
@@ -857,6 +871,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             rolling_image_retention=True,bounded_verification=True,input_check=stream_input,duration_check=stream_duration,
             retained_state_samples=len(records),total_state_samples=audit.samples if audit else len(records),
             controller_loss_recovery=recovery,controller_lost_at=controller_lost_at)
+        result['frame_latency']=dict(samples=latency_count,mean_ms=latency_total/latency_count if latency_count else None,max_ms=latency_max if latency_count else None,default_host_deadline_ms=250,default_host_deadline_verified=bool(latency_count==completed and latency_count and latency_max<=250))
+        result['layer_scale']=layer_scale
         if render_contacts:result['contact_check']=contact_stream
         if tap:result['frame_tap']=tap.receipt()
         if latest_layer:
@@ -1165,6 +1181,7 @@ if __name__=='__main__':
     p.add_argument('--reaction-memory-bytes',type=int,default=0x2600,help='opt-in actor snapshot span, 9728..65536 bytes; requires reaction capture')
     p.add_argument('--capture-reaction-memory',action='store_true',help='retain at most 85 counter-aligned defender and proxy actor blocks for discovery')
     p.add_argument('--host-hit-result',type=Path,help='partial typed damage probe from host HitResult JSON; unsupported values reject')
+    p.add_argument('--layer-scale',type=float,default=1,help='normalized output resolution scale: 1, 0.5 or 0.25; receiver display scale must compensate')
     p.add_argument('--render-contact-check',action='store_true',help='combine typed neutral contacts with 42..85 rolling isolated state/image transactions')
     p.add_argument('--renewable-contact-check',action='store_true',help='typed contact diagnostic with a 13-second renewed no-credit hold; --seconds 20..60')
     p.add_argument('--contact-results',type=Path,help='bounded 2..4 step/result typed normal contact records; diagnostic only')
@@ -1218,4 +1235,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check or a.renewable_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control,a.observe_native_contact,a.contact_dispatch_candidate.resolve() if a.contact_dispatch_candidate else None,a.suppress_source_contact.resolve() if a.suppress_source_contact else None,a.contact_callees.resolve() if a.contact_callees else None,a.input_slot,a.external_pair_step,a.external_damage,a.external_host_stop,a.external_guard,a.external_pair_control,a.external_guard_commit,a.external_ko,a.isolate_source_ko.resolve() if a.isolate_source_ko else None,a.ko_reaction.resolve() if a.ko_reaction else None,a.host_hit_result.resolve() if a.host_hit_result else None,a.capture_reaction_memory,a.reaction_memory_bytes,a.external_stun,a.reaction_timer_candidate.resolve() if a.reaction_timer_candidate else None,a.external_pair_phase,a.external_recoil,a.recoil_candidate.resolve() if a.recoil_candidate else None,a.motion_unit_calibration.resolve() if a.motion_unit_calibration else None,a.motion_display_scale,a.vertical_candidate.resolve() if a.vertical_candidate else None,a.jump_velocity,a.jump_gravity,a.defender_jump_step,a.ground_launch_candidate.resolve() if a.ground_launch_candidate else None,a.launch_horizontal_candidate.resolve() if a.launch_horizontal_candidate else None,a.launch_velocity_x,a.defeat_input_check,a.proxy_template.resolve() if a.proxy_template else None,a.external_pair_steps,a.contact_results.resolve() if a.contact_results else None,a.renewable_contact_check,a.render_contact_check)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control,a.observe_native_contact,a.contact_dispatch_candidate.resolve() if a.contact_dispatch_candidate else None,a.suppress_source_contact.resolve() if a.suppress_source_contact else None,a.contact_callees.resolve() if a.contact_callees else None,a.input_slot,a.external_pair_step,a.external_damage,a.external_host_stop,a.external_guard,a.external_pair_control,a.external_guard_commit,a.external_ko,a.isolate_source_ko.resolve() if a.isolate_source_ko else None,a.ko_reaction.resolve() if a.ko_reaction else None,a.host_hit_result.resolve() if a.host_hit_result else None,a.capture_reaction_memory,a.reaction_memory_bytes,a.external_stun,a.reaction_timer_candidate.resolve() if a.reaction_timer_candidate else None,a.external_pair_phase,a.external_recoil,a.recoil_candidate.resolve() if a.recoil_candidate else None,a.motion_unit_calibration.resolve() if a.motion_unit_calibration else None,a.motion_display_scale,a.vertical_candidate.resolve() if a.vertical_candidate else None,a.jump_velocity,a.jump_gravity,a.defender_jump_step,a.ground_launch_candidate.resolve() if a.ground_launch_candidate else None,a.launch_horizontal_candidate.resolve() if a.launch_horizontal_candidate else None,a.launch_velocity_x,a.defeat_input_check,a.proxy_template.resolve() if a.proxy_template else None,a.external_pair_steps,a.contact_results.resolve() if a.contact_results else None,a.renewable_contact_check,a.render_contact_check,a.layer_scale)

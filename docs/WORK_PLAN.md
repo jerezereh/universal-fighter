@@ -689,3 +689,8 @@ Native unrelated-draw routing proves correct but is discarded without material t
 gain. Bounded mesh/coverage shader reuse now passes native combined regression and exact
 resource teardown. Continue measuring per-frame latency and output sizing, then real
 host coordinate/result ownership and producer/lifecycle integration before playable testing.
+
+Quarter-resolution correctness now passes, with compensated projection/size, but measured
+request latency averages 267 ms and peaks at 355 ms against the unchanged 250 ms host
+deadline. Wait for lower source graphics settings and offline training readiness, then
+rebind and repeat timing. Do not enable playable capabilities from correctness-only results.
