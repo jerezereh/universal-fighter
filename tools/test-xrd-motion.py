@@ -31,6 +31,15 @@ def main():
         save();assert not vertical_audit(folder,{},True)['source_vertical_trajectory_verified']
         receipt['diagnostics'][0]['phase']='jump';(folder/'inspection.json').write_text(json.dumps(receipt))
         reject(lambda:vertical_audit(folder,{},True))
+        receipt['diagnostics'][0]['phase']='ground-hit';(folder/'inspection.json').write_text(json.dumps(receipt))
+        rows=[];y=0;velocity=10
+        for step in range(23):
+            rows.append(dict(boundary=dict(executed=True),fighters=[dict(y_raw=y,scalar_observations=dict(
+                velocity_candidate=velocity,gravity_candidate=1,hitstop_candidate=0))]))
+            y=max(0,y+velocity);velocity-=1
+        save();assert vertical_audit(folder,{},True)['source_vertical_trajectory_verified']
+        rows[1]['fighters'][0]['y_raw']+=1
+        save();assert not vertical_audit(folder,{},True)['source_vertical_trajectory_verified']
     code=bytearray(b'\xcc'*96);witness={}
     for name,at,field in [('velocity',16,128),('gravity',48,132)]:
         body=bytes.fromhex('8b4424048981')+struct.pack('<I',field)+bytes.fromhex('c20400');code[at:at+13]=body

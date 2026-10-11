@@ -166,6 +166,12 @@ def main():
     air_event=host_event|dict(caller_result_committed=True)
     airborne_check=external_contact_check(zero_records,air_states,suppressed,[],[air_event],2,10,True,False,False,False,True)
     assert airborne_check['passed'] and airborne_check['complete_airborne_recovery_verified']
+    launch_states=copy.deepcopy(air_states)
+    for record,actors in zip(zero_records,launch_states):
+        if record['after']<=2:actors[0]['y_raw']=0
+        if record['after']==2:actors[0].update(pose_candidates=[dict(value='sol000_00')],state_candidates=[dict(value='CmnActStand')])
+    assert external_contact_check(zero_records,launch_states,suppressed,[],[air_event],2,10,True,False,False,False,False,True)['passed']
+    assert not external_contact_check(zero_records,launch_states,suppressed,[],[air_event],2,10,True,False,False,False,True)['passed']
     assert not external_contact_check(zero_records,air_states,suppressed,[],[air_event|dict(caller_result_committed=False)],2,10,True,False,False,False,True)['passed']
     unfinished=copy.deepcopy(air_states)
     for actors in unfinished:

@@ -103,7 +103,7 @@ def vertical_audit(boundary,fields,airborne_hit=False):
     rows=[json.loads(line) for line in (boundary/'state.jsonl').read_text().splitlines()];rows=[row for row in rows if row.get('boundary',{}).get('executed')]
     samples=[];previous=None;rise=fall=False
     event=next((e for e in receipt.get('diagnostics',[]) if e.get('kind')=='vertical-motion-result'),{})
-    if airborne_hit and (not receipt.get('contact_check',{}).get('passed') or event.get('phase')!='airborne-hit'):raise ValueError('missing original airborne result evidence')
+    if airborne_hit and (not receipt.get('contact_check',{}).get('passed') or event.get('phase') not in ('airborne-hit','ground-hit')):raise ValueError('missing original airborne result evidence')
     for step,row in enumerate(rows,1):
         f=row['fighters'][0];y=f['y_raw'];stop=f['scalar_observations']['hitstop_candidate']
         if airborne_hit:
@@ -114,7 +114,8 @@ def vertical_audit(boundary,fields,airborne_hit=False):
             raw=(boundary/('reaction-%03d.bin'%step)).read_bytes()
             if any(v['field']+4>len(raw) for v in fields.values()):raise ValueError('vertical field outside retained memory')
             velocity,gravity=(struct.unpack_from('<i',raw,fields[n]['field'])[0] for n in ('velocity','gravity'))
-        if previous and previous[0]>0 and y>0 and (not airborne_hit or previous[2]==0 and stop==0):
+        takeoff=airborne_hit and event.get('phase')=='ground-hit' and step==event['request_index']+1
+        if previous and (previous[0]>0 or takeoff) and y>0 and (not airborne_hit or previous[2]==0 and stop==0):
             delta=y-previous[0];rise=rise or delta>0;fall=fall or delta<0
             samples.append(dict(step=step,position_delta=delta,previous_velocity=previous[1],velocity=velocity,gravity=gravity,expected_velocity=previous[1]-gravity))
         previous=(y,velocity,stop)

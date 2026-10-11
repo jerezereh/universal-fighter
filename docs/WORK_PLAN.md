@@ -586,3 +586,8 @@ contact/typed vertical result initialization; raw native control is not live hos
 Partial typed airborne results now pass requested-contact damage, declared PushY/Gravity,
 first-arc integration and full recovery with host-owned freeze and zero automatic pairs.
 Grounded launch/knockdown, combined motion and actual live host transport remain pending.
+
+
+Witnessed raw grounded launch now passes requested damage, first displacement and
+complete native knockdown recovery without a jump cue. Continue explicit typed
+Knockdown/grounded vertical mapping and combined motion; live acceptance remains pending.

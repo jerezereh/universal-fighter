@@ -79,9 +79,9 @@ function observeNativeContact(p) {
     const target=Process.mainModule.base.add(p.contact.rva);
     if(hex(bytes(target,32))!==p.contact.before)throw new Error('native contact entry changed');
     if(p.external_pair_step)externalPair=new NativeFunction(target,'void',['pointer','pointer','int'],{abi:'thiscall',exceptions:'propagate'});
-    if(p.ko_transition) {
-        const k=p.ko_transition,entry=Process.mainModule.base.add(k.rva),state=Process.mainModule.base.add(k.state_rva);
-        if(hex(bytes(entry,32))!==k.before || state.readUtf8String(k.name.length)!==k.name || state.add(k.name.length).readU8()!==0)throw new Error('native reaction entry/name changed');
+    if(p.ko_transition || p.launch_transition) {
+        const k=p.ko_transition||p.launch_transition,entry=Process.mainModule.base.add(k.rva),state=Process.mainModule.base.add(k.state_rva);
+        if(hex(bytes(entry,k.body.length/2))!==k.body || state.readUtf8String(k.name.length)!==k.name || state.add(k.name.length).readU8()!==0)throw new Error('native reaction entry/name changed');
         koTransition=new NativeFunction(entry,'void',['pointer','pointer'],{abi:'thiscall',exceptions:'propagate'});
     }
     contactSamples=0;
@@ -817,7 +817,7 @@ function installGate(target, p) {
                 g.currentIndex=((s.before-g.initialCounter)>>>0)+1;
                 original(object);
                 const index=(object.add(p.candidate.counter_field).readU32()-g.initialCounter)>>>0;
-                if(p.vertical && !g.verticalApplied) {
+                if(p.vertical && !g.verticalApplied && !p.launch_transition) {
                     const actor=g.root.add(p.state.fields.slots).readPointer();
                     const health=actor.add(p.state.scalar_fields.health_candidate).readS32();
                     if(g.verticalInitialHealth===undefined)g.verticalInitialHealth=health;
@@ -831,7 +831,7 @@ function installGate(target, p) {
                         send({kind:'vertical-motion-result',phase:p.vertical_mode,request_index:index,counter:object.add(p.candidate.counter_field).readU32(),velocity_before:before[0],gravity_before:before[1],velocity_after:velocity.readS32(),gravity_after:gravity.readS32()});
                     }
                 }
-                if(p.vertical && p.vertical_mode==='airborne-hit' && g.verticalApplied && !g.verticalLanded) {
+                if(p.vertical && (p.vertical_mode==='airborne-hit' || p.vertical_mode==='ground-hit') && g.verticalApplied && !g.verticalLanded) {
                     const actor=g.root.add(p.state.fields.slots).readPointer();
                     if(actor.add(p.state.fields.y).readS32()===0)g.verticalLanded=true;
                     else if(actor.add(p.state.scalar_fields.hitstop_candidate).readS32()===0) {
@@ -844,6 +844,15 @@ function installGate(target, p) {
                             if(g.verticalGravityCorrections>85)throw new Error('airborne gravity correction bound exceeded');
                         }
                     }
+                }
+                if(p.launch_transition && g.externalPairs===1 && index===p.external_pair_step+1) {
+                    const actor=g.root.add(p.state.fields.slots).readPointer(),k=p.launch_transition;
+                    if(actor.add(p.state.fields.y).readS32()!==0 || actor.add(p.state.scalar_fields.health_candidate).readS32()<=0)throw new Error('ground launch baseline changed');
+                    if(hex(bytes(Process.mainModule.base.add(k.rva),k.body.length/2))!==k.body)throw new Error('launch transition changed');
+                    for(const v of Object.values(p.vertical))if(hex(bytes(Process.mainModule.base.add(v.rva),13))!==v.before)throw new Error('vertical setter witness changed');
+                    const velocity=actor.add(p.vertical.velocity.field),gravity=actor.add(p.vertical.gravity.field),before=[velocity.readS32(),gravity.readS32()];
+                    koTransition(actor,Process.mainModule.base.add(k.state_rva));velocity.writeS32(p.jump_velocity);gravity.writeS32(p.jump_gravity);g.verticalApplied=true;
+                    send({kind:'vertical-motion-result',phase:'ground-hit',request_index:index,counter:object.add(p.candidate.counter_field).readU32(),velocity_before:before[0],gravity_before:before[1],velocity_after:velocity.readS32(),gravity_after:gravity.readS32()});
                 }
                 if(p.ko_transition && g.externalPairs===1 && index===p.external_pair_step+1)
                     koTransition(g.root.add(p.state.fields.slots).readPointer(),Process.mainModule.base.add(p.ko_transition.state_rva));

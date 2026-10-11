@@ -72,7 +72,7 @@ def state_transition_candidate(code,code_rva,local,module_base,image_size):
         raise ValueError('state transition entry/data bounds changed')
     if not 0<=caller<caller+12<=len(code) or code[caller]!=0x68 or code[caller+5:caller+8]!=b'\x8b\xce\xe8' or struct.unpack_from('<I',code,caller+1)[0]!=module_base+state or returned+struct.unpack_from('<i',code,caller+8)[0]!=rva:
         raise ValueError('state transition caller disagrees with entry or name')
-    return dict(rva=rva,before=local['before'],state_rva=state,name=name)
+    return dict(rva=rva,before=local['before'],body=code[at:at+size].hex(),state_rva=state,name=name)
 
 
 def dispatch_ownership(code,code_rva,dispatch,proof,thread):
@@ -124,9 +124,9 @@ def suppressed_contact_check(records,states,dispatches,contacts):
         observed_counter_phase=sorted(phases),universal_contact=False,external_results_applied=False)
 
 
-def external_contact_check(records,states,dispatches,contacts,events,step,damage=0,host_stop=False,guard=False,ko=False,isolate_ko=False,airborne=False):
+def external_contact_check(records,states,dispatches,contacts,events,step,damage=0,host_stop=False,guard=False,ko=False,isolate_ko=False,airborne=False,ground_launch=False):
     executed=[r for r in records if r['executed']]
-    native=contact_check(records,states,1,airborne)
+    native=contact_check(records,states,1,airborne or ground_launch,ground_launch)
     if len(records)!=len(states) or len(events)!=1 or type(step)!=int or not 1<=step<=len(executed):raise ValueError('external native contact requires exactly one requested result')
     event=events[0];frame=executed[step-1]
     if any(type(event.get(k))!=list or len(event[k])!=2 or any(type(v)!=int or v<0 for v in event[k]) for k in ('before','after')):
@@ -150,7 +150,7 @@ def external_contact_check(records,states,dispatches,contacts,events,step,damage
         scalar=lambda s:[[f['scalar_observations'][k+'_candidate'] for k in ('health','hitstop','age')] for f in s]
         reacting=[s for r,s in zip(records,states) if r['executed'] and r['after']>frame['after'] and
             s[0].get('pose_candidates') and all(not re.fullmatch(r'sol00[01]_[0-9]{2}',n['value']) for n in s[0]['pose_candidates']) and
-            any(('Guard' if guard else 'Hizakuzure' if ko else 'BDown' if airborne else 'Nokezori') in n['value'] for n in s[0]['state_candidates'])]
+            any(('Guard' if guard else 'Hizakuzure' if ko else 'BDown' if airborne or ground_launch else 'Nokezori') in n['value'] for n in s[0]['state_candidates'])]
         host_freeze=(event.get('hitstop_owner')=='host' and native['max_stop']==[0,0] and len(held)>=5 and
             all(scalar(s)==scalar(held[0]) for s in held) and len(reacting)>=2 and
             any(b[0]['scalar_observations']['age_candidate']>a[0]['scalar_observations']['age_candidate'] for a,b in zip(reacting,reacting[1:])) and
@@ -175,7 +175,7 @@ def external_contact_check(records,states,dispatches,contacts,events,step,damage
     defeat_pose=isolate_ko and event.get('native_reaction_requested')=='CmnActHizakuzure' and sum(
         r['executed'] and r['after']>frame['after'] and any(n['value'].startswith('sol085_') for n in s[0].get('pose_candidates',[])) for r,s in zip(records,states))>=5
     # Proximity guard alone is insufficient; require the original block's hit pose and caller commit.
-    return native|dict(passed=bool((guard_applied if guard else ko_candidate and (not isolate_ko or defeat_pose) if ko else True) and (host_freeze if host_stop else native['passed']) and (not airborne or event.get('caller_result_committed') is True and native['native_hit_reaction'] and native['complete_airborne_recovery_verified']) and linked and suppressed and requested and damage_mapped),external_result_linked=linked,
+    return native|dict(passed=bool((guard_applied if guard else ko_candidate and (not isolate_ko or defeat_pose) if ko else True) and (host_freeze if host_stop else native['passed']) and (not (airborne or ground_launch) or event.get('caller_result_committed') is True and native['native_hit_reaction'] and native['complete_airborne_recovery_verified']) and linked and suppressed and requested and damage_mapped),external_result_linked=linked,
         native_ko_candidate=bool(ko_candidate),native_lethal_result_verified=bool(lethal),
         source_ko_lifecycle_changed=bool(lifecycle_changed),defeat_semantics_verified=False,
         native_defeat_pose_observed=bool(defeat_pose),
@@ -264,8 +264,8 @@ def contact_observations(records,states,contacts):
         original_source_combat_preserved=True,source_contact_suppressed=False,universal_contact=False)
 
 
-def contact_check(records,states,attacker_slot=0,airborne=False):
-    if type(airborne)!=bool:raise ValueError('invalid airborne contact mode')
+def contact_check(records,states,attacker_slot=0,airborne=False,ground_launch=False):
+    if type(airborne)!=bool or type(ground_launch)!=bool or ground_launch and not airborne:raise ValueError('invalid airborne contact mode')
     if type(attacker_slot)!=int or attacker_slot not in (0,1):raise ValueError('invalid native attacker slot')
     if attacker_slot==1:states=[s[::-1] for s in states]
     executed=[(r,s) for r,s in zip(records,states) if r['executed']]
@@ -296,7 +296,7 @@ def contact_check(records,states,attacker_slot=0,airborne=False):
         heights=[s[1]['y_raw'] for r,s in executed if s[1]['y_raw']>0 and
             any(n['value'] in ('CmnActBDownUpper','CmnActBDownDown') for n in s[1]['state_candidates']) and
             any(re.fullmatch(r'sol060_[0-9]{2}',n['value']) for n in s[1]['pose_candidates'])]
-        reaction=(attacker_slot==1 and len(damage)==1 and executed[damage[0]['step']-1][1][1]['y_raw']>0 and
+        reaction=(attacker_slot==1 and len(damage)==1 and (executed[damage[0]['step']-1][1][1]['y_raw']==0 if ground_launch else executed[damage[0]['step']-1][1][1]['y_raw']>0) and
             len(heights)>=8 and any(b>a for a,b in zip(heights,heights[1:])) and any(b<a for a,b in zip(heights,heights[1:])))
     age_resumed=all(any(scalar(b,slot,'hitstop')==0 and scalar(a,slot,'hitstop')>0 and scalar(b,slot,'age')>scalar(a,slot,'age') for (_,a),(_,b) in zip(executed,executed[1:])) for slot in (0,1))
     passed=len(damage)==1 and all(d['mirrored_box_overlap'] for d in damage) and all(max_stop) and all(n>=3 for n in countdown) and all(n>=3 for n in held_age) and frozen_samples>=5 and frozen_changes==0 and recovered and reaction and age_resumed
@@ -309,9 +309,10 @@ def contact_check(records,states,attacker_slot=0,airborne=False):
                 'down' if 'sol060_12' in poses and f['y_raw']==0 and 'CmnActBDownLoop' in names else
                 'standup' if any(re.fullmatch(r'sol061_[0-9]{2}',p) for p in poses) and 'CmnActBDown2Stand' in names else
                 'idle' if f['y_raw']==0 and any(re.fullmatch(r'sol000_[0-9]{2}',p) for p in poses) else '')
+            if ground_launch and phase=='idle' and not phases:continue
             if phase and (not phases or phase!=phases[-1]):phases.append(phase)
         air_recovery=phases==['bound','down','standup','idle'] and phase=='idle' and all(f['y_raw']==0 for f in executed[-1][1])
-    return dict(passed=bool(passed),airborne_contact=airborne,complete_airborne_recovery_verified=bool(air_recovery),
+    return dict(passed=bool(passed),airborne_contact=airborne and not ground_launch,grounded_launch=ground_launch,complete_airborne_recovery_verified=bool(air_recovery),
         damage_events=damage,max_stop=max_stop,countdown_steps=countdown,
         held_animation_age_steps=held_age,frozen_stop_samples=frozen_samples,frozen_scalar_changes=frozen_changes,
         native_hit_reaction=bool(reaction),stop_recovered=recovered,animation_age_resumed=age_resumed)
