@@ -725,7 +725,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                     if capture_reaction_memory and native['executed']:
                         actors=[segment for segment in segments if segment['size']==reaction_memory_bytes]
                         if len(actors)!=2 or completed>=85:raise ValueError('unexpected bounded reaction actor memory')
-                        actor=actors[0];(out/('reaction-%03d.bin'%(completed+1))).write_bytes(data[actor['offset']:actor['offset']+actor['size']])
+                        for prefix, actor in zip(('reaction', 'proxy'), actors):
+                            (out/('%s-%03d.bin'%(prefix,completed+1))).write_bytes(data[actor['offset']:actor['offset']+actor['size']])
                     observation.update(boundary=native,wall_seconds=wall-started,boundary_aligned=True)
                     if audit:audit.record(native,observation['fighters'])
                     else:
@@ -1107,7 +1108,7 @@ if __name__=='__main__':
     p.add_argument('--external-stun',type=int,default=0,help='bounded 1..30 frame native reaction timer diagnostic')
     p.add_argument('--reaction-timer-candidate',type=Path,help='private inspected native timer decrement witness')
     p.add_argument('--reaction-memory-bytes',type=int,default=0x2600,help='opt-in actor snapshot span, 9728..65536 bytes; requires reaction capture')
-    p.add_argument('--capture-reaction-memory',action='store_true',help='retain at most 85 bounded Sol memory blocks for counter discovery')
+    p.add_argument('--capture-reaction-memory',action='store_true',help='retain at most 85 counter-aligned defender and proxy actor blocks for discovery')
     p.add_argument('--host-hit-result',type=Path,help='partial typed damage probe from host HitResult JSON; unsupported values reject')
     p.add_argument('--external-damage',type=int,default=0,help='1..419 requested nonfatal damage; native Punch reaction remains unchanged')
     p.add_argument('--defender-jump-step',type=int,default=0,help='one-credit Sol jump during original Ky contact reconnaissance, 1..80')

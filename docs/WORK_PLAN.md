@@ -623,3 +623,8 @@ Isolated defeat now has a passing automatic reset and subsequent native input re
 Reset acceptance requires both native idle poses as well as health/position/age recovery.
 Continue arbitrary proxy initialization and live producer/reset transport; keep host round
 ownership and playable capability gates separate from this source lifecycle proof.
+
+Counter-aligned proxy metadata capture now passes with defender/proxy byte agreement.
+Native startup/active metadata is stable and differs narrowly from idle initialization.
+Test an explicit witnessed metadata template against an idle proxy next; retain the
+active-normal guard until that path proves exact contact and safe metadata restoration.
