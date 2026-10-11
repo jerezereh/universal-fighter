@@ -673,3 +673,9 @@ Renewed contact ownership now passes a 13-second no-credit hold and two subseque
 contacts in a 25-second native diagnostic. Continue combining live control/contact
 delivery with isolated frame publication and host coordinate ownership before enabling
 the real SIGN producer or inviting playable IKEMEN acceptance.
+
+Combined native contacts and rolling isolated image/state publication now pass 42 credits
+and 43 linked images using native mesh rendering/color grading without full-screen
+postprocessing. Full postprocessing fails the current diagnostic duration; native grading
+still needs throughput work before playable latency acceptance. Continue hot callback
+profiling/optimization, host coordinate/result ownership and live producer integration.

@@ -267,7 +267,7 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None,capture_reaction_memory=False,reaction_memory_bytes=0x2600,external_stun=0,reaction_timer_path=None,external_pair_phase='post-update',external_recoil=None,recoil_path=None,motion_units_path=None,motion_display_scale=None,vertical_path=None,jump_velocity=None,jump_gravity=None,defender_jump_step=0,launch_path=None,launch_horizontal_path=None,launch_velocity_x=None,defeat_input_check=False,proxy_path=None,external_steps=None,contact_results_path=None,renewable_contacts=False):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None,capture_reaction_memory=False,reaction_memory_bytes=0x2600,external_stun=0,reaction_timer_path=None,external_pair_phase='post-update',external_recoil=None,recoil_path=None,motion_units_path=None,motion_display_scale=None,vertical_path=None,jump_velocity=None,jump_gravity=None,defender_jump_step=0,launch_path=None,launch_horizontal_path=None,launch_velocity_x=None,defeat_input_check=False,proxy_path=None,external_steps=None,contact_results_path=None,renewable_contacts=False,render_contacts=False):
     if defeat_input_check and (not external_ko or not isolate_ko_path or not ko_reaction_path or host_result_path or launch_path or vertical_path or controlled_slot!=1):raise ValueError('defeat input check requires exclusive isolated KO reaction')
     if external_pair_phase not in ('post-update','dispatch') or external_pair_phase=='dispatch' and not external_pair_step:raise ValueError('dispatch phase requires a requested native pair')
     if launch_path and (not (external_damage or host_result_path) or not vertical_path or not external_pair_step or not external_host_stop or external_pair_phase!='dispatch' or defender_jump_step or external_stun or external_ko or external_guard or ko_reaction_path):raise ValueError('ground launch requires exclusive nonfatal motion and dispatch requested contact')
@@ -286,6 +286,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         queued_results=read_contact_results(contact_results_path)
         external_steps,external_damages=contact_results(queued_results,external_pair_step,len(input_plan(json.loads(plan_path.read_text()))))
         external_damage=external_damages[0]
+    if type(render_contacts)!=bool or render_contacts and (queued_results is None or not transactions or not 42<=stream_frames<=85 or not layer_path or renewable_contacts or stream_duration or frame_control or expire):
+        raise ValueError('render contacts require exclusive 42..85-credit typed rolling transactions')
     if type(renewable_contacts)!=bool or renewable_contacts and (queued_results is None or not 20<=seconds<=60 or renewable or transactions or expire):
         raise ValueError('renewable contact check requires exclusive typed queue and 20..60 seconds')
     typed_result=read_result(host_result_path) if host_result_path else None
@@ -328,13 +330,13 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if isolate_ko_path and not external_ko:raise ValueError('KO isolation requires the bounded lethal template')
     if ko_reaction_path and not isolate_ko_path:raise ValueError('KO reaction requires source lifecycle isolation')
     if type(controlled_slot)!=int or controlled_slot not in (0,1):raise ValueError('invalid controlled native slot')
-    if controlled_slot and (oracle!='contact' or not plan_path or not combat_path or not gate_receipt or capture or layer_path or stream_frames or stream_duration or suppress_contact_path and not external_pair_step):
+    if controlled_slot and (oracle!='contact' or not plan_path or not combat_path or not gate_receipt or (capture or layer_path or stream_frames) and not render_contacts or stream_duration or suppress_contact_path and not external_pair_step):
         raise ValueError('second-player input requires an exclusive original contact validation scene')
     if suppress_contact_path and (not dispatch_path or not plan_path or oracle!='contact'):
         raise ValueError('source contact suppression requires an original dispatch proof and bounded contact plan')
     if callees_path and suppress_contact_path:raise ValueError('callee observation requires original source contacts')
     if dispatch_path or callees_path:observe_contact=True
-    if type(observe_contact)!=bool or observe_contact and (not gate_receipt or not combat_path or stream_frames or stream_duration):
+    if type(observe_contact)!=bool or observe_contact and (not gate_receipt or not combat_path or stream_frames and not render_contacts or stream_duration):
         raise ValueError('contact observation requires a bounded scalar/source gate')
     stream_mode=bool(stream_frames or stream_duration)
     if type(stream_frames)!=int or not 0<=stream_frames<=120:
@@ -345,7 +347,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         raise ValueError('renewable trace requires an exclusive gate recovery experiment')
     if transactions and (renewable or expire or not gate_receipt or not layer_path or not normalize or not settle or layer_steps not in (None,'0,1,2,3')):
         raise ValueError('transaction trace requires four consecutive normalized settled frames')
-    if transactions and plan_path and (oracle not in (('render-position','render-attack') if stream_frames else ('render-position',)) or not combat_path):
+    if transactions and plan_path and (oracle not in (('render-position','render-attack','contact') if render_contacts else ('render-position','render-attack') if stream_frames else ('render-position',)) or not combat_path):
         raise ValueError('non-neutral transactions require age ownership and the positioning oracle')
     if transaction_loss and not transactions: raise ValueError('transaction loss requires transaction control')
     if not 13<=transaction_hold<=45 or transaction_hold!=13 and (not transactions or transaction_loss):
@@ -435,7 +437,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if inspect_shaders and not suppress_path: raise ValueError('mesh shader inspection requires local buffer identity')
     if suppress_path:
         identity=json.loads(suppress_path.read_text())
-        if (not trace_draws or not capture or capture_passes and not (layer_path and inspect_screen) or (plan_path and (not layer_path or not oracle.startswith('render-'))) or expire or identity.get('pid')!=state['pid'] or
+        if (not trace_draws or not capture or capture_passes and not (layer_path and inspect_screen) or (plan_path and (not layer_path or not (oracle.startswith('render-') or render_contacts))) or expire or identity.get('pid')!=state['pid'] or
                 identity.get('exe_sha256')!=SIGN_HASH or not identity.get('geometry_match_verified') or
                 identity.get('actor_identity_verified') is not False or identity.get('isolated_rgba') is not False or
                 set(identity.get('parts',{}))!={'body','head','weapon'} or
@@ -481,12 +483,12 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if plan_path:
         if not gate_options or not input_profile or expire or plan_path.stat().st_size>16384:
             raise ValueError('bounded input plan requires a native gate and validated input ingress')
-        plan=(punch_plan if stream_frames and oracle=='render-attack' else position_plan if stream_frames or oracle=='positioning' else input_plan)(json.loads(plan_path.read_text()),stream_frames or (3 if transactions else None))
+        plan=(input_plan if render_contacts else punch_plan if stream_frames and oracle=='render-attack' else position_plan if stream_frames or oracle=='positioning' else input_plan)(json.loads(plan_path.read_text()),stream_frames or (3 if transactions else None))
         if capture_reaction_memory and len(plan)>85:raise ValueError('reaction memory exceeds 85 owned frames')
         if external_stun and len(plan)<external_pair_step+external_stun+4:raise ValueError('stun probe plan must cover initialization and complete recovery')
         if defender_jump_step>len(plan):raise ValueError('defender jump exceeds the bounded input plan')
         if external_pair_step>len(plan):raise ValueError('external pair step exceeds the bounded input plan')
-        if layer and (not oracle.startswith('render-') or not stream_frames and layer['capture_steps'][-1]!=len(plan)):
+        if layer and (not (oracle.startswith('render-') or render_contacts) or not stream_frames and layer['capture_steps'][-1]!=len(plan)):
             raise ValueError('private render plan must use a render oracle and capture its final requested step')
     sys.path.insert(0,str(ROOT/'local-cache/xrd-tools/frida/python'))
     import frida
@@ -625,7 +627,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         if contact_credit is not None:request_log[-1]['contact_credit']=contact_credit
                         if defeat_probe is not None:request_log[-1]['defeat_input_probe']=defeat_probe
                         requests+=1
-                        next_request=time.perf_counter()-started+.03+packet['hold_ms']/1000
+                        next_request=time.perf_counter()-started+.03+packet['hold_ms']/1000+(1 if render_contacts and contact_credit is not None else 0)
                     elif not frame_control and not plan and gate_options and not expire and (elapsed<credit_until if audit else requests<(stream_frames or 3)) and requests==completed and image_ready and time.perf_counter()-started>=next_request and (not capture_passes or draws):
                         counter=records[-1]['after'] if transactions else None
                         bounded_call(frida,lambda:script.exports_sync.step([0,0],counter));requests+=1;next_request=time.perf_counter()-started+(.03 if stream_mode else 1)
@@ -819,14 +821,16 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                 errors.append(dict(stream_error='duration stream controller-loss recovery not verified'))
         stream_input=None
         if plan or frame_control:
-            stream_input=input_check(records,states,inputs,request_log)
+            stream_input=input_check(records,states,inputs,request_log,controlled_slot)
             executed=[r for r in records if r['executed']]
             stream_input['requested_masks_linked']=len(executed)==len(request_log)==stream_frames and all(
-                r['requested_inputs']==[q['mask'],0] for r,q in zip(executed,request_log))
+                r['requested_inputs']==([q['mask'],0] if controlled_slot==0 else [0,q['mask']]) for r,q in zip(executed,request_log))
             stream_input['directions_verified']=all(not any(q['mask']&bit for q in request_log) or stream_input[key]
                 for bit,key in ((4,'walk_left'),(8,'walk_right')))
             linked=all(stream_input[k] for k in ('source_history_linked','requested_masks_linked','directions_verified','opponent_neutral','grounded_at_end'))
-            if oracle=='render-attack':
+            if render_contacts:
+                stream_input['passed']=linked and all(q['mask']==0 for q in request_log)
+            elif oracle=='render-attack':
                 health=lambda f:f['scalar_observations']['health_candidate']
                 stream_input['source_health_unchanged']=all([health(f) for f in s]==[health(f) for f in states[0]] for s in states)
                 stream_input['passed']=linked and stream_input['standing_punch_activations']>0 and stream_input['active_normal_steps']>0 and stream_input['source_health_unchanged'] and all(f[0]['y_raw']==0 for f in states)
@@ -835,6 +839,16 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             (out/'requests.json').write_text(json.dumps(request_log,indent=2))
             (out/'input.jsonl').write_text(''.join(json.dumps(r,separators=(',',':'))+'\n' for r in inputs))
             if not stream_input['passed']:errors.append(dict(stream_error='rolling input oracle/history not verified'))
+        contact_stream=None
+        if render_contacts:
+            try:
+                contact_stream=multiple_contact_check(records,states,dispatches,contacts,external_events,external_steps,external_damages)
+                expected=bytes.fromhex(proxy['idle'])
+                metadata_restored=completed>0 and all((out/('proxy-%03d.bin'%i)).read_bytes()[proxy['field']:proxy['field']+len(expected)]==expected for i in range(1,completed+1))
+                contact_stream['metadata_restored_at_all_counters']=metadata_restored
+                contact_stream['dispatch_phase_verified']=len(external_events)==len(external_steps) and all(e.get('result_phase')=='dispatch' and e.get('caller_result_committed') is True for e in external_events)
+                if not contact_stream['passed'] or not metadata_restored or not contact_stream['dispatch_phase_verified']:raise ValueError('rolling native contact audit failed')
+            except ValueError as error:errors.append(dict(contact_stream_error=str(error)))
         passed=counts_verified and gaps==0 and not errors and detached and restored and bool(cleanup_receipt and cleanup_receipt.get('render_code_restored'))
         result=dict(passed=passed,requested_steps=requests,completed_steps=completed,frames=list(stream_receipts),frames_received=frames_received,
             continuity_gaps=gaps,errors=errors,detached=detached,loaded_code_restored=restored,native_start_attempted=native_start_attempted,
@@ -843,6 +857,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             rolling_image_retention=True,bounded_verification=True,input_check=stream_input,duration_check=stream_duration,
             retained_state_samples=len(records),total_state_samples=audit.samples if audit else len(records),
             controller_loss_recovery=recovery,controller_lost_at=controller_lost_at)
+        if render_contacts:result['contact_check']=contact_stream
         if tap:result['frame_tap']=tap.receipt()
         if latest_layer:
             folder=out/'latest-layer';folder.mkdir()
@@ -1150,6 +1165,7 @@ if __name__=='__main__':
     p.add_argument('--reaction-memory-bytes',type=int,default=0x2600,help='opt-in actor snapshot span, 9728..65536 bytes; requires reaction capture')
     p.add_argument('--capture-reaction-memory',action='store_true',help='retain at most 85 counter-aligned defender and proxy actor blocks for discovery')
     p.add_argument('--host-hit-result',type=Path,help='partial typed damage probe from host HitResult JSON; unsupported values reject')
+    p.add_argument('--render-contact-check',action='store_true',help='combine typed neutral contacts with 42..85 rolling isolated state/image transactions')
     p.add_argument('--renewable-contact-check',action='store_true',help='typed contact diagnostic with a 13-second renewed no-credit hold; --seconds 20..60')
     p.add_argument('--contact-results',type=Path,help='bounded 2..4 step/result typed normal contact records; diagnostic only')
     p.add_argument('--external-pair-steps',type=lambda s:[int(v) for v in s.split(',')],help='2..4 ordered source request steps in one bounded idle-proxy session')
@@ -1202,4 +1218,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check or a.renewable_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control,a.observe_native_contact,a.contact_dispatch_candidate.resolve() if a.contact_dispatch_candidate else None,a.suppress_source_contact.resolve() if a.suppress_source_contact else None,a.contact_callees.resolve() if a.contact_callees else None,a.input_slot,a.external_pair_step,a.external_damage,a.external_host_stop,a.external_guard,a.external_pair_control,a.external_guard_commit,a.external_ko,a.isolate_source_ko.resolve() if a.isolate_source_ko else None,a.ko_reaction.resolve() if a.ko_reaction else None,a.host_hit_result.resolve() if a.host_hit_result else None,a.capture_reaction_memory,a.reaction_memory_bytes,a.external_stun,a.reaction_timer_candidate.resolve() if a.reaction_timer_candidate else None,a.external_pair_phase,a.external_recoil,a.recoil_candidate.resolve() if a.recoil_candidate else None,a.motion_unit_calibration.resolve() if a.motion_unit_calibration else None,a.motion_display_scale,a.vertical_candidate.resolve() if a.vertical_candidate else None,a.jump_velocity,a.jump_gravity,a.defender_jump_step,a.ground_launch_candidate.resolve() if a.ground_launch_candidate else None,a.launch_horizontal_candidate.resolve() if a.launch_horizontal_candidate else None,a.launch_velocity_x,a.defeat_input_check,a.proxy_template.resolve() if a.proxy_template else None,a.external_pair_steps,a.contact_results.resolve() if a.contact_results else None,a.renewable_contact_check)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control,a.observe_native_contact,a.contact_dispatch_candidate.resolve() if a.contact_dispatch_candidate else None,a.suppress_source_contact.resolve() if a.suppress_source_contact else None,a.contact_callees.resolve() if a.contact_callees else None,a.input_slot,a.external_pair_step,a.external_damage,a.external_host_stop,a.external_guard,a.external_pair_control,a.external_guard_commit,a.external_ko,a.isolate_source_ko.resolve() if a.isolate_source_ko else None,a.ko_reaction.resolve() if a.ko_reaction else None,a.host_hit_result.resolve() if a.host_hit_result else None,a.capture_reaction_memory,a.reaction_memory_bytes,a.external_stun,a.reaction_timer_candidate.resolve() if a.reaction_timer_candidate else None,a.external_pair_phase,a.external_recoil,a.recoil_candidate.resolve() if a.recoil_candidate else None,a.motion_unit_calibration.resolve() if a.motion_unit_calibration else None,a.motion_display_scale,a.vertical_candidate.resolve() if a.vertical_candidate else None,a.jump_velocity,a.jump_gravity,a.defender_jump_step,a.ground_launch_candidate.resolve() if a.ground_launch_candidate else None,a.launch_horizontal_candidate.resolve() if a.launch_horizontal_candidate else None,a.launch_velocity_x,a.defeat_input_check,a.proxy_template.resolve() if a.proxy_template else None,a.external_pair_steps,a.contact_results.resolve() if a.contact_results else None,a.renewable_contact_check,a.render_contact_check)

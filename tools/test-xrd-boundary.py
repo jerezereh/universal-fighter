@@ -163,3 +163,7 @@ print('Typed contact queue preflight, conflicting authority and duplicate field 
 for seconds in (19,61,float('nan')):
     reject(lambda:boundary.trace(Path('unused'),Path('unused'),seconds,renewable_contacts=True))
 reject(lambda:boundary.trace(Path('unused'),Path('unused'),25,renewable_contacts=True))
+for options in (dict(render_contacts=True),dict(render_contacts=1),
+                dict(render_contacts=True,stream_frames=41),dict(render_contacts=True,stream_frames=86),
+                dict(render_contacts=True,transactions=True,stream_frames=42,stream_duration=True)):
+    reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,**options))
