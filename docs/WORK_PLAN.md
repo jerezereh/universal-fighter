@@ -679,3 +679,8 @@ and 43 linked images using native mesh rendering/color grading without full-scre
 postprocessing. Full postprocessing fails the current diagnostic duration; native grading
 still needs throughput work before playable latency acceptance. Continue hot callback
 profiling/optimization, host coordinate/result ownership and live producer integration.
+
+Completed streaming inventories now retire three unnecessary callbacks; combined native
+correctness/restoration regression still passes. Throughput remains insufficient. Inspect
+native routing of unrelated indexed draws next, retaining exact mesh/graphics witnesses
+and original-call behavior before attempting the real playable producer.

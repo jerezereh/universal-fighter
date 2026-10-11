@@ -54,3 +54,15 @@ for(const setup of ['fixture(0)','fixture(65)','fixture(9);gate.externalPairs=4'
 run('fixture();config.dynamic_contact_results=false');
 assert.throws(()=>run('rpc.exports.step([0,0],4,{step:5,ordinal:1,damage:8})'));
 console.log('Owned contact credit counter, ordinal, shape, neutral input and replay rejection passed.');
+
+context.Interceptor={flush(){}};
+context.detachCalls=0;
+context.inventoryHooks=[{inventoryOnly:true,listener:{detach(){context.detachCalls++;}}},
+    {inventoryOnly:false,listener:{detach(){throw Error('needed binding hook detached');}}}];
+run('fixture();config.streaming=true;renderHooks=inventoryHooks;drawTrace={frames:1,active:false};retireDrawInventoryHooks()');
+assert.equal(context.detachCalls,0);
+run('drawTrace.frames=2;drawTrace.active=true;retireDrawInventoryHooks()');
+assert.equal(context.detachCalls,0);
+run('drawTrace.active=false;retireDrawInventoryHooks();retireDrawInventoryHooks()');
+assert.equal(context.detachCalls,1);
+console.log('Only finished streaming inventory hooks retire, exactly once.');

@@ -453,7 +453,7 @@ function installDrawTrace(device) {
                 }
             }
         });
-        renderHooks.push({listener, target, before});
+        renderHooks.push({listener, target, before,inventoryOnly:['SetTexture','Clear','DrawIndexedPrimitive'].includes(method)});
     }
     Interceptor.flush();
 }
@@ -469,6 +469,15 @@ function drawInterval(device, counter, entering, hresult = 0) {
     } else if (!entering && hresult === 0 && d.frames < 2 && gate !== null && !gate.resumed) {
         d.counter = counter; d.active = true;
     }
+}
+
+function retireDrawInventoryHooks() {
+    if(!config.streaming || drawTrace===null || drawTrace.frames<2 || drawTrace.active)return;
+    // Streaming retains mesh/shader/target bindings, but these callbacks only collect the two inventories.
+    for(const hook of renderHooks)if(hook.inventoryOnly && !hook.retired) {
+        hook.listener.detach();hook.retired=true;
+    }
+    Interceptor.flush();
 }
 
 function com(object, slot, result, arguments_) {
@@ -659,6 +668,7 @@ function observePresent() {
                         if (drawTrace === null) installDrawTrace(args[0]);
                         if (config.suppress_draws && drawFilter === null) installDrawFilter(args[0], config.suppress_draws);
                         drawInterval(args[0], this.counter, true);
+                        retireDrawInventoryHooks();
                     }
                     if (config.capture && this.method === 'Present' && gate !== null && !gate.resumed && !gate.executing) {
                         if (renderCapture.counter !== this.counter) {
@@ -1017,9 +1027,10 @@ function finishStop() {
     const skipped = drawFilter === null ? 0 : drawFilter.skipped;
     removeDrawFilter();
     removeInputHooks();
-    for (const h of renderHooks) h.listener.detach();
+    for (const h of renderHooks) if(!h.retired)h.listener.detach();
     Interceptor.flush();
     const renderRestored = renderHooks.every(h => hex(bytes(h.target, 32)) === h.before);
+    const retiredInventoryHooks=renderHooks.filter(h=>h.retired).length;
     const renderTargets = renderHooks.map(h => ({address: h.target.toUInt32(), before: h.before}));
     renderHooks = []; drawTrace = null;
     if (listener) { listener.detach(); listener = null; Interceptor.flush(); }
@@ -1030,6 +1041,7 @@ function finishStop() {
     }
     stopRequested = false;
     return {detached: true, samples: sequence, render_code_restored: renderRestored, render_targets: renderTargets,
+        retired_inventory_hooks:retiredInventoryHooks,
         diagnostic_mesh_draws_skipped: skipped,contact_observer_code_restored:contactRestored,contact_samples:contactSamples,dispatch_samples:dispatchSamples,contact_callee_samples:contactCallSamples,contact_callee_unsupported:contactCallUnsupported};
 }
 
