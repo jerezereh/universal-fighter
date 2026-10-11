@@ -553,3 +553,7 @@ responses before live IKEMEN publication; native phase proof is not live tick ma
 Read-only recoil getter/caller derivation and trajectory audit now agree on earlier
 contact motion and reject current wall-clamped evidence. Reset source positions before
 new native motion checks; host units and live motion application remain unverified.
+
+Centered native recoil evidence now passes and smaller/zero recoil requests control
+real movement with clean recovery. Continue source-to-host unit conversion and vertical
+motion; a source-unit diagnostic does not yet implement typed PushX/PushY/Gravity.

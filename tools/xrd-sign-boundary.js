@@ -828,7 +828,13 @@ function installGate(target, p) {
                     if(before>0) {
                         if(hex(bytes(Process.mainModule.base.add(t.rva),17))!==t.before)throw new Error('reaction timer witness changed');
                         timer.writeS32(p.external_stun);g.stunApplied=true;
-                        send({kind:'external-stun-result',request_index:index,counter:object.add(p.candidate.counter_field).readU32(),before,after:timer.readS32(),guarded:p.external_guard===true});
+                        let recoilBefore=null,recoilAfter=null;
+                        if(p.recoil) {
+                            const r=p.recoil,value=actor.add(r.field);
+                            if(hex(bytes(Process.mainModule.base.add(r.rva),30))!==r.before)throw new Error('recoil getter witness changed');
+                            recoilBefore=value.readS32();value.writeS32(p.external_recoil);recoilAfter=value.readS32();
+                        }
+                        send({kind:'external-stun-result',request_index:index,counter:object.add(p.candidate.counter_field).readU32(),before,after:timer.readS32(),guarded:p.external_guard===true,recoil_before:recoilBefore,recoil_after:recoilAfter});
                     }
                 }
                 if(g.externalEvent) {send({...g.externalEvent,counter:object.add(p.candidate.counter_field).readU32()});g.externalEvent=null;}

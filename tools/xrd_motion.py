@@ -21,7 +21,7 @@ def recoil_getter(code,code_rva,local):
     if not 2<=call<=len(code)-11 or code[call-2:call]!=b'\x8b\xce' or code[call]!=0xe8 or caller+5+struct.unpack_from('<i',code,call+1)[0]!=rva or code[call+5:call+7]!=b'\x89\x86':raise ValueError('recoil getter is not linked to movement output')
     sink=struct.unpack_from('<I',code,call+7)[0]
     if not 0<sink<=0x10000-4 or sink%4 or sink==field:raise ValueError('invalid recoil movement output')
-    return dict(field=field,numerator=numerator,denominator=10,sink=sink)
+    return dict(rva=rva,before=before,field=field,numerator=numerator,denominator=10,sink=sink)
 
 
 def audit(probe,boundary,candidate):
