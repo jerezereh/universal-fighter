@@ -115,9 +115,21 @@ function gradeLayer(device,d,replaySource=null) {
         if(config.layer.post_color) {
             current.post={index:0,outputs:new Map([[p.target,colored]]),complete:false};
         } else {
-        const copy=Memory.alloc(p.copy_hex.length/2);copy.writeByteArray(p.copy_hex.match(/../g).map(x=>parseInt(x,16)));
-        output.writePointer(ptr(0));succeeded(com(device,106,'int',['pointer','pointer'])(device,copy,output),'coverage copy shader');
-        const copyShader=output.readPointer();current.extra.push(copyShader);
+        let copyShader;
+        if(config.streaming && coverageShaderCache!==null) {
+            if(coverageShaderCache.device!==device.toString() || coverageShaderCache.code!==p.copy_hex)
+                throw new Error('coverage shader cache witness changed');
+            copyShader=coverageShaderCache.shader;com(copyShader,1,'uint',[])(copyShader);
+        } else {
+            const copy=Memory.alloc(p.copy_hex.length/2);copy.writeByteArray(p.copy_hex.match(/../g).map(x=>parseInt(x,16)));
+            output.writePointer(ptr(0));succeeded(com(device,106,'int',['pointer','pointer'])(device,copy,output),'coverage copy shader');
+            copyShader=output.readPointer();
+            if(config.streaming) {
+                com(copyShader,1,'uint',[])(copyShader);
+                coverageShaderCache={device:device.toString(),code:p.copy_hex,shader:copyShader};
+            }
+        }
+        current.extra.push(copyShader);
         succeeded(com(device,107,'int',['pointer'])(device,copyShader),'coverage shader');
         const replicate=Memory.alloc(16);[0,0,0,1].forEach((n,i)=>replicate.add(i*4).writeFloat(n));
         succeeded(com(device,109,'int',['uint','pointer','uint'])(device,p.copy_constant,replicate,1),'coverage alpha selector');

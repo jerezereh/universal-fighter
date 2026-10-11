@@ -13,6 +13,21 @@ let bodyAnchor=null;
 let pendingLayer=null, previousCandidate=null;
 let pixelCompare=null, pixelScratch=null;
 let privateViewOffset=null;
+const layerShaderCache=new Map();
+let coverageShaderCache=null;
+
+function releaseLayerShaderCache() {
+    let failure=null;
+    for(const entry of layerShaderCache.values())for(const resource of [entry.shader,entry.source]) {
+        try {com(resource,2,'uint',[])(resource);}catch(error){failure=error;}
+    }
+    layerShaderCache.clear();
+    if(coverageShaderCache!==null) {
+        try {com(coverageShaderCache.shader,2,'uint',[])(coverageShaderCache.shader);}catch(error){failure=error;}
+        coverageShaderCache=null;
+    }
+    if(failure)throw failure;
+}
 
 function layerRequestSelected(index) {
     // Streaming retains one readiness receipt; the next credit consumes it.
@@ -230,6 +245,14 @@ function privateProjection(device,d) {
 function layerShader(device, sourceShader, program) {
     const id = sourceShader.toString();
     if (meshLayer.shaders.has(id)) return meshLayer.shaders.get(id);
+    const key=device.toString()+':'+id,cached=config.streaming?layerShaderCache.get(key):null;
+    if(cached) {
+        if(cached.original_hex!==program.original_hex || cached.variant_hex!==program.variant_hex)
+            throw new Error('cached shader witness changed');
+        com(cached.shader,1,'uint',[])(cached.shader);
+        meshLayer.shaders.set(id,cached.shader);return cached.shader;
+    }
+    if(config.streaming && layerShaderCache.size>=32)throw new Error('streaming shader cache bound exceeded');
     const size = Memory.alloc(4); size.writeU32(0);
     succeeded(com(sourceShader, 4, 'int', ['pointer','pointer'])(sourceShader, ptr(0), size), 'GetFunction size');
     if (size.readU32() * 2 !== program.original_hex.length) throw new Error('layer shader size drift');
@@ -240,7 +263,14 @@ function layerShader(device, sourceShader, program) {
     variant.writeByteArray(program.variant_hex.match(/../g).map(x => parseInt(x, 16)));
     const output = Memory.alloc(4); output.writePointer(ptr(0));
     succeeded(com(device, 106, 'int', ['pointer','pointer'])(device, variant, output), 'CreatePixelShader');
-    const shader = output.readPointer(); meshLayer.shaders.set(id, shader); return shader;
+    const shader = output.readPointer();
+    if(config.streaming) {
+        // A source reference prevents address reuse; the frame owns a separate variant reference.
+        com(sourceShader,1,'uint',[])(sourceShader);
+        layerShaderCache.set(key,{source:sourceShader,shader,original_hex:program.original_hex,variant_hex:program.variant_hex});
+        com(shader,1,'uint',[])(shader);
+    }
+    meshLayer.shaders.set(id, shader); return shader;
 }
 
 function shaderProgram(device,kind='vertex') {

@@ -1029,6 +1029,8 @@ function finishStop() {
     removeInputHooks();
     for (const h of renderHooks) if(!h.retired)h.listener.detach();
     Interceptor.flush();
+    const cachedShaders=config.layer?layerShaderCache.size+(coverageShaderCache!==null?1:0):0;
+    if(config.layer)releaseLayerShaderCache();
     const renderRestored = renderHooks.every(h => hex(bytes(h.target, 32)) === h.before);
     const retiredInventoryHooks=renderHooks.filter(h=>h.retired).length;
     const renderTargets = renderHooks.map(h => ({address: h.target.toUInt32(), before: h.before}));
@@ -1042,6 +1044,7 @@ function finishStop() {
     stopRequested = false;
     return {detached: true, samples: sequence, render_code_restored: renderRestored, render_targets: renderTargets,
         retired_inventory_hooks:retiredInventoryHooks,
+        retained_shader_variants:cachedShaders,
         diagnostic_mesh_draws_skipped: skipped,contact_observer_code_restored:contactRestored,contact_samples:contactSamples,dispatch_samples:dispatchSamples,contact_callee_samples:contactCallSamples,contact_callee_unsupported:contactCallUnsupported};
 }
 

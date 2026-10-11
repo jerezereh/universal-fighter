@@ -684,3 +684,8 @@ Completed streaming inventories now retire three unnecessary callbacks; combined
 correctness/restoration regression still passes. Throughput remains insufficient. Inspect
 native routing of unrelated indexed draws next, retaining exact mesh/graphics witnesses
 and original-call behavior before attempting the real playable producer.
+
+Native unrelated-draw routing proves correct but is discarded without material throughput
+gain. Bounded mesh/coverage shader reuse now passes native combined regression and exact
+resource teardown. Continue measuring per-frame latency and output sizing, then real
+host coordinate/result ownership and producer/lifecycle integration before playable testing.
