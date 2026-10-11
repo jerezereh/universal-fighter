@@ -63,8 +63,13 @@ expected = [dict(x_raw=-100, y_raw=0, health=100), dict(x_raw=100, y_raw=0, heal
 before = dict(fighters=[dict(slot=i, x_raw=0, y_raw=0, hit_count=0,
     scalar_observations=dict(age_candidate=500, health_candidate=50, hitstop_candidate=0)) for i in range(2)])
 after = dict(fighters=[dict(slot=i, x_raw=e['x_raw'], y_raw=0, hit_count=0,
+    pose_candidates=[dict(value=('sol', 'kyk')[i]+'000_01')],
     scalar_observations=dict(age_candidate=10, health_candidate=100, hitstop_candidate=0)) for i,e in enumerate(expected)])
 assert reset.reset_check(before, after, expected)
+bad = copy.deepcopy(after); bad['fighters'][0]['pose_candidates'] = [dict(value='sol060_01')]
+assert not reset.reset_check(before, bad, expected)
+bad = copy.deepcopy(after); bad['fighters'][1]['pose_candidates'] = []
+assert not reset.reset_check(before, bad, expected)
 for field, value in [('age_candidate', 510), ('age_candidate', 200), ('health_candidate', 50), ('hitstop_candidate', 1)]:
     bad = copy.deepcopy(after); bad['fighters'][1]['scalar_observations'][field] = value
     assert not reset.reset_check(before, bad, expected)

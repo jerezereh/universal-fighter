@@ -9,6 +9,7 @@ import sys
 import time
 
 from xrd_combat import combat_fields
+from xrd_input import input_scene_ready
 from xrd_native import ReadOnlyProcess, SIGN_HASH, fingerprint
 from xrd_state import observe
 
@@ -20,13 +21,16 @@ def reset_check(before, after, expected):
     a, b = before['fighters'], after['fighters']
     if len(a) != 2 or len(b) != 2 or len(expected) != 2:
         return False
-    return all(x['slot'] == y['slot'] == i and
+    recovered = all(x['slot'] == y['slot'] == i and
         x['scalar_observations']['age_candidate'] > y['scalar_observations']['age_candidate'] + 2 and
         0 <= y['scalar_observations']['age_candidate'] <= 180 and
         y['scalar_observations']['health_candidate'] == e['health'] and
         y['scalar_observations']['hitstop_candidate'] == 0 and
         (y['x_raw'], y['y_raw']) == (e['x_raw'], e['y_raw']) and not y['hit_count']
         for i, (x, y, e) in enumerate(zip(a, b, expected)))
+    # Reuse the native positioning precondition to require both fighters' idle poses.
+    return recovered and all(input_scene_ready(b, 'positioning',
+        [dict(input=dict(forward=True), accept_input=True)], slot) for slot in (0, 1))
 
 
 def candidate_check(c, p, code):
@@ -61,6 +65,8 @@ def reset(probe, candidate, combat):
     out = probe/('reset-' + datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H%M%S-%f'))
     out.mkdir(); session = script = None
     receipt = dict(schema=1, reset_verified=False, detached=False,
+                   pid=p['pid'], exe_sha256=p['exe_sha256'],
+                   started_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
                    host_round_reset_verified=False, live_reset_transport=False)
     try:
         with ReadOnlyProcess(p['pid'], EXE) as process:

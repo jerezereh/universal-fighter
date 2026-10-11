@@ -618,3 +618,8 @@ private same-session reset candidate and combat candidate for ordinary training 
 Its candidate derives from a captured manual reset and loaded code witnesses; regenerate
 after process/code drift. Verify isolated-defeat reset and live host round ownership next;
 standalone training reset is not live receiver transport or playable acceptance.
+
+Isolated defeat now has a passing automatic reset and subsequent native input recovery.
+Reset acceptance requires both native idle poses as well as health/position/age recovery.
+Continue arbitrary proxy initialization and live producer/reset transport; keep host round
+ownership and playable capability gates separate from this source lifecycle proof.
