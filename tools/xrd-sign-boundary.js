@@ -54,10 +54,10 @@ function applyExternalPair(p,index,thread) {
         flags.writeU32(raised&~isolation.mask);
         isolated=true;
     }
-    if(p.external_guard_commit || p.external_ko) {
+    if(p.external_guard_commit || p.external_ko || p.external_pair_phase==='dispatch') {
         const c=p.contact.dispatch.caller_result;
         const kind=actors[0].add(c.kind_field).readS32();
-        if(hex(bytes(Process.mainModule.base.add(c.rva),10))!==c.before || (p.external_ko?![1,2,4,5].includes(kind):kind!==2))
+        if(hex(bytes(Process.mainModule.base.add(c.rva),10))!==c.before || (p.external_ko?![1,2,4,5].includes(kind):kind!==(p.external_guard?2:1)))
             throw new Error('guard caller result witness changed');
         const flags=actors[0].add(c.pending_field);
         flags.writeU32(flags.readU32()|c.pending_mask);
@@ -68,7 +68,8 @@ function applyExternalPair(p,index,thread) {
         thread,attacker:1,defender:0,before,
         after:actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32()),
         native_pair_called:!p.external_pair_control,
-        caller_result_committed:p.external_guard_commit===true || p.external_ko===true,requested_ko:p.external_ko===true,
+        result_phase:p.external_guard || p.external_ko || p.external_pair_phase==='dispatch'?'dispatch':'post-update',
+        caller_result_committed:p.external_guard_commit===true || p.external_ko===true || p.external_pair_phase==='dispatch',requested_ko:p.external_ko===true,
         native_fatal_health:fatalHealth,source_ko_isolated:isolated,
         native_reaction_requested:p.ko_transition?p.ko_transition.name:null,
         requested_damage:p.external_damage || null,hitstop_owner:p.external_host_stop?'host':'source',source_collision_suppressed:true};
@@ -139,7 +140,7 @@ function observeNativeContact(p) {
                     thread:this.threadId,return_rva:returned,counter:root.add(4+p.candidate.counter_field).readU32(),
                     result:0,original_called:false,suppressed:true});
                 else if(dispatchSamples===257)send({kind:'error',phase:'contact-suppress',message:'suppression observation bound exceeded'});
-                if((p.external_guard || p.external_ko) && stage===1 && gate.currentIndex===p.external_pair_step)applyExternalPair(p,gate.currentIndex,this.threadId);
+                if((p.external_guard || p.external_ko || p.external_pair_phase==='dispatch') && stage===1 && gate.currentIndex===p.external_pair_step)applyExternalPair(p,gate.currentIndex,this.threadId);
                 return 0;
             },'int',['pointer','int'],'thiscall');
             Interceptor.replace(entry,dispatchReplacement);
@@ -818,7 +819,7 @@ function installGate(target, p) {
                 const index=(object.add(p.candidate.counter_field).readU32()-g.initialCounter)>>>0;
                 if(p.ko_transition && g.externalPairs===1 && index===p.external_pair_step+1)
                     koTransition(g.root.add(p.state.fields.slots).readPointer(),Process.mainModule.base.add(p.ko_transition.state_rva));
-                if(!p.external_guard && !p.external_ko && p.external_pair_step && index===p.external_pair_step) {
+                if(!p.external_guard && !p.external_ko && p.external_pair_phase!=='dispatch' && p.external_pair_step && index===p.external_pair_step) {
                     applyExternalPair(p,index,this.threadId);
                 }
                 if(p.external_stun && g.externalPairs===1 && !g.stunApplied && index>p.external_pair_step) {

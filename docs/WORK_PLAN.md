@@ -544,3 +544,8 @@ Bounded 5/15-frame native hitstun and blockstun now change actual reaction durat
 recover correctly and freeze with withheld credits. Unguarded host JSON Stun maps in
 the explicit partial diagnostic. Continue typed guard/chip, result phase ownership and
 motion/defeat mapping before atomic live producer and playable IKEMEN publication.
+
+Typed guarded results and nonfatal chip now pass bounded native verification. Opt-in
+normal dispatch timing matches original next-update reaction initialization. Continue
+host/source motion and defeat ownership, arbitrary contact setup and atomic guest
+responses before live IKEMEN publication; native phase proof is not live tick mapping.

@@ -155,6 +155,13 @@ def main():
     guarded=host_event|dict(before=[420,420],after=[420,420],requested_damage=None,caller_result_committed=True,native_pair_called=True)
     guard_check=lambda e=guarded:external_contact_check(zero_records,guard_states,suppressed,[],[e],2,0,True,True)
     assert guard_check()['passed'] and guard_check()['guard_semantics_verified']
+    chipped_states=copy.deepcopy(guard_states)
+    for record,actors in zip(zero_records,chipped_states):
+        if record['after']>=zero_records[2]['after']:actors[0]['scalar_observations']['health_candidate']=417
+    chipped=guarded|dict(after=[417,420],requested_damage=3)
+    chip_check=external_contact_check(zero_records,chipped_states,suppressed,[],[chipped],2,3,True,True)
+    assert chip_check['passed'] and chip_check['requested_damage_verified']
+    assert not external_contact_check(zero_records,chipped_states,suppressed,[],[chipped|dict(after=[416,420])],2,3,True,True)['passed']
     assert not guard_check(e=guarded|dict(native_pair_called=False))['passed']
     assert not guard_check(e=guarded|dict(caller_result_committed=False))['passed']
     lethal_states=copy.deepcopy(zero_states)

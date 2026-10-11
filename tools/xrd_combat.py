@@ -134,14 +134,14 @@ def external_contact_check(records,states,dispatches,contacts,events,step,damage
     linked=(event['request_index']==step and event['counter']==frame['after'] and event['thread']==frame['thread'] and
         event.get('native_pair_called',True) is True and
         event['attacker']==1 and event['defender']==0 and event['source_collision_suppressed'] is True and
-        (event['before']==event['after'] if guard else event['before'][0]>=event['after'][0] if ko and isolate_ko else event['before'][0]>event['after'][0]) and event['before'][1]==event['after'][1])
+        (event['before']==event['after'] if guard and not damage else event['before'][0]>=event['after'][0] if ko and isolate_ko else event['before'][0]>event['after'][0]) and event['before'][1]==event['after'][1])
     if type(damage)!=int or not 0<=damage<=419:raise ValueError('invalid requested damage')
     damage_mapped=(not damage and event.get('requested_damage') is None or damage>0 and
         event.get('requested_damage')==damage and event['before'][0]-event['after'][0]==damage and event['after'][0]>0 and
         len(native['damage_events'])==1 and native['damage_events'][0]['before']==event['before'][0] and
         native['damage_events'][0]['after']==event['after'][0])
     if type(host_stop)!=bool:raise ValueError('invalid hitstop owner')
-    if type(guard)!=bool or guard and (damage or not host_stop):raise ValueError('invalid guard experiment')
+    if type(guard)!=bool or guard and not host_stop:raise ValueError('invalid guard experiment')
     if type(ko)!=bool or ko and (damage or guard or not host_stop):raise ValueError('invalid KO experiment')
     if type(isolate_ko)!=bool or isolate_ko and not ko:raise ValueError('invalid source KO isolation')
     host_freeze=False
@@ -155,7 +155,7 @@ def external_contact_check(records,states,dispatches,contacts,events,step,damage
             all(scalar(s)==scalar(held[0]) for s in held) and len(reacting)>=2 and
             any(b[0]['scalar_observations']['age_candidate']>a[0]['scalar_observations']['age_candidate'] for a,b in zip(reacting,reacting[1:])) and
             (not native['damage_events'] and all(s[0]['scalar_observations']['health_candidate']==event['before'][0] for s in states)
-                if guard else not native['damage_events'] and event['before'][0]==event['after'][0]==1
+                if guard and not damage else not native['damage_events'] and event['before'][0]==event['after'][0]==1
                 if ko and isolate_ko and not native['damage_events'] else len(native['damage_events'])==1 and native['damage_events'][0]['mirrored_box_overlap']))
     suppressed=len(dispatches)==3*len(executed) and all(
         [c['argument'] for c in dispatches[i*3:i*3+3]]==[0,1,2] and all(

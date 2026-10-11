@@ -265,12 +265,14 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None,capture_reaction_memory=False,reaction_memory_bytes=0x2600,external_stun=0,reaction_timer_path=None):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None,capture_reaction_memory=False,reaction_memory_bytes=0x2600,external_stun=0,reaction_timer_path=None,external_pair_phase='post-update'):
+    if external_pair_phase not in ('post-update','dispatch') or external_pair_phase=='dispatch' and not external_pair_step:raise ValueError('dispatch phase requires a requested native pair')
     typed_result=read_result(host_result_path) if host_result_path else None
     if typed_result is not None:
-        if external_damage or external_guard or external_ko or external_pair_control or not external_pair_step or not external_host_stop:raise ValueError('typed damage probe requires exclusive requested pair with host-owned freeze')
+        if external_damage or external_guard or external_guard_commit or external_ko or external_pair_control or not external_pair_step or not external_host_stop:raise ValueError('typed damage probe requires exclusive requested pair with host-owned freeze')
         if external_stun:raise ValueError('typed stun conflicts with standalone stun argument')
-        external_damage=damage_probe(typed_result,allow_stun=bool(reaction_timer_path))
+        external_damage=damage_probe(typed_result,allow_stun=bool(reaction_timer_path),allow_guard=bool(reaction_timer_path))
+        external_guard=typed_result['Guarded'];external_guard_commit=external_guard
         external_stun=typed_result['Stun']
 
     if type(external_stun)!=int or not 0<=external_stun<=30 or bool(external_stun)!=bool(reaction_timer_path) or external_stun and (external_ko or external_pair_control or not external_pair_step or not external_host_stop or not capture_reaction_memory):raise ValueError('stun probe requires exclusive nonfatal requested reaction, host stop and retained memory')
@@ -290,7 +292,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if type(external_damage)!=int or not 0<=external_damage<=419 or external_damage and not external_pair_step:
         raise ValueError('external damage requires a bounded requested native pair')
     if type(external_host_stop)!=bool or external_host_stop and not external_pair_step:raise ValueError('host stop experiment requires a requested native pair')
-    if type(external_guard)!=bool or external_guard and (controlled_slot!=1 or oracle!='contact' or external_damage or external_pair_step and not external_host_stop):raise ValueError('guard experiment requires second-player contact without damage override')
+    if type(external_guard)!=bool or external_guard and (controlled_slot!=1 or oracle!='contact' or external_damage and not external_pair_step or external_pair_step and not external_host_stop):raise ValueError('guard experiment requires second-player contact and a requested pair for chip')
     if type(external_pair_control)!=bool or external_pair_control and (not external_guard or not external_pair_step):raise ValueError('no-call control requires the guard experiment')
     if type(external_guard_commit)!=bool or external_guard_commit and (not external_guard or not external_pair_step or external_pair_control):raise ValueError('caller commit requires the requested guard experiment')
     if type(external_ko)!=bool or external_ko and (not external_pair_step or not external_host_stop or external_guard or external_damage or external_pair_control):raise ValueError('KO probe requires one unguarded host-freeze native pair without damage override')
@@ -464,7 +466,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         if dispatch_path:
             dispatch_local=json.loads(dispatch_path.read_text())
             contact['dispatch']=dispatch_candidate(code,state['code_rva'],dispatch_local,match['candidate_rva'])
-            if external_guard_commit or external_ko:contact['dispatch']['caller_result']=dispatch_result_fields(code,state['code_rva'],dispatch_local)
+            if external_guard_commit or external_ko or external_pair_phase=='dispatch':contact['dispatch']['caller_result']=dispatch_result_fields(code,state['code_rva'],dispatch_local)
             if suppress_contact_path:
                 proof=json.loads((suppress_contact_path/'inspection.json').read_text())
                 if proof.get('pid')!=state['pid']:raise ValueError('source dispatch proof session changed')
@@ -499,7 +501,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             abi=validate_device_calls([source],(ROOT/'local-cache/msys64/mingw64/include/d3d9.h').read_text())
             script=session.create_script(source)
             script.on('message',receive);bounded_call(frida,script.load)
-            settings=dict(external_stun=external_stun,reaction_timer=reaction_timer,reaction_memory_bytes=reaction_memory_bytes,ko_transition=ko_transition,ko_isolation=ko_isolation,external_ko=external_ko,external_guard_commit=external_guard_commit,external_pair_control=external_pair_control,external_guard=external_guard,external_host_stop=external_host_stop,external_damage=external_damage,external_pair_step=external_pair_step,contact=contact,state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,capture_screen_stages=capture_screen_stages,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer,renewable=renewable or transactions,transactions=transactions,reset_observation=reset_observation)
+            settings=dict(external_pair_phase=external_pair_phase,external_stun=external_stun,reaction_timer=reaction_timer,reaction_memory_bytes=reaction_memory_bytes,ko_transition=ko_transition,ko_isolation=ko_isolation,external_ko=external_ko,external_guard_commit=external_guard_commit,external_pair_control=external_pair_control,external_guard=external_guard,external_host_stop=external_host_stop,external_damage=external_damage,external_pair_step=external_pair_step,contact=contact,state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,capture_screen_stages=capture_screen_stages,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer,renewable=renewable or transactions,transactions=transactions,reset_observation=reset_observation)
             settings['streaming']=stream_mode
             phase='start';native_start_attempted=True
             print(bounded_call(frida,lambda:script.exports_sync.start(settings)),flush=True)
@@ -935,9 +937,12 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         verified=bool(frozen and reaction_verified and event and values[:len(expected)]==expected and all(v==0 for v in values[len(expected):]) and restored and detached and result['controlled_update_step_verified'])
         result['stun_probe']=dict(requested=external_stun,event=event,countdown=values,frozen_timer_verified=frozen,native_reaction_duration_verified=reaction_verified,native_countdown_verified=verified,typed_host_result_applied=False)
     if typed_result is not None:
-        mapped=['Accepted','Damage','Hitstop']+(['Stun'] if external_stun else [])
+        mapped=['Accepted','Damage','Hitstop']+(['Stun'] if external_stun else [])+(['Guarded'] if external_guard else [])
         verified=result.get('contact_check',{}).get('passed',False) and result['controlled_update_step_verified'] and restored and detached and (not external_stun or result['stun_probe']['native_countdown_verified'])
         result['typed_result_probe']=dict(result=typed_result,native_effects_verified=bool(verified),mapped_fields=mapped if verified else [],unmapped_fields=sorted(HIT_RESULT_FIELDS-set(mapped)),typed_host_result_applied=False,live_host_transport=False)
+    if external_pair_phase=='dispatch':
+        phase_verified=bool(len(external_events)==1 and external_events[0].get('result_phase')=='dispatch' and external_events[0].get('caller_result_committed') is True and (not external_stun or (result['stun_probe'].get('event') or {}).get('request_index')==external_pair_step+1))
+        result['native_result_phase_check']=dict(phase='dispatch',native_dispatch_phase_verified=phase_verified,next_update_reaction_verified=bool(external_stun and phase_verified),strict_live_host_tick_mapping=False)
     (out/'inspection.json').write_text(json.dumps(result,indent=2))
     print('Boundary trace:',len(records),'samples; counter deltas',dict(deltas),'gaps',gaps,'errors',len(errors),';',out,flush=True)
     if gate_options: print('Gate checks:',{k:v for k,v in result['gate_check'].items() if k!='graphics_completions_per_held_counter'},flush=True)
@@ -947,6 +952,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if capture: print('Render checks:',result['render_check'],flush=True)
     if trace_draws: print('Draw checks:',{k:v for k,v in result['draw_check'].items() if k not in ('groups','targets')},flush=True)
     if capture_passes: print('Intermediate captures:',result['pass_captures'],'bytes:',pass_bytes,flush=True)
+    if external_pair_phase=='dispatch' and not result['native_result_phase_check']['native_dispatch_phase_verified']:raise RuntimeError('native dispatch result phase failed')
     if external_stun and not result['stun_probe']['native_countdown_verified']:raise RuntimeError('requested native stun countdown failed')
     if errors or not records or not restored or not detached: raise RuntimeError('boundary trace failed; inspect local receipt')
     if expire and not all(result['lease_check'].values()): raise RuntimeError('gate lease recovery failed')
@@ -991,6 +997,7 @@ if __name__=='__main__':
     p.add_argument('--external-pair-control',action='store_true',help='negative guard control: skip native pair invocation')
     p.add_argument('--external-guard',action='store_true',help='diagnostic defender back input around one requested normal')
     p.add_argument('--external-host-stop',action='store_true',help='diagnostic host-owned freeze: clear native stops after requested reaction')
+    p.add_argument('--external-pair-phase',choices=('post-update','dispatch'),default='post-update',help='opt-in normal result timing at witnessed native dispatch stage')
     p.add_argument('--external-stun',type=int,default=0,help='bounded 1..30 frame native reaction timer diagnostic')
     p.add_argument('--reaction-timer-candidate',type=Path,help='private inspected native timer decrement witness')
     p.add_argument('--reaction-memory-bytes',type=int,default=0x2600,help='opt-in actor snapshot span, 9728..65536 bytes; requires reaction capture')
@@ -1043,4 +1050,4 @@ if __name__=='__main__':
           a.gate.resolve() if a.gate else None,a.lease_check or a.renewable_check,a.input_candidate.resolve() if a.input_candidate else None,
           a.input_plan.resolve() if a.input_plan else None,a.oracle,a.scalar_fields.resolve() if a.scalar_fields else None,
           a.combat_candidate.resolve() if a.combat_candidate else None,a.capture_render,a.trace_draws,a.capture_passes,
-          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control,a.observe_native_contact,a.contact_dispatch_candidate.resolve() if a.contact_dispatch_candidate else None,a.suppress_source_contact.resolve() if a.suppress_source_contact else None,a.contact_callees.resolve() if a.contact_callees else None,a.input_slot,a.external_pair_step,a.external_damage,a.external_host_stop,a.external_guard,a.external_pair_control,a.external_guard_commit,a.external_ko,a.isolate_source_ko.resolve() if a.isolate_source_ko else None,a.ko_reaction.resolve() if a.ko_reaction else None,a.host_hit_result.resolve() if a.host_hit_result else None,a.capture_reaction_memory,a.reaction_memory_bytes,a.external_stun,a.reaction_timer_candidate.resolve() if a.reaction_timer_candidate else None)
+          a.suppress_draws.resolve() if a.suppress_draws else None,a.inspect_mesh_shaders,a.capture_layer.resolve() if a.capture_layer else None,a.layer_steps,a.layer_presentations,a.inspect_layer_transforms,a.normalize_layer,a.settle_layer,a.inspect_screen_shaders,a.hdr_layer,a.grade_layer.resolve() if a.grade_layer else None,a.source_view_layer,a.source_color_layer,a.capture_screen_stages,a.post_color_layer.resolve() if a.post_color_layer else None,a.smaa_layer,a.renewable_check,a.transaction_check,a.transaction_loss_check,a.transaction_hold_seconds,a.reset_observation,a.stream_check_steps,a.stream_duration_check,a.frame_tap,a.frame_control,a.observe_native_contact,a.contact_dispatch_candidate.resolve() if a.contact_dispatch_candidate else None,a.suppress_source_contact.resolve() if a.suppress_source_contact else None,a.contact_callees.resolve() if a.contact_callees else None,a.input_slot,a.external_pair_step,a.external_damage,a.external_host_stop,a.external_guard,a.external_pair_control,a.external_guard_commit,a.external_ko,a.isolate_source_ko.resolve() if a.isolate_source_ko else None,a.ko_reaction.resolve() if a.ko_reaction else None,a.host_hit_result.resolve() if a.host_hit_result else None,a.capture_reaction_memory,a.reaction_memory_bytes,a.external_stun,a.reaction_timer_candidate.resolve() if a.reaction_timer_candidate else None,a.external_pair_phase)
