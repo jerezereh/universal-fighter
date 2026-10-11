@@ -606,3 +606,8 @@ recoil. Continue defeat projection/lifecycle and arbitrary proxy setup before li
 Isolated native defeat now yields a verified partial Defeated projection and host-style
 input rejection. Restore source health with normal training reset before further contact
 checks. Host round reset, arbitrary proxy setup and live producer acceptance remain pending.
+
+Automatic background Escape reset remains pending: window messages, a scoped key-state
+pulse and the decoded engine key-event handler do not reset SIGN. Capture one working
+manual Escape reset before selecting a native reset hook; never treat posted input as
+proof of reset. Manual recovery is verified separately.
