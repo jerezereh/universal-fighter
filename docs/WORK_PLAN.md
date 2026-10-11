@@ -591,3 +591,8 @@ Grounded launch/knockdown, combined motion and actual live host transport remain
 Witnessed raw grounded launch now passes requested damage, first displacement and
 complete native knockdown recovery without a jump cue. Continue explicit typed
 Knockdown/grounded vertical mapping and combined motion; live acceptance remains pending.
+
+
+Partial typed grounded Knockdown now passes exact damage, declared vertical motion,
+phase ownership and full native recovery. Continue combined knockdown motion using
+verified native horizontal fields; live producer/host ownership acceptance remains pending.

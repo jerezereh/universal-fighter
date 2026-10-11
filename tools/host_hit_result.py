@@ -27,10 +27,11 @@ def read_result(path):
     return validate_result(json.loads(path.read_text(encoding='utf-8'),object_pairs_hook=unique))
 
 
-def damage_probe(value,allow_stun=False,allow_guard=False,allow_push_x=False,allow_vertical=False):
+def damage_probe(value,allow_stun=False,allow_guard=False,allow_push_x=False,allow_vertical=False,allow_knockdown=False):
     """Explicit partial diagnostic. Never advertise full typed result application."""
     validate_result(value)
-    if type(allow_guard)!=bool or not value['Accepted'] or any(value[k] for k in FLAGS[2:]):raise ValueError('reaction probe requires an accepted normal result')
+    if type(allow_knockdown)!=bool or allow_knockdown and (not allow_vertical or not value['Knockdown']):raise ValueError('grounded knockdown requires witnessed vertical launch')
+    if type(allow_guard)!=bool or not value['Accepted'] or any(value[k] for k in FLAGS[3:]) or value['Knockdown'] and not allow_knockdown:raise ValueError('reaction probe requires an accepted normal result')
     if value['Guarded']:
         if not allow_guard or not allow_stun or not 5<=value['Stun']<=30 or not 0<=value['Damage']<=419:raise ValueError('guard probe requires witnessed 5..30 frame blockstun and nonfatal chip')
     elif not 1<=value['Damage']<=419:raise ValueError('damage probe requires nonfatal damage')

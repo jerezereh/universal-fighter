@@ -268,7 +268,7 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
 
 def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None,capture_reaction_memory=False,reaction_memory_bytes=0x2600,external_stun=0,reaction_timer_path=None,external_pair_phase='post-update',external_recoil=None,recoil_path=None,motion_units_path=None,motion_display_scale=None,vertical_path=None,jump_velocity=None,jump_gravity=None,defender_jump_step=0,launch_path=None):
     if external_pair_phase not in ('post-update','dispatch') or external_pair_phase=='dispatch' and not external_pair_step:raise ValueError('dispatch phase requires a requested native pair')
-    if launch_path and (not external_damage or not vertical_path or not external_pair_step or not external_host_stop or external_pair_phase!='dispatch' or host_result_path or defender_jump_step or external_stun or external_ko or external_guard or ko_reaction_path):raise ValueError('ground launch requires exclusive raw motion and dispatch requested contact')
+    if launch_path and (not (external_damage or host_result_path) or not vertical_path or not external_pair_step or not external_host_stop or external_pair_phase!='dispatch' or defender_jump_step or external_stun or external_ko or external_guard or ko_reaction_path):raise ValueError('ground launch requires exclusive nonfatal motion and dispatch requested contact')
     typed_vertical=bool(host_result_path and vertical_path)
     if bool(motion_units_path)!=(motion_display_scale is not None) or motion_units_path and (not host_result_path or not (recoil_path or vertical_path) or external_recoil is not None):raise ValueError('calibrated motion requires exclusive typed result and recoil witness')
     if not motion_units_path and (external_recoil is not None)!=bool(recoil_path) or external_recoil is not None and (type(external_recoil)!=int or not -5000<=external_recoil<=5000):raise ValueError('recoil requires a private witness and bounded integer request')
@@ -278,7 +278,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if typed_result is not None:
         if external_damage or external_guard or external_guard_commit or external_ko or external_pair_control or not external_pair_step or not external_host_stop:raise ValueError('typed damage probe requires exclusive requested pair with host-owned freeze')
         if external_stun:raise ValueError('typed stun conflicts with standalone stun argument')
-        external_damage=damage_probe(typed_result,allow_stun=bool(reaction_timer_path),allow_guard=bool(reaction_timer_path),allow_push_x=bool(motion_units_path and recoil_path),allow_vertical=typed_vertical)
+        external_damage=damage_probe(typed_result,allow_stun=bool(reaction_timer_path),allow_guard=bool(reaction_timer_path),allow_push_x=bool(motion_units_path and recoil_path),allow_vertical=typed_vertical,allow_knockdown=bool(launch_path))
         if typed_vertical and (jump_velocity is not None or jump_gravity is not None or recoil_path):raise ValueError('typed vertical motion conflicts with raw or horizontal overrides')
         external_guard=typed_result['Guarded'];external_guard_commit=external_guard
         external_stun=typed_result['Stun']
@@ -360,7 +360,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     vertical_conversion=host_vertical_to_source(typed_result['PushY'],typed_result['Gravity'],units) if typed_vertical else None
     if vertical_conversion:
         jump_velocity=vertical_conversion['source_velocity'];jump_gravity=vertical_conversion['source_gravity']
-        vertical_conversion['application_phase']='after_native_airborne_hurt_initialization'
+        vertical_conversion['application_phase']='after_native_ground_launch_queue' if launch_path else 'after_native_airborne_hurt_initialization'
     if motion_conversion:external_recoil=motion_conversion['source_recoil']
     if recoil:
         if max(recoil['field'],recoil['sink'])+4>reaction_memory_bytes:raise ValueError('recoil fields lie outside retained snapshot')
@@ -1005,8 +1005,9 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             result['vertical_probe']['unit_conversion']=vertical_conversion
             result['vertical_probe']['declared_units']=units
             if verified:
-                result['typed_result_probe']['mapped_fields']+=['PushY','Gravity']
-                result['typed_result_probe']['unmapped_fields']=[k for k in result['typed_result_probe']['unmapped_fields'] if k not in ('PushY','Gravity')]
+                mapped_motion=['PushY','Gravity']+(['Knockdown'] if launch_path else [])
+                result['typed_result_probe']['mapped_fields']+=mapped_motion
+                result['typed_result_probe']['unmapped_fields']=[k for k in result['typed_result_probe']['unmapped_fields'] if k not in mapped_motion]
         (out/'inspection.json').write_text(json.dumps(result,indent=2))
     print('Boundary trace:',len(records),'samples; counter deltas',dict(deltas),'gaps',gaps,'errors',len(errors),';',out,flush=True)
     if gate_options: print('Gate checks:',{k:v for k,v in result['gate_check'].items() if k!='graphics_completions_per_held_counter'},flush=True)
@@ -1063,7 +1064,7 @@ if __name__=='__main__':
     p.add_argument('--external-pair-control',action='store_true',help='negative guard control: skip native pair invocation')
     p.add_argument('--external-guard',action='store_true',help='diagnostic defender back input around one requested normal')
     p.add_argument('--external-host-stop',action='store_true',help='diagnostic host-owned freeze: clear native stops after requested reaction')
-    p.add_argument('--ground-launch-candidate',type=Path,help='private witnessed native upper-knockdown transition; exclusive raw requested-contact diagnostic')
+    p.add_argument('--ground-launch-candidate',type=Path,help='private witnessed native upper-knockdown transition; exclusive requested-contact diagnostic')
     p.add_argument('--vertical-candidate',type=Path,help='private witnessed vertical velocity/gravity setters')
     p.add_argument('--jump-velocity',type=int,help='bounded positive source velocity after native takeoff or airborne hurt initialization')
     p.add_argument('--jump-gravity',type=int,help='bounded positive source gravity for jump or first airborne hurt arc')

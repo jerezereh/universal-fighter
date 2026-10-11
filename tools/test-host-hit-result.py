@@ -35,6 +35,12 @@ def main():
     reject(lambda:damage_probe(result|dict(PushX=-2.4,Gravity=.35),allow_push_x=True))
     vertical=result|dict(PushY=-4,Gravity=.35)
     assert damage_probe(vertical,allow_vertical=True)==17
+    knockdown=vertical|dict(Knockdown=True)
+    assert damage_probe(knockdown,allow_vertical=True,allow_knockdown=True)==17
+    reject(lambda:damage_probe(knockdown,allow_vertical=True))
+    reject(lambda:damage_probe(knockdown,allow_knockdown=True))
+    reject(lambda:damage_probe(vertical,allow_vertical=True,allow_knockdown=True))
+    reject(lambda:damage_probe(knockdown,allow_vertical=True,allow_knockdown=1))
     reject(lambda:damage_probe(vertical))
     for patch in (dict(Guarded=True),dict(Stun=15),dict(PushX=1),dict(PushY=0),dict(Gravity=0),dict(Knockdown=True)):
         reject(lambda:damage_probe(vertical|patch,allow_vertical=True,allow_stun=True,allow_guard=True))
