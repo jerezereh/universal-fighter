@@ -37,6 +37,8 @@ def main():
     assert damage_probe(vertical,allow_vertical=True)==17
     knockdown=vertical|dict(Knockdown=True)
     assert damage_probe(knockdown,allow_vertical=True,allow_knockdown=True)==17
+    assert damage_probe(knockdown|dict(PushX=-2.4),allow_vertical=True,allow_knockdown=True,allow_push_x=True)==17
+    reject(lambda:damage_probe(knockdown|dict(PushX=-2.4),allow_vertical=True,allow_knockdown=True))
     reject(lambda:damage_probe(knockdown,allow_vertical=True))
     reject(lambda:damage_probe(knockdown,allow_knockdown=True))
     reject(lambda:damage_probe(vertical,allow_vertical=True,allow_knockdown=True))

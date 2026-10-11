@@ -83,18 +83,40 @@ def host_push_to_recoil(push,units,getter):
     return dict(source_recoil=recoil,requested_host_push=push,represented_host_push=represented,max_quantization_error=quantum/2+units['host_per_source_raw'],actual_error=error,native_decay_before_displacement=True,live_motion_mapping=False)
 
 
+def motion_field(code,code_rva,candidate):
+    if type(candidate)!=dict or set(candidate)!={'rva','before'} or type(candidate['rva'])!=int:raise ValueError('invalid motion setter')
+    at=candidate['rva']-code_rva;body=code[at:at+13]
+    if at<1 or candidate['rva']%16 or code[at-1]!=0xcc or body.hex()!=candidate['before'] or body[:6]!=bytes.fromhex('8b4424048981') or body[10:]!=bytes.fromhex('c20400'):raise ValueError('motion setter witness changed')
+    field=struct.unpack_from('<I',body,6)[0]
+    if not 0<field<=0x10000-4 or field%4:raise ValueError('unbounded motion field')
+    return candidate|dict(field=field)
+
+
 def vertical_fields(code,code_rva,local):
     if type(local)!=dict or set(local)!={'velocity','gravity'}:raise ValueError('invalid vertical witness')
-    result={}
-    for name,candidate in local.items():
-        if type(candidate)!=dict or set(candidate)!={'rva','before'} or type(candidate['rva'])!=int:raise ValueError('invalid vertical setter')
-        at=candidate['rva']-code_rva;body=code[at:at+13]
-        if at<1 or candidate['rva']%16 or code[at-1]!=0xcc or body.hex()!=candidate['before'] or body[:6]!=bytes.fromhex('8b4424048981') or body[10:]!=bytes.fromhex('c20400'):raise ValueError('vertical setter witness changed')
-        field=struct.unpack_from('<I',body,6)[0]
-        if not 0<field<=0x10000-4 or field%4:raise ValueError('unbounded vertical field')
-        result[name]=candidate|dict(field=field)
+    result={name:motion_field(code,code_rva,candidate) for name,candidate in local.items()}
     if result['velocity']['field']==result['gravity']['field']:raise ValueError('aliased vertical fields')
     return result
+
+
+def host_horizontal_to_source(push_x,units):
+    coefficient=units['host_per_source_raw']
+    if type(push_x) not in (int,float) or not math.isfinite(push_x) or abs(push_x)>20000*coefficient:raise ValueError('horizontal launch exceeds bounded diagnostic')
+    velocity=round(push_x/coefficient)
+    return dict(source_velocity_x=velocity,represented_host_push_x=velocity*coefficient,max_quantization_error=coefficient/2,live_horizontal_hit_mapping=False)
+
+
+def launch_horizontal_audit(boundary,event):
+    rows=[json.loads(line) for line in (boundary/'state.jsonl').read_text().splitlines()];rows=[r for r in rows if r['boundary']['executed']]
+    samples=[];previous=None
+    for step,row in enumerate(rows,1):
+        if step<event['request_index']:continue
+        f=row['fighters'][0];velocity=f['scalar_observations']['launch_horizontal_candidate']
+        if previous and f['y_raw']==0:break
+        if previous:samples.append(dict(step=step,position_delta=f['x_raw']-previous[0],previous_velocity=previous[1],velocity=velocity))
+        previous=(f['x_raw'],velocity)
+    result=dict(samples=samples,source_horizontal_launch_verified=len(samples)>=10 and all(s['position_delta']==s['previous_velocity'] for s in samples),live_horizontal_hit_mapping=False)
+    (boundary/'launch-horizontal-check.json').write_text(json.dumps(result,indent=2));return result
 
 
 def vertical_audit(boundary,fields,airborne_hit=False):

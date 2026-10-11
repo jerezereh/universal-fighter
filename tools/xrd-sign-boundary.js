@@ -851,8 +851,14 @@ function installGate(target, p) {
                     if(hex(bytes(Process.mainModule.base.add(k.rva),k.body.length/2))!==k.body)throw new Error('launch transition changed');
                     for(const v of Object.values(p.vertical))if(hex(bytes(Process.mainModule.base.add(v.rva),13))!==v.before)throw new Error('vertical setter witness changed');
                     const velocity=actor.add(p.vertical.velocity.field),gravity=actor.add(p.vertical.gravity.field),before=[velocity.readS32(),gravity.readS32()];
+                    if(p.launch_horizontal && hex(bytes(Process.mainModule.base.add(p.launch_horizontal.rva),13))!==p.launch_horizontal.before)throw new Error('horizontal setter witness changed');
                     koTransition(actor,Process.mainModule.base.add(k.state_rva));velocity.writeS32(p.jump_velocity);gravity.writeS32(p.jump_gravity);g.verticalApplied=true;
-                    send({kind:'vertical-motion-result',phase:'ground-hit',request_index:index,counter:object.add(p.candidate.counter_field).readU32(),velocity_before:before[0],gravity_before:before[1],velocity_after:velocity.readS32(),gravity_after:gravity.readS32()});
+                    let horizontalAfter=null;
+                    if(p.launch_horizontal) {
+                        const h=p.launch_horizontal;
+                        actor.add(h.field).writeS32(p.launch_velocity_x);horizontalAfter=actor.add(h.field).readS32();
+                    }
+                    send({kind:'vertical-motion-result',phase:'ground-hit',horizontal_after:horizontalAfter,request_index:index,counter:object.add(p.candidate.counter_field).readU32(),velocity_before:before[0],gravity_before:before[1],velocity_after:velocity.readS32(),gravity_after:gravity.readS32()});
                 }
                 if(p.ko_transition && g.externalPairs===1 && index===p.external_pair_step+1)
                     koTransition(g.root.add(p.state.fields.slots).readPointer(),Process.mainModule.base.add(p.ko_transition.state_rva));

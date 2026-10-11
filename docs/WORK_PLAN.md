@@ -596,3 +596,8 @@ Knockdown/grounded vertical mapping and combined motion; live acceptance remains
 Partial typed grounded Knockdown now passes exact damage, declared vertical motion,
 phase ownership and full native recovery. Continue combined knockdown motion using
 verified native horizontal fields; live producer/host ownership acceptance remains pending.
+
+
+Combined typed grounded Knockdown/PushX/PushY/Gravity now passes native integration,
+exact damage and full recovery. Native launch X velocity remains separate from standing
+recoil. Continue defeat projection/lifecycle and arbitrary proxy setup before live transport.

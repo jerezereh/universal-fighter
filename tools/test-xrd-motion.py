@@ -1,5 +1,5 @@
 """Authored declared-unit and signed integer quantization checks."""
-from xrd_motion import motion_units,host_push_to_recoil,host_vertical_to_source,vertical_fields,vertical_audit
+from xrd_motion import motion_units,host_push_to_recoil,host_vertical_to_source,vertical_fields,vertical_audit,host_horizontal_to_source,launch_horizontal_audit
 import struct
 import json
 import tempfile
@@ -40,6 +40,12 @@ def main():
         save();assert vertical_audit(folder,{},True)['source_vertical_trajectory_verified']
         rows[1]['fighters'][0]['y_raw']+=1
         save();assert not vertical_audit(folder,{},True)['source_vertical_trajectory_verified']
+        for step,row in enumerate(rows):
+            row['fighters'][0]['x_raw']=-10*step
+            row['fighters'][0]['scalar_observations']['launch_horizontal_candidate']=-10
+        save();assert launch_horizontal_audit(folder,dict(request_index=1))['source_horizontal_launch_verified']
+        rows[3]['fighters'][0]['x_raw']+=1
+        save();assert not launch_horizontal_audit(folder,dict(request_index=1))['source_horizontal_launch_verified']
     code=bytearray(b'\xcc'*96);witness={}
     for name,at,field in [('velocity',16,128),('gravity',48,132)]:
         body=bytes.fromhex('8b4424048981')+struct.pack('<I',field)+bytes.fromhex('c20400');code[at:at+13]=body
@@ -50,6 +56,10 @@ def main():
     axis=dict(world_per_source_logical_unit=1,intercept=0,max_world_residual=0)
     calibration=dict(body_origin_mapping_verified=True,samples=4,axes=[axis,axis],pixels_per_source_logical_unit=2)
     units=motion_units(calibration,.5);getter=dict(numerator=20,denominator=10)
+    for push in (-2.4004,0,2.4004):
+        horizontal=host_horizontal_to_source(push,units)
+        assert abs(horizontal['represented_host_push_x']-push)<=horizontal['max_quantization_error']
+    for push in (True,float('inf'),21):reject(lambda:host_horizontal_to_source(push,units))
     for push,raw in [(2.4,1200),(-2.4,-1200),(0,0)]:
         mapped=host_push_to_recoil(push,units,getter)
         assert mapped['source_recoil']==raw and abs(mapped['represented_host_push']-push)<1e-9
