@@ -287,7 +287,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         external_guard=typed_result['Guarded'];external_guard_commit=external_guard
         external_stun=typed_result['Stun']
 
-    if proxy_path and (not plan_path or not capture_reaction_memory or controlled_slot!=1 or not external_pair_step or not external_damage or not external_host_stop or external_pair_phase!='dispatch' or external_guard or external_ko or external_pair_control or external_stun or vertical_path or launch_path or external_recoil is not None or host_result_path):raise ValueError('idle proxy requires an exclusive nonfatal normal diagnostic')
+    if proxy_path and (not plan_path or not capture_reaction_memory or controlled_slot!=1 or not external_pair_step or not external_damage or not external_host_stop or external_pair_phase!='dispatch' or external_guard or external_ko or external_pair_control or external_stun or vertical_path or launch_path or external_recoil is not None):raise ValueError('idle proxy requires an exclusive nonfatal normal diagnostic')
     if external_steps is not None:
         if not proxy_path:raise ValueError('multiple requested contacts require the idle-proxy diagnostic')
         external_steps=pair_steps(external_steps,external_pair_step,len(input_plan(json.loads(plan_path.read_text()))))

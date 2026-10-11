@@ -648,3 +648,8 @@ per-contact recovery/freeze and counter-wide metadata restoration. The session r
 existing deadlines/85-credit bounds; renewable live input/result transport is still
 pending. Continue typed results and dynamic per-request queuing before atomic live guest
 publication and actual IKEMEN mixed-match acceptance.
+
+Typed normal damage now passes the same two-contact idle-proxy session using the existing
+strict HitResult parser. Unsupported effects remain rejected before attachment. Continue
+dynamic per-request result queuing and sequence ownership, then atomic live guest state/image
+publication and host geometry. Bounded typed-file diagnostics are not live transport acceptance.

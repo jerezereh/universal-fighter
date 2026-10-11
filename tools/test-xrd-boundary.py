@@ -124,3 +124,25 @@ for options in (dict(frame_tap=1),dict(frame_tap=True),dict(frame_tap=True,strea
     reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,**options))
 for options in (dict(frame_control=1),dict(frame_control=True),dict(frame_control=True,input_path=Path('unused'),plan_path=Path('unused'))):
     reject(lambda:boundary.trace(Path('unused'),Path('unused'),60,**options))
+
+# Typed normal damage shares the idle proxy path; every unsupported effect still rejects before attachment.
+with tempfile.TemporaryDirectory() as folder:
+    folder=Path(folder);plan=folder/'plan.json';hit=folder/'hit.json'
+    plan.write_text(json.dumps([dict(frames=85,input={})]))
+    result=dict(Accepted=True,Guarded=False,Knockdown=False,Parried=False,Barrier=False,
+        ResourceCost=0,Damage=8,Stun=0,PushX=0,PushY=0,Gravity=0,Hitstop=[0,0])
+    options=dict(plan_path=plan,host_result_path=hit,proxy_path=folder/'proxy.json',
+        capture_reaction_memory=True,controlled_slot=1,external_pair_step=5,
+        external_steps=[5,45],external_host_stop=True,external_pair_phase='dispatch',
+        oracle='contact',combat_path=folder/'combat.json',gate_receipt=folder/'gate',
+        dispatch_path=folder/'dispatch.json',suppress_contact_path=folder/'suppression')
+    hit.write_text(json.dumps(result))
+    try:boundary.trace(folder/'missing-probe',folder/'candidate.json',7,**options)
+    except FileNotFoundError:pass  # All request guards passed; no process access occurred.
+    else:raise AssertionError('unexpected probe acceptance')
+    for changed in (dict(Stun=5),dict(PushX=1),dict(PushY=-1),dict(Gravity=1),
+                    dict(Guarded=True),dict(Knockdown=True),dict(Hitstop=[1,0]),
+                    dict(ResourceCost=1),dict(Accepted=False),dict(Damage=0)):
+        hit.write_text(json.dumps(result|changed))
+        reject(lambda:boundary.trace(folder/'missing-probe',folder/'candidate.json',7,**options))
+print('Typed idle-proxy damage preflight and unsupported-effect rejection checks passed.')
