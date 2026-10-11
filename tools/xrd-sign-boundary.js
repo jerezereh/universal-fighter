@@ -29,6 +29,9 @@ function applyExternalPair(p,index,thread) {
     const g=gate;
     if((p.external_pair_steps || [p.external_pair_step])[g.externalPairs]!==index)
         throw new Error('external pair replay or out-of-order request');
+    const damage=p.external_pair_damages?p.external_pair_damages[g.externalPairs]:p.external_damage;
+    if(p.external_pair_damages && (!Number.isInteger(damage) || damage<1 || damage>419))
+        throw new Error('invalid per-contact damage');
     const actors=[0,1].map(i=>g.root.add(p.state.fields.slots+4*i).readPointer());
     const proxy=p.proxy_template;
     const proxyHit=actors[1].isNull()?-1:actors[1].add(p.state.fields.hit_count).readS32();
@@ -44,7 +47,7 @@ function applyExternalPair(p,index,thread) {
     const fatalBefore=isolation?g.root.add(isolation.field).readU32():null;
     if(isolation && (hex(bytes(Process.mainModule.base.add(isolation.rva),9))!==isolation.before || fatalBefore&isolation.mask))
         throw new Error('fatal global witness/baseline changed');
-    if(p.external_damage && before[0]<=p.external_damage)throw new Error('external damage experiment requires a nonfatal result');
+    if(damage && before[0]<=damage)throw new Error('external damage experiment requires a nonfatal result');
     // Let native damage execute the fatal branch rather than merely publishing zero health.
     if(p.external_ko) {
         if(before[0]<=0)throw new Error('KO probe requires a living defender');
@@ -77,7 +80,7 @@ function applyExternalPair(p,index,thread) {
         const flags=actors[0].add(c.pending_field);
         flags.writeU32(flags.readU32()|c.pending_mask);
     }
-    if(p.external_damage)actors[0].add(p.state.scalar_fields.health_candidate).writeS32(before[0]-p.external_damage);
+    if(damage)actors[0].add(p.state.scalar_fields.health_candidate).writeS32(before[0]-damage);
     g.externalPairs++;
     g.externalEvent={kind:'external-pair-result',request_index:index,request_ordinal:g.externalPairs,counter:g.root.add(4+p.candidate.counter_field).readU32(),
         thread,attacker:1,defender:0,before,
@@ -88,7 +91,7 @@ function applyExternalPair(p,index,thread) {
         native_fatal_health:fatalHealth,source_ko_isolated:isolated,
         native_reaction_requested:p.ko_transition?p.ko_transition.name:null,
         proxy_metadata_restored:proxy?true:null,proxy_hit_count_before:proxy?proxyHit:null,
-        requested_damage:p.external_damage || null,hitstop_owner:p.external_host_stop?'host':'source',source_collision_suppressed:true};
+        requested_damage:damage || null,hitstop_owner:p.external_host_stop?'host':'source',source_collision_suppressed:true};
 }
 
 function observeNativeContact(p) {

@@ -653,3 +653,8 @@ Typed normal damage now passes the same two-contact idle-proxy session using the
 strict HitResult parser. Unsupported effects remain rejected before attachment. Continue
 dynamic per-request result queuing and sequence ownership, then atomic live guest state/image
 publication and host geometry. Bounded typed-file diagnostics are not live transport acceptance.
+
+Individual queued typed damage values now pass one bounded source session (eight then
+thirteen damage), with ordinal ownership and per-contact audits. Continue live enqueueing
+through the existing owned transaction/control path; preloaded diagnostic queues do not
+establish renewable live result transport or playable mixed-match acceptance.

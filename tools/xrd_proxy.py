@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import re
 import struct
+from host_hit_result import damage_probe
 
 
 def pair_steps(values, first, frames):
@@ -15,6 +16,23 @@ def pair_steps(values, first, frames):
 def pair_result(event, steps, received):
     if type(received)!=int or not 0<=received<len(steps) or type(event.get('request_index'))!=int or type(event.get('request_ordinal'))!=int or event.get('request_index')!=steps[received] or event.get('request_ordinal')!=received+1:
         raise ValueError('unrequested/replayed/out-of-order native pair result')
+
+
+def contact_results(values, first, frames):
+    if type(values)!=list or not 2<=len(values)<=4 or any(type(v)!=dict or set(v)!={'step','result'} for v in values):
+        raise ValueError('contact results require 2..4 exact step/result records')
+    steps=pair_steps([v['step'] for v in values],first,frames)
+    damages=[damage_probe(v['result']) for v in values]
+    return steps,damages
+
+
+def read_contact_results(path):
+    if not 0<path.stat().st_size<=65536:raise ValueError('contact result queue exceeds bounds')
+    def unique_fields(pairs):
+        value=dict(pairs)
+        if len(value)!=len(pairs):raise ValueError('duplicate contact result field')
+        return value
+    return json.loads(path.read_text(encoding='utf-8'),object_pairs_hook=unique_fields)
 
 
 def attack_region(code, code_rva, local):

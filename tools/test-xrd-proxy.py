@@ -2,7 +2,7 @@
 import copy
 import hashlib
 import struct
-from xrd_proxy import attack_region, idle_check, pair_steps, pair_result
+from xrd_proxy import attack_region, idle_check, pair_steps, pair_result, contact_results
 from xrd_combat import multiple_contact_check
 
 
@@ -72,3 +72,19 @@ for bad in (events[::-1],events[:1],[events[0],events[1]|dict(request_ordinal=1)
 bad=copy.deepcopy(states);bad[-1][0]['pose_candidates']=[dict(value='sol052_00')]
 reject(lambda:multiple_contact_check(records,bad,dispatches,[],events,[2,22],10))
 print('Multi-contact ordering, replay/missing event, health continuity and recovery checks passed.')
+
+typed=dict(Accepted=True,Guarded=False,Knockdown=False,Parried=False,Barrier=False,
+    ResourceCost=0,Damage=10,Stun=0,PushX=0,PushY=0,Gravity=0,Hitstop=[0,0])
+queue=[dict(step=2,result=typed),dict(step=22,result=typed|dict(Damage=17))]
+assert contact_results(queue,2,42)==([2,22],[10,17])
+for bad in (queue[::-1],queue[:1],[queue[0],queue[1]|dict(extra=1)],
+            [queue[0],dict(step=22,result=typed|dict(Stun=5))]):
+    reject(lambda:contact_results(bad,2,42))
+varied=copy.deepcopy(states)
+for record,state in zip(records,varied):
+    if record['after']>=22:state[0]['scalar_observations']['health_candidate']=393
+varied_events=[events[0],events[1]|dict(after=[393,420],requested_damage=17)]
+assert multiple_contact_check(records,varied,dispatches,[],varied_events,[2,22],[10,17])['passed']
+assert not multiple_contact_check(records,varied,dispatches,[],varied_events,[2,22],[17,10])['passed']
+reject(lambda:multiple_contact_check(records,varied,dispatches,[],varied_events,[2,22],[10]))
+print('Per-contact typed damage ordering, unsupported effect and result mismatch checks passed.')

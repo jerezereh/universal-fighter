@@ -146,3 +146,17 @@ with tempfile.TemporaryDirectory() as folder:
         hit.write_text(json.dumps(result|changed))
         reject(lambda:boundary.trace(folder/'missing-probe',folder/'candidate.json',7,**options))
 print('Typed idle-proxy damage preflight and unsupported-effect rejection checks passed.')
+
+with tempfile.TemporaryDirectory() as folder:
+    folder=Path(folder);plan=folder/'plan.json';queue=folder/'queue.json'
+    plan.write_text(json.dumps([dict(frames=85,input={})]))
+    queue.write_text(json.dumps([dict(step=5,result=result),dict(step=45,result=result|dict(Damage=13))]))
+    queued=options|dict(plan_path=plan,host_result_path=None,external_steps=None,contact_results_path=queue)
+    try:boundary.trace(folder/'missing-probe',folder/'candidate.json',7,**queued)
+    except FileNotFoundError:pass
+    else:raise AssertionError('unexpected queue probe acceptance')
+    for changed in (dict(host_result_path=queue),dict(external_damage=8),dict(external_steps=[5,45]),dict(proxy_path=None)):
+        reject(lambda:boundary.trace(folder/'missing-probe',folder/'candidate.json',7,**(queued|changed)))
+    queue.write_text('[{"step":5,"step":45,"result":{}}]')
+    reject(lambda:boundary.trace(folder/'missing-probe',folder/'candidate.json',7,**queued))
+print('Typed contact queue preflight, conflicting authority and duplicate field checks passed.')

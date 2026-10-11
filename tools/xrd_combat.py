@@ -199,6 +199,9 @@ def external_contact_check(records,states,dispatches,contacts,events,step,damage
 def multiple_contact_check(records,states,dispatches,contacts,events,steps,damage):
     """Audit ordered normal contacts within one owned boundary, reusing single-hit checks."""
     executed=[r for r in records if r['executed']]
+    damages=damage if type(damage)==list else [damage]*len(steps)
+    if len(damages)!=len(steps) or any(type(d)!=int or not 1<=d<=419 for d in damages):
+        raise ValueError('multiple contact damage count/range mismatch')
     if len(records)!=len(states) or not executed or len(events)!=len(steps) or [e.get('request_index') for e in events]!=steps or [e.get('request_ordinal') for e in events]!=list(range(1,len(steps)+1)) or len({e['thread'] for e in events})!=1:
         raise ValueError('multiple contact order/count/thread mismatch')
     if any(a['after']!=b['before'] for a,b in zip(events,events[1:])):
@@ -211,7 +214,7 @@ def multiple_contact_check(records,states,dispatches,contacts,events,steps,damag
         local_records=[r for r,s in selected];local_states=[s for r,s in selected]
         counters={r['after'] for r in local_records if r['executed']}
         local_step=sum(r['executed'] and r['after']!=event['counter'] for r in local_records if 0<=(event['counter']-r['after'])&0xffffffff<0x80000000)+1
-        check=external_contact_check(local_records,local_states,[d for d in dispatches if d['counter'] in counters],[c for c in contacts if c['counter'] in counters],[event|dict(request_index=local_step)],local_step,damage,True,idle_proxy=True)
+        check=external_contact_check(local_records,local_states,[d for d in dispatches if d['counter'] in counters],[c for c in contacts if c['counter'] in counters],[event|dict(request_index=local_step)],local_step,damages[i],True,idle_proxy=True)
         # The original request index remains global; validate the local diagnostic index only.
         checks.append(check)
         if not all(input_scene_ready(local_states[-1],'positioning',[dict(input=dict(forward=True),accept_input=True)],slot) for slot in (0,1)):
