@@ -97,19 +97,27 @@ def vertical_fields(code,code_rva,local):
     return result
 
 
-def vertical_audit(boundary,fields):
+def vertical_audit(boundary,fields,airborne_hit=False):
     receipt=json.loads((boundary/'inspection.json').read_text())
     if receipt.get('errors') or not all(receipt.get(k) is True for k in ('controlled_update_step_verified','detached','loaded_code_restored','source_unchanged','source_input_routing_verified')):raise ValueError('requires complete restored jump evidence')
     rows=[json.loads(line) for line in (boundary/'state.jsonl').read_text().splitlines()];rows=[row for row in rows if row.get('boundary',{}).get('executed')]
     samples=[];previous=None;rise=fall=False
+    event=next((e for e in receipt.get('diagnostics',[]) if e.get('kind')=='vertical-motion-result'),{})
+    if airborne_hit and (not receipt.get('contact_check',{}).get('passed') or event.get('phase')!='airborne-hit'):raise ValueError('missing original airborne result evidence')
     for step,row in enumerate(rows,1):
-        raw=(boundary/('reaction-%03d.bin'%step)).read_bytes()
-        if any(v['field']+4>len(raw) for v in fields.values()):raise ValueError('vertical field outside retained memory')
-        velocity,gravity=(struct.unpack_from('<i',raw,fields[n]['field'])[0] for n in ('velocity','gravity'));y=row['fighters'][0]['y_raw']
-        if previous and previous[0]>0 and y>0:
+        f=row['fighters'][0];y=f['y_raw'];stop=f['scalar_observations']['hitstop_candidate']
+        if airborne_hit:
+            if step<event['request_index']:continue
+            velocity,gravity=(f['scalar_observations'][n+'_candidate'] for n in ('velocity','gravity'))
+            if previous and y==0:previous=(y,velocity,stop);break
+        else:
+            raw=(boundary/('reaction-%03d.bin'%step)).read_bytes()
+            if any(v['field']+4>len(raw) for v in fields.values()):raise ValueError('vertical field outside retained memory')
+            velocity,gravity=(struct.unpack_from('<i',raw,fields[n]['field'])[0] for n in ('velocity','gravity'))
+        if previous and previous[0]>0 and y>0 and (not airborne_hit or previous[2]==0 and stop==0):
             delta=y-previous[0];rise=rise or delta>0;fall=fall or delta<0
             samples.append(dict(step=step,position_delta=delta,previous_velocity=previous[1],velocity=velocity,gravity=gravity,expected_velocity=previous[1]-gravity))
-        previous=(y,velocity)
+        previous=(y,velocity,stop)
     result=dict(samples=samples,source_vertical_trajectory_verified=len(samples)>=10 and rise and fall and previous[0]==0 and all(s['position_delta']==s['previous_velocity'] and s['velocity']==s['expected_velocity'] for s in samples),live_vertical_hit_mapping=False)
     (boundary/'vertical-trajectory-check.json').write_text(json.dumps(result,indent=2));return result
 

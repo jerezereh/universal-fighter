@@ -271,7 +271,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if bool(motion_units_path)!=(motion_display_scale is not None) or motion_units_path and (not host_result_path or not recoil_path or external_recoil is not None):raise ValueError('calibrated motion requires exclusive typed result and recoil witness')
     if not motion_units_path and (external_recoil is not None)!=bool(recoil_path) or external_recoil is not None and (type(external_recoil)!=int or not -5000<=external_recoil<=5000):raise ValueError('recoil requires a private witness and bounded integer request')
     if bool(vertical_path)!=(jump_velocity is not None) or bool(vertical_path)!=(jump_gravity is not None):raise ValueError('vertical probe requires both bounded values and a private witness')
-    if vertical_path and (oracle!='jump' or controlled_slot!=0 or not capture_reaction_memory or external_pair_step or host_result_path or type(jump_velocity)!=int or type(jump_gravity)!=int or not 1<=jump_velocity<=40000 or not 1000<=jump_gravity<=5000 or jump_velocity>jump_gravity*20):raise ValueError('vertical probe requires a bounded recoverable native jump')
+    if vertical_path and (not (oracle=='jump' and controlled_slot==0 and capture_reaction_memory or oracle=='contact' and controlled_slot==1 and defender_jump_step) or external_pair_step or host_result_path or type(jump_velocity)!=int or type(jump_gravity)!=int or not 1<=jump_velocity<=40000 or not 1000<=jump_gravity<=5000 or jump_velocity>jump_gravity*20):raise ValueError('vertical probe requires a bounded recoverable native jump')
     typed_result=read_result(host_result_path) if host_result_path else None
     if typed_result is not None:
         if external_damage or external_guard or external_guard_commit or external_ko or external_pair_control or not external_pair_step or not external_host_stop:raise ValueError('typed damage probe requires exclusive requested pair with host-owned freeze')
@@ -520,7 +520,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             abi=validate_device_calls([source],(ROOT/'local-cache/msys64/mingw64/include/d3d9.h').read_text())
             script=session.create_script(source)
             script.on('message',receive);bounded_call(frida,script.load)
-            settings=dict(vertical=vertical,jump_velocity=jump_velocity,jump_gravity=jump_gravity,external_recoil=external_recoil,recoil=recoil,external_pair_phase=external_pair_phase,external_stun=external_stun,reaction_timer=reaction_timer,reaction_memory_bytes=reaction_memory_bytes,ko_transition=ko_transition,ko_isolation=ko_isolation,external_ko=external_ko,external_guard_commit=external_guard_commit,external_pair_control=external_pair_control,external_guard=external_guard,external_host_stop=external_host_stop,external_damage=external_damage,external_pair_step=external_pair_step,contact=contact,state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,capture_screen_stages=capture_screen_stages,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer,renewable=renewable or transactions,transactions=transactions,reset_observation=reset_observation)
+            settings=dict(vertical_mode='airborne-hit' if oracle=='contact' else 'jump',vertical=vertical,jump_velocity=jump_velocity,jump_gravity=jump_gravity,external_recoil=external_recoil,recoil=recoil,external_pair_phase=external_pair_phase,external_stun=external_stun,reaction_timer=reaction_timer,reaction_memory_bytes=reaction_memory_bytes,ko_transition=ko_transition,ko_isolation=ko_isolation,external_ko=external_ko,external_guard_commit=external_guard_commit,external_pair_control=external_pair_control,external_guard=external_guard,external_host_stop=external_host_stop,external_damage=external_damage,external_pair_step=external_pair_step,contact=contact,state=state,candidate=candidate,image_size=receipt['image_size'],gate=gate_options,input=input_profile,capture=capture,trace_draws=trace_draws,capture_passes=capture_passes,capture_screen_stages=capture_screen_stages,suppress_draws=identity,inspect_mesh_shaders=inspect_shaders,inspect_screen_shaders=inspect_screen,layer=layer,renewable=renewable or transactions,transactions=transactions,reset_observation=reset_observation)
             settings['streaming']=stream_mode
             phase='start';native_start_attempted=True
             print(bounded_call(frida,lambda:script.exports_sync.start(settings)),flush=True)
@@ -986,10 +986,12 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             if verified:result['typed_result_probe']['mapped_fields'].append('PushX');result['typed_result_probe']['unmapped_fields'].remove('PushX')
         (out/'inspection.json').write_text(json.dumps(result,indent=2))
     if vertical:
-        motion=vertical_audit(out,vertical);events=[d for d in diagnostics if d.get('kind')=='vertical-motion-result']
+        executed_states=[s for r,s in zip(records,states) if r.get('executed')]
+        motion=vertical_audit(out,vertical,oracle=='contact');events=[d for d in diagnostics if d.get('kind')=='vertical-motion-result']
         gravity_persisted=bool(len(events)==1 and all(s['gravity']==jump_gravity for s in motion['samples'] if s['step']>events[0]['request_index']))
-        verified=bool(gravity_persisted and len(events)==1 and events[0]['velocity_after']==jump_velocity and events[0]['gravity_after']==jump_gravity and motion['source_vertical_trajectory_verified'] and result['gate_check']['frozen_observed_state'])
-        result['vertical_probe']=dict(event=events[0] if events else None,native_gravity_persisted=gravity_persisted,native_vertical_motion_verified=verified,live_vertical_hit_mapping=False)
+        hurt_phase=(oracle!='contact' or len(events)==1 and events[0]['request_index']==result['contact_check']['damage_events'][0]['step']+1 and any(re.fullmatch(r'sol060_[0-9]{2}',n['value']) for n in executed_states[events[0]['request_index']-1][0]['pose_candidates']))
+        verified=bool(hurt_phase and gravity_persisted and len(events)==1 and events[0]['velocity_after']==jump_velocity and events[0]['gravity_after']==jump_gravity and motion['source_vertical_trajectory_verified'] and result['gate_check']['frozen_observed_state'] and (oracle!='contact' or result['contact_check']['complete_airborne_recovery_verified']))
+        result['vertical_probe']=dict(application_phase_verified=hurt_phase,gravity_scope='first_hurt_arc' if oracle=='contact' else 'jump',event=events[0] if events else None,native_gravity_persisted=gravity_persisted,native_vertical_motion_verified=verified,live_vertical_hit_mapping=False)
         (out/'inspection.json').write_text(json.dumps(result,indent=2))
     print('Boundary trace:',len(records),'samples; counter deltas',dict(deltas),'gaps',gaps,'errors',len(errors),';',out,flush=True)
     if gate_options: print('Gate checks:',{k:v for k,v in result['gate_check'].items() if k!='graphics_completions_per_held_counter'},flush=True)
@@ -1047,8 +1049,8 @@ if __name__=='__main__':
     p.add_argument('--external-guard',action='store_true',help='diagnostic defender back input around one requested normal')
     p.add_argument('--external-host-stop',action='store_true',help='diagnostic host-owned freeze: clear native stops after requested reaction')
     p.add_argument('--vertical-candidate',type=Path,help='private witnessed vertical velocity/gravity setters')
-    p.add_argument('--jump-velocity',type=int,help='bounded positive source velocity applied once after native takeoff')
-    p.add_argument('--jump-gravity',type=int,help='bounded positive source gravity for recoverable jump diagnostic')
+    p.add_argument('--jump-velocity',type=int,help='bounded positive source velocity after native takeoff or airborne hurt initialization')
+    p.add_argument('--jump-gravity',type=int,help='bounded positive source gravity for jump or first airborne hurt arc')
     p.add_argument('--motion-unit-calibration',type=Path,help='private verified source body/render unit fit for typed horizontal motion')
     p.add_argument('--motion-display-scale',type=float,help='declared host display scale for calibrated horizontal motion')
     p.add_argument('--external-recoil',type=int,help='bounded source recoil diagnostic, -5000..5000; no host unit claim')

@@ -1,6 +1,9 @@
 """Authored declared-unit and signed integer quantization checks."""
-from xrd_motion import motion_units,host_push_to_recoil,host_vertical_to_source,vertical_fields
+from xrd_motion import motion_units,host_push_to_recoil,host_vertical_to_source,vertical_fields,vertical_audit
 import struct
+import json
+import tempfile
+from pathlib import Path
 
 
 def reject(action):
@@ -10,6 +13,24 @@ def reject(action):
 
 
 def main():
+    with tempfile.TemporaryDirectory() as folder:
+        folder=Path(folder)
+        receipt=dict(controlled_update_step_verified=True,detached=True,loaded_code_restored=True,
+            source_unchanged=True,source_input_routing_verified=True,contact_check=dict(passed=True),
+            diagnostics=[dict(kind='vertical-motion-result',phase='airborne-hit',request_index=1)])
+        (folder/'inspection.json').write_text(json.dumps(receipt))
+        rows=[];y=100;velocity=10
+        while True:
+            rows.append(dict(boundary=dict(executed=True),fighters=[dict(y_raw=y,scalar_observations=dict(
+                velocity_candidate=velocity,gravity_candidate=1,hitstop_candidate=0))]))
+            if y==0:break
+            y=max(0,y+velocity);velocity-=1
+        save=lambda:(folder/'state.jsonl').write_text('\n'.join(json.dumps(r) for r in rows))
+        save();assert vertical_audit(folder,{},True)['source_vertical_trajectory_verified']
+        rows[4]['fighters'][0]['y_raw']+=1
+        save();assert not vertical_audit(folder,{},True)['source_vertical_trajectory_verified']
+        receipt['diagnostics'][0]['phase']='jump';(folder/'inspection.json').write_text(json.dumps(receipt))
+        reject(lambda:vertical_audit(folder,{},True))
     code=bytearray(b'\xcc'*96);witness={}
     for name,at,field in [('velocity',16,128),('gravity',48,132)]:
         body=bytes.fromhex('8b4424048981')+struct.pack('<I',field)+bytes.fromhex('c20400');code[at:at+13]=body

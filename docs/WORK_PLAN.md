@@ -576,3 +576,8 @@ pending; continue vertical reaction initialization before typed vertical/knockdo
 Full original airborne recovery now passes a state-only 100-credit native check with
 landing, bounce, down, get-up and grounded idle. Preserve native bounce behavior while
 validating vertical reaction overrides; typed vertical results and live producer remain pending.
+
+
+Bounded original airborne hurt now accepts raw source velocity and first-arc gravity
+with exact integration, landing, native bounce and full recovery. Continue requested
+contact/typed vertical result initialization; raw native control is not live host mapping.

@@ -819,13 +819,30 @@ function installGate(target, p) {
                 const index=(object.add(p.candidate.counter_field).readU32()-g.initialCounter)>>>0;
                 if(p.vertical && !g.verticalApplied) {
                     const actor=g.root.add(p.state.fields.slots).readPointer();
-                    if(actor.add(p.state.fields.y).readS32()>0) {
+                    const health=actor.add(p.state.scalar_fields.health_candidate).readS32();
+                    if(g.verticalInitialHealth===undefined)g.verticalInitialHealth=health;
+                    if(p.vertical_mode==='airborne-hit' && health<g.verticalInitialHealth && g.verticalContactIndex===undefined)g.verticalContactIndex=index;
+                    if(actor.add(p.state.fields.y).readS32()>0 && (p.vertical_mode!=='airborne-hit' || index>g.verticalContactIndex)) {
                         for(const v of Object.values(p.vertical))if(hex(bytes(Process.mainModule.base.add(v.rva),13))!==v.before)throw new Error('vertical setter witness changed');
                         const velocity=actor.add(p.vertical.velocity.field),gravity=actor.add(p.vertical.gravity.field);
                         const before=[velocity.readS32(),gravity.readS32()];
                         if(before[0]<=0 || before[0]>100000 || before[1]<=0 || before[1]>10000)throw new Error('native takeoff baseline changed');
                         velocity.writeS32(p.jump_velocity);gravity.writeS32(p.jump_gravity);g.verticalApplied=true;
-                        send({kind:'vertical-motion-result',request_index:index,counter:object.add(p.candidate.counter_field).readU32(),velocity_before:before[0],gravity_before:before[1],velocity_after:velocity.readS32(),gravity_after:gravity.readS32()});
+                        send({kind:'vertical-motion-result',phase:p.vertical_mode,request_index:index,counter:object.add(p.candidate.counter_field).readU32(),velocity_before:before[0],gravity_before:before[1],velocity_after:velocity.readS32(),gravity_after:gravity.readS32()});
+                    }
+                }
+                if(p.vertical && p.vertical_mode==='airborne-hit' && g.verticalApplied && !g.verticalLanded) {
+                    const actor=g.root.add(p.state.fields.slots).readPointer();
+                    if(actor.add(p.state.fields.y).readS32()===0)g.verticalLanded=true;
+                    else if(actor.add(p.state.scalar_fields.hitstop_candidate).readS32()===0) {
+                        const velocity=actor.add(p.vertical.velocity.field),gravity=actor.add(p.vertical.gravity.field),actual=gravity.readS32();
+                        if(actual!==p.jump_gravity) {
+                            if(actual<=0 || actual>10000)throw new Error('airborne gravity baseline changed');
+                            for(const v of Object.values(p.vertical))if(hex(bytes(Process.mainModule.base.add(v.rva),13))!==v.before)throw new Error('vertical setter witness changed');
+                            velocity.writeS32(velocity.readS32()+actual-p.jump_gravity);gravity.writeS32(p.jump_gravity);
+                            g.verticalGravityCorrections=(g.verticalGravityCorrections||0)+1;
+                            if(g.verticalGravityCorrections>85)throw new Error('airborne gravity correction bound exceeded');
+                        }
                     }
                 }
                 if(p.ko_transition && g.externalPairs===1 && index===p.external_pair_step+1)
