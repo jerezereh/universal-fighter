@@ -974,9 +974,9 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         (out/'requests.json').write_text(json.dumps(request_log,indent=2))
     if proxy:
         count=result['gate_check']['executed'];expected=bytes.fromhex(proxy['idle'])
-        restored_proxy=all((out/('proxy-%03d.bin'%i)).read_bytes()[proxy['field']:proxy['field']+len(expected)]==expected for i in range(1,count+1))
+        restored_proxy=bool(count) and all((out/('proxy-%03d.bin'%i)).read_bytes()[proxy['field']:proxy['field']+len(expected)]==expected for i in range(1,count+1))
         native_neutral=result['input_check'].get('source_history_linked') is True and result['input_check'].get('opponent_neutral') is True
-        result['idle_proxy_check']=dict(counter_samples=count,metadata_restored_at_all_counters=restored_proxy,neutral_native_history_verified=native_neutral,fresh_health_required=True,repeated_contact_verified=False)
+        result['idle_proxy_check']=dict(counter_samples=count,metadata_restored_at_all_counters=restored_proxy,neutral_native_history_verified=native_neutral,fresh_health_required=False,persistent_contact_session_verified=False)
         (out/'inspection.json').write_text(json.dumps(result,indent=2))
         if not restored_proxy or not native_neutral:raise RuntimeError('proxy metadata/input restoration not verified')
     if external_stun:

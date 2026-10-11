@@ -1,7 +1,7 @@
 """Authored state-reader and scalar-getter checks; no source game required."""
 import struct
 
-from xrd_state import assembly_rows, getter_fields, global_operand, observe
+from xrd_state import assembly_rows, getter_fields, guarded_parent, global_operand, observe
 
 
 def reject(action):
@@ -43,6 +43,16 @@ def main():
     rows=assembly_rows(text);raw,parents=getter_fields(rows)
     assert raw==0x1244 and parents==[0x1234] and rows[0]['address']==0x1000
     reject(lambda:getter_fields(rows[:4]))
+    conditional=[dict(address=0x1000,op='mov',args='esi,ecx')]
+    conditional += [dict(address=0x1001+i,op=op,args=args) for i,(op,args) in enumerate([
+        ('mov','eax,DWORD PTR [esi+0x28]'),('test','eax,0x1'),('je','0x1020'),
+        ('test','eax,0x4'),('je','0x1020'),('mov','ecx,DWORD PTR [esi+0x20]'),('call','0x1000')])]
+    conditional.append(dict(address=0x1020,op='mov',args='eax,DWORD PTR [esi+0x0]'))
+    assert guarded_parent(conditional,0,[32])==dict(parent_field=32,flags_field=40,required_mask=5)
+    bad=[dict(r) for r in conditional];bad[3]['args']='0x1021'
+    assert guarded_parent(bad,0,[32]) is None
+    bad=[dict(r) for r in conditional];bad[4]['args']='eax,0x1'
+    assert guarded_parent(bad,0,[32]) is None
     code=b'\x8b\x0d'+struct.pack('<I',0x10200)
     section=dict(rva=0x200,virtual_size=0x100,size=0x100,flags=0x80000000)
     assert global_operand(code,2,0x10000,0x1000,[section])==0x200
@@ -61,6 +71,12 @@ def main():
         m,p=fixture();struct.pack_into('<i',m.segments[0x30000],p['fields'][field],value)
         reject(lambda:observe(m,p))
     m,p=fixture();struct.pack_into('<I',m.segments[0x30000],32,1);reject(lambda:observe(m,p))
+    p['guarded_parents']=[dict(parent_field=32,flags_field=40,required_mask=5)]
+    for flags in (0,1,4):
+        struct.pack_into('<I',m.segments[0x30000],40,flags)
+        assert observe(m,p)['fighters'][0]['x_raw']==-250
+    struct.pack_into('<I',m.segments[0x30000],40,5);reject(lambda:observe(m,p))
+    struct.pack_into('<I',m.segments[0x30000],32,0);reject(lambda:observe(m,p))
     m,p=fixture();struct.pack_into('<f',m.segments[0x50000],4,float('nan'));reject(lambda:observe(m,p))
     m,p=fixture();struct.pack_into('<I',m.segments[0x20000],8,0x30000);reject(lambda:observe(m,p))
     print('Authored getter/operand derivation, raw observation, bounds/parent/NaN/slot rejection and unsynchronized status passed.')

@@ -37,8 +37,8 @@ function applyExternalPair(p,index,thread) {
     const saved=proxy?bytes(metadata,proxy.idle.length/2):null;
     if(proxy && hex(saved)!==proxy.idle)throw new Error('idle proxy metadata baseline changed');
     const before=actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32());
-    if(proxy && JSON.stringify(before)!==JSON.stringify(proxy.baseline_health))
-        throw new Error('idle proxy diagnostic requires fresh baseline health');
+    if(proxy && (!p.state.guarded_parents || p.state.guarded_parents.length!==1))
+        throw new Error('idle proxy requires witnessed conditional coordinate-parent rules');
     const isolation=p.ko_isolation;
     const fatalBefore=isolation?g.root.add(isolation.field).readU32():null;
     if(isolation && (hex(bytes(Process.mainModule.base.add(isolation.rva),9))!==isolation.before || fatalBefore&isolation.mask))

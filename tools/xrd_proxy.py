@@ -46,8 +46,7 @@ def template(code, code_rva, state, path):
     changes = [i for i in range(0, size, 4) if blocks[0][i:i+4] != blocks[1][i:i+4]]
     if not 1 <= len(changes) <= 8:
         raise ValueError('proxy template exceeds narrow metadata scope')
-    return dict(field=field, active=blocks[0].hex(), idle=blocks[1].hex(),
-        baseline_health=[f['scalar_observations']['health_candidate'] for f in frames[0]])
+    return dict(field=field, active=blocks[0].hex(), idle=blocks[1].hex())
 
 
 def idle_check(records, states, event):

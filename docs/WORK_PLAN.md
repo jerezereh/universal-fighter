@@ -634,3 +634,11 @@ with neutral input, native hurt and metadata restoration at every captured count
 Original animated-source geometry validation stays separate. Damaged repeat attempts
 reject before pair/template mutation; repeated contact and full host geometry remain
 unaccepted. Resolve proxy hit-instance ownership before enabling repeated live contacts.
+
+Successive idle-proxy normal contacts now pass without a health reset. The former
+attachment rejection was an overly conservative observation rule: both native getters
+require two follow bits before using the retained relationship pointer. Re-derive old
+profiles to obtain that witnessed conditional rule. Actual active parents still reject.
+Continue persistent multi-contact session/sequence ownership and typed idle-proxy results,
+then atomic live guest transport and host geometry; separate bounded captures are not a
+verified persistent producer.

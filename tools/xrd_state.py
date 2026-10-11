@@ -60,6 +60,26 @@ def getter_fields(rows):
     return ranked[0][0],sorted(set(parents))
 
 
+def guarded_parent(rows, raw, parents):
+    """Recognize a two-bit AND gate whose failure branches both load the raw axis."""
+    aliases=[r['args'].split(',')[0] for r in rows[:8] if r['op']=='mov' and r['args'].endswith(',ecx')]
+    if len(aliases)!=1:return None
+    alias=aliases[0];by_address={r['address']:r for r in rows};found=[]
+    for group in (rows[i:i+7] for i in range(len(rows)-6)):
+        load,a,branch_a,b,branch_b,parent,call=group
+        flags=re.fullmatch(r'eax,DWORD PTR \['+alias+r'\+0x([0-9a-f]+)\]',load['args'])
+        target=re.fullmatch(r'ecx,DWORD PTR \['+alias+r'\+0x([0-9a-f]+)\]',parent['args'])
+        masks=[re.fullmatch(r'eax,0x([0-9a-f]+)',r['args']) for r in (a,b)]
+        if not flags or not target or not all(masks) or [r['op'] for r in group]!=['mov','test','je','test','je','mov','call']:continue
+        if branch_a['args']!=branch_b['args'] or call['args']!=hex(rows[0]['address']):continue
+        fallback=by_address.get(int(branch_a['args'],16));reg='eax' if alias=='esi' else 'esi'
+        if not fallback or fallback['op']!='mov' or fallback['args']!=reg+',DWORD PTR ['+alias+'+0x'+format(raw,'x')+']':continue
+        field=int(target[1],16);flag_field=int(flags[1],16);bits=[int(m[1],16) for m in masks]
+        if field not in parents or flag_field%4 or not 0<=flag_field<=0x2600-4 or flag_field in (raw,*parents) or bits[0]==bits[1] or any(not 0<v<=0x80000000 or v&(v-1) for v in bits):continue
+        found.append(dict(parent_field=field,flags_field=flag_field,required_mask=bits[0]|bits[1]))
+    return found[0] if len(found)==1 else None
+
+
 def unique(rows, label):
     if len(rows)!=1: raise ValueError('missing/ambiguous '+label)
     return rows[0]
@@ -102,11 +122,13 @@ def profile(report, folder, source, objdump):
 
     throw=unique(candidates['can_throw'],'throw envelope')['candidate_rva']
     calls=Counter(int(r['args'].split()[0],16)-base for r in disassemble(throw,'state-throw') if r['op']=='call' and re.match(r'0x[0-9a-f]+',r['args']))
-    fields={};getters={};parent_fields=set()
+    fields={};getters={};parent_fields=set();axis_guards=[]
     for axis,name in (('x','get_pos_x'),('y','get_pos_y')):
         called=[m['candidate_rva'] for m in candidates[name] if calls[m['candidate_rva']]>=2]
         target=unique(called,axis+' getter linked by throw envelope')
-        raw,parents=getter_fields(disassemble(target,'state-get-'+axis))
+        rows=disassemble(target,'state-get-'+axis)
+        raw,parents=getter_fields(rows)
+        axis_guards.append(guarded_parent(rows,raw,parents))
         fields[axis]=raw;getters[axis]=target;parent_fields.update(parents)
 
     def reference_field(name):
@@ -125,6 +147,7 @@ def profile(report, folder, source, objdump):
     return dict(schema=1,pid=report['pid'],module_base=base,exe_sha256=report['exe_sha256'],
                 code_sha256=report['loaded_hashes']['.text'],code_rva=section['rva'],code_size=section['size'],
                 engine_global_rva=engine_rva,fields=fields,parents=sorted(parent_fields),getters=getters,
+                guarded_parents=[axis_guards[0]] if axis_guards[0] and axis_guards[0]==axis_guards[1] else [],
                 native_tick_verified=False,host_step=False,isolated_rgba=False,universal_contact=False)
 
 
@@ -138,10 +161,12 @@ def observe(process, p):
     if not all(slots) or slots[0]==slots[1]: raise ValueError('invalid native fighter slots')
     result=[]
     for slot,address in enumerate(slots):
-        size=max([f[k]+4 for k in ('x','y','facing','boxes','hurt_count','hit_count','scale_x','scale_y')]+[v+4 for v in p['parents']]+([f['rotation']+4] if 'rotation' in f else []))
+        guards={g['parent_field']:g for g in p.get('guarded_parents',[])}
+        if len(guards)!=len(p.get('guarded_parents',[])) or any(g['parent_field'] not in p['parents'] or type(g['flags_field'])!=int or g['flags_field']%4 or not 0<=g['flags_field']<=0x2600-4 or type(g['required_mask'])!=int or not 0<g['required_mask']<=0xffffffff for g in guards.values()):raise ValueError('invalid conditional parent profile')
+        size=max([f[k]+4 for k in ('x','y','facing','boxes','hurt_count','hit_count','scale_x','scale_y')]+[v+4 for v in p['parents']]+[g['flags_field']+4 for g in guards.values()]+([f['rotation']+4] if 'rotation' in f else []))
         data=process.read(address,size)
         integer=lambda name:struct.unpack_from('<i',data,f[name])[0]
-        if any(struct.unpack_from('<I',data,v)[0] for v in p['parents']):
+        if any((struct.unpack_from('<I',data,guards[v]['flags_field'])[0]&guards[v]['required_mask'])==guards[v]['required_mask'] if v in guards else struct.unpack_from('<I',data,v)[0] for v in p['parents']):
             raise ValueError('attached/parent-relative fighter unsupported by raw observation')
         x,y,facing=integer('x'),integer('y'),integer('facing')
         hurt,hit=integer('hurt_count'),integer('hit_count')
