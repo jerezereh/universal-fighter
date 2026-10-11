@@ -29,9 +29,16 @@ function applyExternalPair(p,index,thread) {
     const g=gate;
     if(g.externalPairs!==0)throw new Error('external pair replay');
     const actors=[0,1].map(i=>g.root.add(p.state.fields.slots+4*i).readPointer());
-    if(actors.some(a=>a.isNull()) || actors[1].add(p.state.fields.hit_count).readS32()<=0)
+    const proxy=p.proxy_template;
+    const proxyHit=actors[1].isNull()?-1:actors[1].add(p.state.fields.hit_count).readS32();
+    if(actors.some(a=>a.isNull()) || (proxy?proxyHit!==0:proxyHit<=0))
         throw new Error('external pair requires an active native proxy normal');
+    const metadata=proxy?actors[1].add(proxy.field):null;
+    const saved=proxy?bytes(metadata,proxy.idle.length/2):null;
+    if(proxy && hex(saved)!==proxy.idle)throw new Error('idle proxy metadata baseline changed');
     const before=actors.map(a=>a.add(p.state.scalar_fields.health_candidate).readS32());
+    if(proxy && JSON.stringify(before)!==JSON.stringify(proxy.baseline_health))
+        throw new Error('idle proxy diagnostic requires fresh baseline health');
     const isolation=p.ko_isolation;
     const fatalBefore=isolation?g.root.add(isolation.field).readU32():null;
     if(isolation && (hex(bytes(Process.mainModule.base.add(isolation.rva),9))!==isolation.before || fatalBefore&isolation.mask))
@@ -43,7 +50,14 @@ function applyExternalPair(p,index,thread) {
         actors[0].add(p.state.scalar_fields.health_candidate).writeS32(1);
     }
     g.externalApplying=true;
-    try {if(!p.external_pair_control)externalPair(actors[1],actors[0],0);} finally {g.externalApplying=false;}
+    try {
+        if(proxy)metadata.writeByteArray(proxy.active.match(/../g).map(x=>parseInt(x,16)));
+        if(!p.external_pair_control)externalPair(actors[1],actors[0],0);
+    } finally {
+        if(proxy)metadata.writeByteArray(saved);
+        g.externalApplying=false;
+    }
+    if(proxy && hex(bytes(metadata,saved.length))!==proxy.idle)throw new Error('proxy metadata restoration failed');
     const fatalHealth=p.external_ko?actors[0].add(p.state.scalar_fields.health_candidate).readS32():null;
     let isolated=false;
     if(isolation) {
@@ -72,6 +86,7 @@ function applyExternalPair(p,index,thread) {
         caller_result_committed:p.external_guard_commit===true || p.external_ko===true || p.external_pair_phase==='dispatch',requested_ko:p.external_ko===true,
         native_fatal_health:fatalHealth,source_ko_isolated:isolated,
         native_reaction_requested:p.ko_transition?p.ko_transition.name:null,
+        proxy_metadata_restored:proxy?true:null,proxy_hit_count_before:proxy?proxyHit:null,
         requested_damage:p.external_damage || null,hitstop_owner:p.external_host_stop?'host':'source',source_collision_suppressed:true};
 }
 

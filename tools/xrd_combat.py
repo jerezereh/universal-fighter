@@ -2,6 +2,7 @@
 import struct
 import hashlib
 import re
+from xrd_proxy import idle_check
 
 
 def dispatch_candidate(code,code_rva,local,pair_rva):
@@ -124,11 +125,16 @@ def suppressed_contact_check(records,states,dispatches,contacts):
         observed_counter_phase=sorted(phases),universal_contact=False,external_results_applied=False)
 
 
-def external_contact_check(records,states,dispatches,contacts,events,step,damage=0,host_stop=False,guard=False,ko=False,isolate_ko=False,airborne=False,ground_launch=False):
+def external_contact_check(records,states,dispatches,contacts,events,step,damage=0,host_stop=False,guard=False,ko=False,isolate_ko=False,airborne=False,ground_launch=False,idle_proxy=False):
     executed=[r for r in records if r['executed']]
     native=contact_check(records,states,1,airborne or ground_launch,ground_launch)
     if len(records)!=len(states) or len(events)!=1 or type(step)!=int or not 1<=step<=len(executed):raise ValueError('external native contact requires exactly one requested result')
     event=events[0];frame=executed[step-1]
+    if type(idle_proxy)!=bool:raise ValueError('invalid idle proxy mode')
+    if idle_proxy and (guard or ko or airborne or ground_launch or not host_stop or not damage):
+        raise ValueError('idle proxy supports only the nonfatal normal diagnostic')
+    proxy_verified=idle_proxy and idle_check(records,states,event)
+    if idle_proxy and not proxy_verified:raise ValueError('idle proxy input/pose/restoration not verified')
     if any(type(event.get(k))!=list or len(event[k])!=2 or any(type(v)!=int or v<0 for v in event[k]) for k in ('before','after')):
         raise ValueError('invalid external native health evidence')
     linked=(event['request_index']==step and event['counter']==frame['after'] and event['thread']==frame['thread'] and
@@ -156,7 +162,7 @@ def external_contact_check(records,states,dispatches,contacts,events,step,damage
             any(b[0]['scalar_observations']['age_candidate']>a[0]['scalar_observations']['age_candidate'] for a,b in zip(reacting,reacting[1:])) and
             (not native['damage_events'] and all(s[0]['scalar_observations']['health_candidate']==event['before'][0] for s in states)
                 if guard and not damage else not native['damage_events'] and event['before'][0]==event['after'][0]==1
-                if ko and isolate_ko and not native['damage_events'] else len(native['damage_events'])==1 and native['damage_events'][0]['mirrored_box_overlap']))
+                if ko and isolate_ko and not native['damage_events'] else len(native['damage_events'])==1 and (proxy_verified or native['damage_events'][0]['mirrored_box_overlap'])))
     suppressed=len(dispatches)==3*len(executed) and all(
         [c['argument'] for c in dispatches[i*3:i*3+3]]==[0,1,2] and all(
             c.get('suppressed') is True and c['original_called'] is False and c['thread']==r['thread'] and
@@ -185,6 +191,7 @@ def external_contact_check(records,states,dispatches,contacts,events,step,damage
         native_guard_reaction_candidate=bool(guard and host_freeze),guard_semantics_verified=bool(guard_applied and host_freeze and linked and suppressed and requested),
         requested_damage_verified=bool(damage and damage_mapped),
         source_dispatch_suppressed=suppressed,automatic_pair_calls=sum(c.get('externally_requested') is not True for c in contacts),
+        idle_proxy_metadata_verified=bool(proxy_verified),host_contact_geometry_verified=False,
         universal_contact=False,typed_host_result_applied=False)
 
 

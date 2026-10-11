@@ -159,6 +159,15 @@ def main():
     host_event=mapped|dict(hitstop_owner='host')
     host_check=lambda samples=zero_states,e=host_event:external_contact_check(zero_records,samples,suppressed,[],[e],2,10,True)
     assert host_check()['passed'] and host_check()['host_freeze_verified']
+    idle_states=copy.deepcopy(zero_states)
+    idle_records=[r|dict(requested_inputs=[0,0]) for r in zero_records]
+    for s in idle_states:
+        s[1].update(hit_count=0,y_raw=0,pose_candidates=[dict(value='kyk000_01')],
+                    boxes=[b for b in s[1]['boxes'] if b[0]!=1])
+    idle_event=host_event|dict(proxy_metadata_restored=True,proxy_hit_count_before=0)
+    assert not external_contact_check(idle_records,idle_states,suppressed,[],[idle_event],2,10,True)['passed']
+    assert external_contact_check(idle_records,idle_states,suppressed,[],[idle_event],2,10,True,idle_proxy=True)['idle_proxy_metadata_verified']
+    reject(lambda:external_contact_check(idle_records,idle_states,suppressed,[],[idle_event|dict(proxy_metadata_restored=False)],2,10,True,idle_proxy=True))
     air_by_counter={r['after']:s for r,s in zip(owned,recovery)}
     air_states=[copy.deepcopy(air_by_counter[r['after']]) for r in zero_records]
     for record,actors in zip(zero_records,air_states):

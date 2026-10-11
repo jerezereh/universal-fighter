@@ -628,3 +628,9 @@ Counter-aligned proxy metadata capture now passes with defender/proxy byte agree
 Native startup/active metadata is stable and differs narrowly from idle initialization.
 Test an explicit witnessed metadata template against an idle proxy next; retain the
 active-normal guard until that path proves exact contact and safe metadata restoration.
+
+Fresh-baseline idle proxy contact now passes an explicit one-contact normal diagnostic
+with neutral input, native hurt and metadata restoration at every captured counter.
+Original animated-source geometry validation stays separate. Damaged repeat attempts
+reject before pair/template mutation; repeated contact and full host geometry remain
+unaccepted. Resolve proxy hit-instance ownership before enabling repeated live contacts.
