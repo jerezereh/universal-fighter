@@ -328,3 +328,21 @@ def reaction_timer_field(code,code_rva,local):
     field=struct.unpack_from('<I',body,2)[0]
     if not 0<field<0x10000 or field%4:raise ValueError('unbounded reaction timer field')
     return dict(rva=rva,before=before,field=field)
+
+
+def defeat_projection(records,states,contact,requests,pair_step,boundary):
+    """Partial guest defeat view; host life and source round reset remain separate."""
+    if len(records)!=len(states) or type(pair_step)!=int or pair_step<1:raise ValueError('invalid defeat projection boundary')
+    if boundary.get('errors') or not all(boundary.get(k) is True for k in ('controlled_update_step_verified','source_input_routing_verified','source_unchanged','detached','loaded_code_restored')):
+        raise ValueError('defeat projection requires a complete restored boundary')
+    if not all(contact.get(k) is True for k in ('passed','source_ko_isolation_verified','native_defeat_pose_observed','host_freeze_verified')):
+        raise ValueError('defeat projection requires isolated native fatal evidence')
+    frames=[(r,s) for r,s in zip(records,states) if r['executed']][pair_step+2:]
+    probes=[q for q in requests if 'defeat_input_probe' in q]
+    gated=len(frames)>=30 and len(probes)==len(frames) and all(
+        q['defeat_input_probe']==dict(input={'forward':True,'punch':True},accept_input=False,mask=0) and
+        r['requested_inputs'][0]==0 and s[0]['scalar_observations']['health_candidate']==1 and s[0]['hit_count']==0
+        for q,(r,s) in zip(probes,frames))
+    return dict(projected_state={'Defeated':bool(gated),'AttackID':0,'ProjectileID':0},
+        input_rejection_verified=bool(gated),host_life_required=0,native_health_sentinel=1,
+        source_round_reset_verified=False,live_defeat_transport=False)

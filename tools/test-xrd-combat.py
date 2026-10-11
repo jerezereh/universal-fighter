@@ -2,7 +2,7 @@
 import copy
 import struct
 
-from xrd_combat import combat_fields, contact_check, contact_observations, world_boxes, dispatch_candidate, dispatch_ownership, suppressed_contact_check, contact_callees, external_contact_check, guard_contact_check, dispatch_result_fields, fatal_global_field, state_transition_candidate, reaction_timer_field
+from xrd_combat import combat_fields, contact_check, contact_observations, world_boxes, dispatch_candidate, dispatch_ownership, suppressed_contact_check, contact_callees, external_contact_check, guard_contact_check, dispatch_result_fields, fatal_global_field, state_transition_candidate, reaction_timer_field, defeat_projection
 import hashlib
 
 
@@ -226,6 +226,18 @@ def main():
     isolated_event=lethal_event|dict(after=[1,420],source_ko_isolated=True,native_fatal_health=0,native_reaction_requested='CmnActHizakuzure')
     isolation_check=lambda e=isolated_event:external_contact_check(zero_records,isolated_states,suppressed,[],[e],2,0,True,False,True,True)
     assert isolation_check()['source_lifecycle_isolated'] and isolation_check()['source_ko_isolation_verified']
+    defeat_frames=[dict(executed=True,requested_inputs=[0,0]) for _ in range(40)]
+    defeat_states=[[dict(hit_count=0,scalar_observations=dict(health_candidate=1)),{}] for _ in range(40)]
+    defeat_requests=[dict(defeat_input_probe=dict(input={'forward':True,'punch':True},accept_input=False,mask=0)) for _ in range(36)]
+    defeat_boundary=dict(controlled_update_step_verified=True,source_input_routing_verified=True,source_unchanged=True,detached=True,loaded_code_restored=True)
+    project=lambda samples=defeat_states,frames=defeat_frames,requests=defeat_requests: defeat_projection(frames,samples,isolation_check(),requests,2,defeat_boundary)
+    assert project()['projected_state']['Defeated'] and not project()['source_round_reset_verified']
+    reject(lambda:defeat_projection(defeat_frames,defeat_states,isolation_check(),defeat_requests,2,defeat_boundary|dict(detached=False)))
+    resumed=copy.deepcopy(defeat_states);resumed[-1][0]['scalar_observations']['health_candidate']=2
+    assert not project(samples=resumed)['input_rejection_verified']
+    active=copy.deepcopy(defeat_frames);active[-1]['requested_inputs'][0]=16
+    assert not project(frames=active)['input_rejection_verified']
+    assert not project(requests=defeat_requests[:-1])['input_rejection_verified']
     assert not isolation_check(e=isolated_event|dict(native_fatal_health=1))['passed']
     assert not isolation_check(e=isolated_event|dict(native_reaction_requested=None))['passed']
     bad_zero=copy.deepcopy(zero_states);bad_zero[3][0]['scalar_observations']['hitstop_candidate']=1

@@ -601,3 +601,8 @@ verified native horizontal fields; live producer/host ownership acceptance remai
 Combined typed grounded Knockdown/PushX/PushY/Gravity now passes native integration,
 exact damage and full recovery. Native launch X velocity remains separate from standing
 recoil. Continue defeat projection/lifecycle and arbitrary proxy setup before live transport.
+
+
+Isolated native defeat now yields a verified partial Defeated projection and host-style
+input rejection. Restore source health with normal training reset before further contact
+checks. Host round reset, arbitrary proxy setup and live producer acceptance remain pending.
