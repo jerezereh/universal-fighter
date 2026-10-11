@@ -817,6 +817,17 @@ function installGate(target, p) {
                 g.currentIndex=((s.before-g.initialCounter)>>>0)+1;
                 original(object);
                 const index=(object.add(p.candidate.counter_field).readU32()-g.initialCounter)>>>0;
+                if(p.vertical && !g.verticalApplied) {
+                    const actor=g.root.add(p.state.fields.slots).readPointer();
+                    if(actor.add(p.state.fields.y).readS32()>0) {
+                        for(const v of Object.values(p.vertical))if(hex(bytes(Process.mainModule.base.add(v.rva),13))!==v.before)throw new Error('vertical setter witness changed');
+                        const velocity=actor.add(p.vertical.velocity.field),gravity=actor.add(p.vertical.gravity.field);
+                        const before=[velocity.readS32(),gravity.readS32()];
+                        if(before[0]<=0 || before[0]>100000 || before[1]<=0 || before[1]>10000)throw new Error('native takeoff baseline changed');
+                        velocity.writeS32(p.jump_velocity);gravity.writeS32(p.jump_gravity);g.verticalApplied=true;
+                        send({kind:'vertical-motion-result',request_index:index,counter:object.add(p.candidate.counter_field).readU32(),velocity_before:before[0],gravity_before:before[1],velocity_after:velocity.readS32(),gravity_after:gravity.readS32()});
+                    }
+                }
                 if(p.ko_transition && g.externalPairs===1 && index===p.external_pair_step+1)
                     koTransition(g.root.add(p.state.fields.slots).readPointer(),Process.mainModule.base.add(p.ko_transition.state_rva));
                 if(!p.external_guard && !p.external_ko && p.external_pair_phase!=='dispatch' && p.external_pair_step && index===p.external_pair_step) {

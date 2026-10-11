@@ -131,6 +131,8 @@ def input_check(records,states,inputs,requests=(),controlled_slot=0):
 def oracle_passed(kind,result):
     if kind=='positioning':
         return result['source_history_linked'] and result['opponent_neutral'] and result['grounded_at_end'] and not result['airborne'] and result['active_normal_steps']==0 and (result['walk_left'] or result['walk_right'])
+    if kind=='jump':
+        return all(result[k] for k in ('source_history_linked','airborne','grounded_at_end','opponent_neutral')) and result['active_normal_steps']==0
     if kind=='movement':
         return all(result[k] for k in ('walk_left','walk_right','airborne','grounded_at_end','opponent_neutral')) and result['standing_punch_activations']>=2 and result['active_normal_steps']>0
     if kind=='crossover':

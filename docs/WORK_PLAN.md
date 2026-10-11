@@ -561,3 +561,8 @@ motion; a source-unit diagnostic does not yet implement typed PushX/PushY/Gravit
 Declared .23 display-scale conversion now drives typed horizontal push in a bounded
 native diagnostic with measured integer quantization. Preserve the separate live unit/
 foot-pivot acceptance gate; continue vertical motion and host/source position ownership.
+
+Native jump velocity/gravity witnesses, exact airborne integration and bounded control
+now pass with landing and freeze/recovery. Declared vertical units preserve Y sign.
+Continue original airborne hit/launch reaction derivation before typed PushY/Gravity;
+jump control alone does not complete universal contact or playable passthrough.

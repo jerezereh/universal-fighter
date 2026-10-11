@@ -83,6 +83,46 @@ def host_push_to_recoil(push,units,getter):
     return dict(source_recoil=recoil,requested_host_push=push,represented_host_push=represented,max_quantization_error=quantum/2+units['host_per_source_raw'],actual_error=error,native_decay_before_displacement=True,live_motion_mapping=False)
 
 
+def vertical_fields(code,code_rva,local):
+    if type(local)!=dict or set(local)!={'velocity','gravity'}:raise ValueError('invalid vertical witness')
+    result={}
+    for name,candidate in local.items():
+        if type(candidate)!=dict or set(candidate)!={'rva','before'} or type(candidate['rva'])!=int:raise ValueError('invalid vertical setter')
+        at=candidate['rva']-code_rva;body=code[at:at+13]
+        if at<1 or candidate['rva']%16 or code[at-1]!=0xcc or body.hex()!=candidate['before'] or body[:6]!=bytes.fromhex('8b4424048981') or body[10:]!=bytes.fromhex('c20400'):raise ValueError('vertical setter witness changed')
+        field=struct.unpack_from('<I',body,6)[0]
+        if not 0<field<=0x10000-4 or field%4:raise ValueError('unbounded vertical field')
+        result[name]=candidate|dict(field=field)
+    if result['velocity']['field']==result['gravity']['field']:raise ValueError('aliased vertical fields')
+    return result
+
+
+def vertical_audit(boundary,fields):
+    receipt=json.loads((boundary/'inspection.json').read_text())
+    if receipt.get('errors') or not all(receipt.get(k) is True for k in ('controlled_update_step_verified','detached','loaded_code_restored','source_unchanged','source_input_routing_verified')):raise ValueError('requires complete restored jump evidence')
+    rows=[json.loads(line) for line in (boundary/'state.jsonl').read_text().splitlines()];rows=[row for row in rows if row.get('boundary',{}).get('executed')]
+    samples=[];previous=None;rise=fall=False
+    for step,row in enumerate(rows,1):
+        raw=(boundary/('reaction-%03d.bin'%step)).read_bytes()
+        if any(v['field']+4>len(raw) for v in fields.values()):raise ValueError('vertical field outside retained memory')
+        velocity,gravity=(struct.unpack_from('<i',raw,fields[n]['field'])[0] for n in ('velocity','gravity'));y=row['fighters'][0]['y_raw']
+        if previous and previous[0]>0 and y>0:
+            delta=y-previous[0];rise=rise or delta>0;fall=fall or delta<0
+            samples.append(dict(step=step,position_delta=delta,previous_velocity=previous[1],velocity=velocity,gravity=gravity,expected_velocity=previous[1]-gravity))
+        previous=(y,velocity)
+    result=dict(samples=samples,source_vertical_trajectory_verified=len(samples)>=10 and rise and fall and previous[0]==0 and all(s['position_delta']==s['previous_velocity'] and s['velocity']==s['expected_velocity'] for s in samples),live_vertical_hit_mapping=False)
+    (boundary/'vertical-trajectory-check.json').write_text(json.dumps(result,indent=2));return result
+
+
+def host_vertical_to_source(push_y,gravity,units):
+    """Declared units for an existing jump; not a native hit/launch-state mapping."""
+    coefficient=units['host_per_source_raw'];valid=lambda v:type(v) in (int,float) and math.isfinite(v)
+    if not valid(push_y) or not valid(gravity) or not -40000*coefficient<=push_y<0 or not 1000*coefficient<=gravity<=5000*coefficient:raise ValueError('vertical request exceeds recoverable jump diagnostic')
+    velocity=round(-push_y/coefficient);source_gravity=round(gravity/coefficient)
+    if not 1<=velocity<=40000 or velocity>source_gravity*20:raise ValueError('vertical request cannot recover in bounded capture')
+    return dict(source_velocity=velocity,source_gravity=source_gravity,represented_host_push_y=-velocity*coefficient,represented_host_gravity=source_gravity*coefficient,max_quantization_error=coefficient/2,application_phase='after_native_takeoff',live_vertical_hit_mapping=False)
+
+
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('probe',type=Path);p.add_argument('boundary',type=Path);p.add_argument('candidate',type=Path);a=p.parse_args()
     audit(a.probe,a.boundary,a.candidate)

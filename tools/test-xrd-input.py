@@ -15,6 +15,10 @@ def main():
     position=dict(source_history_linked=True,opponent_neutral=True,grounded_at_end=True,airborne=False,
         active_normal_steps=0,walk_left=False,walk_right=True)
     assert oracle_passed('positioning',position)
+    jump=position|dict(airborne=True)
+    assert oracle_passed('jump',jump)
+    for patch in (dict(airborne=False),dict(grounded_at_end=False),dict(active_normal_steps=1),dict(opponent_neutral=False)):
+        assert not oracle_passed('jump',jump|patch)
     for patch in (dict(source_history_linked=False),dict(airborne=True),dict(active_normal_steps=1),dict(walk_right=False)):
         assert not oracle_passed('positioning',position|patch)
     assert len(punch_plan([dict(frames=1,input={'punch':True}),dict(frames=19,input={})],20))==20
