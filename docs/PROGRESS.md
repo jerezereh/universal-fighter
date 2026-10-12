@@ -3518,6 +3518,8 @@ read-only timing evidence, not accepted arbitrary host blockstun application.
   quoting error also rejects before attachment and is corrected without repeated movement.
 - Fresh original Ky standing Punch passes 85 credits: one activation, eight damage
   (420 to 412), native hitstop countdown, hurt/recovery and frozen-state checks. Hooks
-  restore and detach. This refreshes original contact evidence only; combined idle-proxy
+  restore and detach. Health returns to 420 by the last sample, so persistent damage
+  is not verified in this restarted instance; inspect/disable training health regeneration
+  before typed result checks. This refreshes original contact evidence only; combined idle-proxy
   combat remains pending. Manual Escape reset is needed to restore the clean baseline
   and witness reset in this restarted session before automatic reset can be rebound.

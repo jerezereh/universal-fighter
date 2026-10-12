@@ -720,3 +720,5 @@ latency averages 235 ms but peaks at 313 ms, so deadline acceptance remains pend
 Fresh original Ky-to-Sol contact now verifies damage/hitstop/recovery in this session,
 after relocation-only dispatch rebinding. Request manual Escape reset to restore the
 baseline and re-witness automatic reset, then refresh proxy metadata and combined combat.
+Health also returns to 420 by the original-contact capture's end. Ask the user to disable
+training health regeneration in this instance before persistent result tests resume.
