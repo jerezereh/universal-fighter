@@ -1,5 +1,22 @@
 # First milestone work plan
 
+## Current SIGN direction (2026-10-11)
+
+The user retired IKEMEN as the host. `uf-arena` receives one producer per source
+fighter. `sign-producer/`, based on the local `uf-producer-template`, is the active
+SIGN implementation path. Use `uf-arena` protocol v1.5 and its `ufproducer` library;
+the working Rev2 and KOF XIII producers are behavioral and performance references.
+The older milestone plan below records completed work and past decisions.
+
+For SIGN, retain its engine's simulation, input handling, collision, hit reactions,
+rendering and HUD as much as the source permits. Build a persistent reversible
+offline producer: exact build/scene verification, request-driven one-tick stepping,
+host input and opponent mirror, native state/boxes and isolated GPU image/HUD,
+source contact suppression, native combat result application, reset/KO, then
+`ufconform` and a 60 Hz `uf-arena` match. Run native checks in the real SIGN build;
+do not promote prior diagnostic receipts to producer acceptance. No new IKEMEN
+integration or sprite-bake work belongs to this path.
+
 Authority: `handoff_doc.txt`. Gate: a complete IKEMEN versus ForeignTestFighter match.
 Status 2026-10-05: packages 1–7 are implemented and the bounded Kyo milestone is verified.
 Evidence combines the native/native KO and multi-round baseline, sixteen controlled

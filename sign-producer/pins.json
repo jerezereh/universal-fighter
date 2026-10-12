@@ -1,0 +1,16 @@
+{
+  "protocol": {
+    "tag": "protocol-v1.5",
+    "uf_protocol": "1.5.0",
+    "url": "git+https://github.com/jerezereh/uf-arena@protocol-v1.5#subdirectory=python"
+  },
+  "game": {
+    "name": "GUILTY GEAR Xrd -SIGN-",
+    "store": "Steam app 376300",
+    "build": "1028441",
+    "exe": "Binaries/Win32/GuiltyGearXrd.exe",
+    "exe_size": 21404096,
+    "exe_sha256": "f7a2e990b664f882bf16eafa94433ff0460f0b630c083fd0760a0d7949e08b78",
+    "default_install": "C:/Program Files (x86)/Steam/steamapps/common/GUILTY GEAR Xrd -SIGN-"
+  }
+}

@@ -1,7 +1,10 @@
 # Project working instructions
 
-Follow `handoff_doc.txt` and `docs/WORK_PLAN.md`. Read the pinned IKEMEN implementation
-before changing runtime boundaries. Keep verified results separate from proposed behavior
+For new SIGN work, follow the 2026-10-11 receiver pivot in `docs/WORK_PLAN.md`:
+`uf-arena` is the host and `sign-producer/` starts from `uf-producer-template`.
+Earlier `handoff_doc.txt` and IKEMEN work remain historical evidence, not the active
+runtime target. Read the pinned `uf-arena` wire and match protocols before changing
+the SIGN producer boundary. Keep verified results separate from proposed behavior
 and pending interactive validation.
 
 Use Ponytail (full intensity by default) for coding, fixes, architecture and dependency

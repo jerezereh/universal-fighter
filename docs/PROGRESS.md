@@ -3611,3 +3611,21 @@ read-only timing evidence, not accepted arbitrary host blockstun application.
   Node syntax, contact-credit and shader-cache regressions pass. This remains raw-unit
   diagnostic ingress; no playable capability, generic host producer or close-range
   geometry acceptance is implied. Continue host coordinate conversion and producer work.
+
+## 2026-10-11 — SIGN producer receiver pivot
+
+- User retired IKEMEN as the active host. `uf-arena` is now the receiver; its
+  protocol and Python `ufproducer` library are the producer boundary. The active
+  SIGN workspace is `sign-producer/`, copied from the local `uf-producer-template`
+  and pinned to protocol-v1.5, as used by the current KOF XIII producer.
+- Verified the installed SIGN executable (Steam 376300/build 1028441): 21,404,096
+  bytes, SHA-256 f7a2e990b664f882bf16eafa94433ff0460f0b630c083fd0760a0d7949e08b78.
+  Real source attachment deliberately fails closed while the long-lived native bridge
+  is built; no SIGN capabilities or playable match are claimed.
+- Template tests pass (5). The uf-arena reference fighter from this workspace passes
+  34 protocol checks, 0 failures/warnings, over local loopback in RGBA and shared
+  modes (20 scripted steps each). Report: ignored sign-producer/artifacts/fake-conformance.json.
+  The first sandbox socket attempt was blocked; the elevated local-loopback run passed.
+- Next: persistent SIGN process/scene verification and reversible step/input/render
+  bridge, then source-backed ufconform and uf-arena playability/performance checks.
+  Earlier IKEMEN and sprite-bake branches are historical, not active implementation.

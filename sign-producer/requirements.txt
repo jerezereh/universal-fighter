@@ -1,0 +1,1 @@
+uf-protocol @ git+https://github.com/jerezereh/uf-arena@protocol-v1.5#subdirectory=python
