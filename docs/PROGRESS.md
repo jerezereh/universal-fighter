@@ -3477,3 +3477,15 @@ read-only timing evidence, not accepted arbitrary host blockstun application.
   background effects are absent or that these sampled statuses prove continuous focus.
   Continue profiling render callbacks and frame readiness; no additional menu changes
   are currently required, and playable capabilities remain disabled.
+- Private callback profiling initially rejects reassignment of Frida's read-only
+  `send` function before any frame credits. Corrected instrumentation to extend
+  existing layer receipts; failed and accepted runs both restore code and detach.
+  Profiling passes 42 credits/43 frames, mean latency 254 ms, peak 373 ms. Cumulative
+  scopes include mesh replay 1,821 ms, grading 824 ms and readback 1,474 ms across
+  startup, hold and captures. Scopes overlap and include rejected replay calls;
+  these are not exclusive percentages or a controlled baseline.
+- Private state-block reuse passes 42 credits/43 frames and unchanged source graphics
+  restoration checks, mean latency 257 ms, peak 315 ms, with clean restore and detach.
+  No reliable mean improvement is demonstrated; removed the experiment. D3D ABI,
+  contact-credit and shader-cache regressions pass. No runtime dependency or playable
+  capability added. Continue isolating callback/readiness costs and fresh combat witnesses.

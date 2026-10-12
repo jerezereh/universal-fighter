@@ -706,3 +706,7 @@ Foreground comparison passes frame correctness/restoration but remains above dea
 (312 ms mean, 356 ms peak). Continue render callback/readiness profiling; foreground
 operation alone does not make the source playable. No further menu changes are needed
 for that investigation.
+Private callback profiling identifies measurable mesh replay, grading and readback work
+with overlapping scopes. State-block reuse passes correctness but provides no reliable
+mean latency gain and is discarded. Continue isolating callback/readiness costs and
+refresh combat witnesses; the unchanged deadline still fails.
