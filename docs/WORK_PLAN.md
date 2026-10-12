@@ -737,3 +737,8 @@ pass linked image/state/facing checks. Projection remains neutral, safely separa
 raw source-unit diagnostic ingress; vertical and close-range host geometry are pending.
 RPC crossing peaks at 266 ms, so timing acceptance is still unresolved. Continue native
 airborne/position testing and unit conversion, then actual generic producer integration.
+Private airborne vertical correction and full landing now pass linked image/state
+checks. Isolated defeat, automatic reset and post-reset persistent damage also pass
+in this session. Request interactive feedback on the changed quarter-resolution graded
+preview before accepting its presentation, then continue airborne ingress/conversion
+and actual producer/host geometry integration. No further health/reset setup is needed.

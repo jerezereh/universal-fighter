@@ -3576,3 +3576,22 @@ read-only timing evidence, not accepted arbitrary host blockstun application.
   correct facing and 43 linked images, restoration/detach; mean latency 149 ms,
   peak 266 ms still fails deadline. This is raw source-unit development ingress, not
   a host coordinate converter, airborne/close-range projection or accepted host geometry.
+- Private native jump capture passes 85 owned credits/86 linked images, reaches raw
+  Y 335,826 and lands by step 41. A source-thread vertical correction of +25,000 raw
+  units at step 10 produces exactly that height difference and the calibrated rendered
+  body-origin change, then lands at step 42. Both captures restore code and detach.
+  Corrected-jump request latency averages 143 ms, peaks at 229 ms, satisfying the
+  unchanged deadline for this bounded run. Grounded public ingress remains unchanged;
+  airborne projection is still a private pilot, not live host unit acceptance.
+- Rebound isolated-defeat code witnesses after complete relocation-only comparisons.
+  Native 85-credit defeat regression verifies the lethal pair, isolated lifecycle,
+  requested collapse pose and defeated-input rejection; code/hooks restore and detach.
+  Automatic Escape reset verifies recovery afterward. Subsequent original contact
+  retains health at 412 through 85 credits, confirming regeneration stays disabled
+  across that recovery. This is separate from live producer/host KO acceptance.
+- New quarter-resolution native-grading preview is ready for interactive appearance
+  validation. It differs from the older full postprocessed image previously reviewed.
+  Ask for feedback on colors, facing and silhouette before accepting the new presentation;
+  no additional training reset or health setup is required. All playable capabilities
+  remain off; producer integration, general typed results, airborne/close-range host
+  geometry and sustained timing/human control acceptance remain unfinished.
