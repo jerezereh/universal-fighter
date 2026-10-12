@@ -3463,3 +3463,9 @@ read-only timing evidence, not accepted arbitrary host blockstun application.
 - Lower source settings alone do not establish latency acceptance. Continue capture
   throughput investigation, fresh combat witnesses, host coordinate/result ownership
   and real producer/lifecycle integration. All playable SIGN capabilities remain off.
+- A private readback-surface reuse experiment also passes 42 credits/43 frames with
+  clean restoration and detach, averaging 335 ms and peaking at 419 ms. The small
+  mean difference does not justify retaining the additional resource lifetime;
+  removed the experiment. Contact-credit and shader-cache regressions pass. Next
+  compare the same capture with SIGN foreground to investigate background rendering
+  before choosing further throughput work; this is diagnostic, not acceptance.

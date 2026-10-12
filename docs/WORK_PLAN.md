@@ -699,3 +699,6 @@ Reduced-graphics source has restarted; fresh grading-only preparation and neutra
 stream correctness pass. Latency still exceeds the deadline (346 ms mean, 649 ms peak).
 Continue capture throughput work and refresh combat/template witnesses for this process
 before combined contact regression; prior-session evidence must not be relabeled.
+Private readback reuse passes correctness but yields no material mean latency gain and
+is discarded. Compare foreground source timing to identify background-render effects
+before further capture optimization; keep the same deadline and readiness checks.
