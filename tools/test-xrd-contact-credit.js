@@ -100,3 +100,32 @@ for(const bad of [{protect:0x104},{protect:1},{protect:16},{state:0x2000},
 querySize=0;assert.throws(()=>run(`assertReadableActor(${actor},0x2600)`));querySize=28;
 context.Process.pointerSize=8;assert.throws(()=>run(`assertReadableActor(${actor},0x2600)`));
 console.log('Fresh native actor range checks reject guards, unreadable/uncommitted spans, wrap and query failure.');
+
+run('fixture();config.streaming=true;config.transactions=true;gate.ownsState=true;gate.frameReady=4;verifyGateOwner=function(){};');
+for(const value of ['false','[]','[{x:0,y:0},{x:1,y:0}]','[{x:true,y:0},{x:400000,y:0}]',
+        '[{x:0,y:1},{x:400000,y:0}]','[{x:0,y:0,z:0},{x:400000,y:0}]','[{x:700000,y:0},{x:0,y:0}]']) {
+    assert.throws(()=>run(`rpc.exports.step([0,0],4,null,${value})`));
+    assert.equal(run('gate.pending'),false);
+}
+assert.throws(()=>run('rpc.exports.step([4,0],4,null,[{x:0,y:0},{x:400000,y:0}])'));
+run('rpc.exports.step([0,0],4,null,[{x:-252000,y:0},{x:252000,y:0}])');
+assert.equal(JSON.stringify(run('gate.pendingProjection')),'[{"x":-252000,"y":0},{"x":252000,"y":0}]');
+assert.throws(()=>run('rpc.exports.step([0,0],4,null,[{x:352000,y:0},{x:-252000,y:0}])'));
+const writes=[];let secondY=1,parentFlags=0;
+const actors=[0,1].map(i=>({add(field){return {readS32(){return field===8 && i===1?secondY:0;},
+    readU32(){return parentFlags;},readPointer(){return {isNull(){return true;}};},writeS32(value){writes.push([i,field,value]);}};}}));
+context.actorRoot={add(offset){return {readPointer(){return actors[offset/4];}};}};
+run('assertReadableActor=function(){return 4;};gate.root=actorRoot;');
+const profile='{state:{fields:{slots:0,x:4,y:8},parents:[16],guarded_parents:[]}}';
+assert.throws(()=>run(`applyPositionProjection(gate,${profile})`));assert.equal(writes.length,0);
+secondY=0;run(`applyPositionProjection(gate,${profile})`);
+assert.deepEqual(writes,[[0,4,-252000],[1,4,252000]]);
+assert.equal(run('gate.pendingProjection'),null);
+run(`applyPositionProjection(gate,${profile})`);assert.equal(writes.length,2);
+run('gate.pendingProjection=[{x:352000,y:0},{x:-252000,y:0}]');
+parentFlags=0x80000000;
+assert.throws(()=>run('applyPositionProjection(gate,{state:{fields:{slots:0,x:4,y:8},parents:[16],guarded_parents:[{parent_field:16,flags_field:12,required_mask:2147483648}]}})'));
+assert.equal(writes.length,2);parentFlags=0;
+run('assertReadableActor=function(){return 2;}');
+assert.throws(()=>run(`applyPositionProjection(gate,${profile})`));assert.equal(writes.length,2);
+console.log('Owned position ingress validates before credits; native projection checks both actors before one-time writes.');

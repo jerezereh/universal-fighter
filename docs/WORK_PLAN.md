@@ -732,3 +732,8 @@ and combined combat/image regression pass. Fresh native VirtualQuery actor valid
 removes range-enumeration overhead while retaining protection/bounds checks. Neutral
 deadline proof passes, but combined capture still peaks at 313 ms (mean 185 ms). Investigate
 remaining draw callback costs before deadline acceptance, then host geometry/producer work.
+Native grounded source/opponent coordinate pilots and guarded owned-RPC projection now
+pass linked image/state/facing checks. Projection remains neutral, safely separated,
+raw source-unit diagnostic ingress; vertical and close-range host geometry are pending.
+RPC crossing peaks at 266 ms, so timing acceptance is still unresolved. Continue native
+airborne/position testing and unit conversion, then actual generic producer integration.

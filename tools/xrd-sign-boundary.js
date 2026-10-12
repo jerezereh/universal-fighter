@@ -744,6 +744,33 @@ function assertReadableActor(actor,span) {
     if(state!==0x1000 || (protect&0x100) || ![2,4,8,32,64,128].includes(protect&255) ||
             address<base || base+size>0x100000000 || address+span>base+size)
         throw new Error('actor snapshot exceeds committed readable memory range');
+    return protect;
+}
+
+function positionProjection(value,inputs) {
+    if(value===null)return null;
+    if(!config.streaming || !config.transactions || !gate.ownsState || inputs.some(x=>x!==0) ||
+            !Array.isArray(value) || value.length!==2 || value.some(v=>v===null || typeof v!=='object' || Array.isArray(v) ||
+                Object.keys(v).length!==2 || !Number.isInteger(v.x) || Math.abs(v.x)>600000 || v.y!==0) ||
+            Math.abs(value[0].x-value[1].x)<350000)
+        throw new Error('position projection requires bounded separated grounded neutral actors');
+    return value.map(v=>({x:v.x,y:0}));
+}
+
+function applyPositionProjection(g,p) {
+    const value=g.pendingProjection;
+    if(value===null || value===undefined)return;
+    const fields=p.state.fields,guards=p.state.guarded_parents??[];
+    const actors=[0,1].map(i=>g.root.add(fields.slots+4*i).readPointer());
+    for(const actor of actors) {
+        if(![4,8,64,128].includes(assertReadableActor(actor,0x2600)&255) || actor.add(fields.y).readS32()!==0 ||
+                p.state.parents.some(field=>{
+                    const guard=guards.find(v=>v.parent_field===field);
+                    return guard ? ((actor.add(guard.flags_field).readU32()&guard.required_mask)>>>0)===guard.required_mask : !actor.add(field).readPointer().isNull();
+                }))throw new Error('position projection requires writable grounded unparented actors');
+    }
+    actors.forEach((actor,i)=>actor.add(fields.x).writeS32(value[i].x));
+    g.pendingProjection=null;
 }
 
 function snapshot(root) {
@@ -870,6 +897,7 @@ function installGate(target, p) {
             g.credits = 0; g.executing = true;
             try {
                 g.currentIndex=((s.before-g.initialCounter)>>>0)+1;
+                applyPositionProjection(g,p);
                 original(object);
                 const index=(object.add(p.candidate.counter_field).readU32()-g.initialCounter)>>>0;
                 if(p.vertical && !g.verticalApplied && !p.launch_transition) {
@@ -1129,7 +1157,7 @@ rpc.exports = {
         });
         return {installed: true, mutation: 'temporary Frida entry interception; original routine runs unchanged'};
     },
-    step(inputs, expectedCounter, contact=null) {
+    step(inputs, expectedCounter, contact=null, projection=null) {
         if (gate === null || gate.resumed || gate.pending || gate.credits !== 0)
             throw new Error('gate unavailable or step already pending');
         if (!Array.isArray(inputs) || inputs.length !== 2 || inputs.some(x => !Number.isInteger(x) || x < 0 || x > 0x3ff))
@@ -1155,12 +1183,14 @@ rpc.exports = {
             gate.frameReady === null || expectedCounter !== gate.frameReady ||
             !config.streaming && ((expectedCounter-gate.initialCounter)>>>0) >= 3))
             throw new Error('transaction frame not ready, stale or exhausted');
+        const projected=positionProjection(projection,inputs);
         if (gate.ownsState) verifyGateOwner();
         if (!gate.renewable) gate.deadline = Date.now() + 8000;
         gate.frameReady = null;
         if (config.streaming) { pendingLayer=null; previousCandidate=null; }
         gate.inputs = inputs.slice();
         gate.pendingContact=contact===null?null:{...contact};
+        gate.pendingProjection=projected;
         gate.pending = true; gate.credits = 1;
         return {accepted: true};
     },

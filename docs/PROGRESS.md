@@ -3554,3 +3554,25 @@ read-only timing evidence, not accepted arbitrary host blockstun application.
   combat regression passes all 42 credits/43 images and restoration, with 185 ms mean
   but 313 ms peak; the fixed 250 ms deadline still fails. Slow requests are not confined
   to contacts. No playable capabilities, live producer or host geometry acceptance added.
+- Revisited private native unrelated-draw routing after removing snapshot overhead.
+  Initialization rejects with a Frida type error before any frame credit in two
+  attempts (second captures a stack). Code/hooks restore and detach each time. No
+  native router is retained in maintained source; no throughput claim is made.
+- Private source-thread projection pilots move Sol's raw X on an owned credit and
+  restore it later, then move both source fighters across sides. All 42 credits/43
+  linked images pass; rendered body origins follow calibrated X and native facing
+  switches left then right while isolated output remains canonical-right. Coordinate
+  pilot peaks at 270 ms; crossing pilot passes its bounded deadline at 200 ms peak.
+- Added optional fourth owned step-RPC argument for grounded neutral position
+  projection, two exact raw integer X/Y records with Y zero, bounded X and safe
+  separation. It is copied before granting the credit and consumed once on the source
+  update thread before native simulation. Both actors must be writable, grounded and
+  free of active coordinate parents before either write. Existing stale-counter,
+  pending-credit, lease, scene and native state/image ownership checks still apply.
+- Actual ingress/application regressions cover malformed projection, non-neutral
+  input, replay, both-actor validation before writes, read-only memory and active
+  conditional parents including unsigned high-bit masks. D3D ABI checks pass. Native
+  RPC-delivered crossing verifies both actor targets at every executed counter,
+  correct facing and 43 linked images, restoration/detach; mean latency 149 ms,
+  peak 266 ms still fails deadline. This is raw source-unit development ingress, not
+  a host coordinate converter, airborne/close-range projection or accepted host geometry.
