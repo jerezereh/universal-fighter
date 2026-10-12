@@ -3535,3 +3535,22 @@ read-only timing evidence, not accepted arbitrary host blockstun application.
   new template. This remains a setup blocker for persistent typed results. Ask the
   user to inspect the setting affecting player-one Sol (and both players if separate)
   and provide the exact setting/value; automatic reset can handle subsequent recovery.
+- User clarified that health regeneration is per-match and disabled it. Fresh original
+  contact now retains Sol health at 412 through all 85 credits, with native stop/recovery
+  and cleanup passing. Derived the new active/idle proxy template from this capture;
+  the complete initializer differs only at PE relocation fields and the four metadata
+  differences match the prior narrow template. Automatic reset passes without human input.
+- Combined fresh-session regression passes 42 credits/43 linked images, typed damage
+  420 to 412 to 399, both recovery/freeze audits, source collision suppression and
+  metadata restoration at every counter. Code/hooks restore and detach. This validates
+  held-copy sampling and byte-only shader checks with combat; latency still fails
+  (256 ms mean, 478 ms peak), and universal host geometry remains unverified.
+- Snapshot profiling exposed costly process-range enumeration. Actor snapshots now use
+  fresh x86 Windows VirtualQuery checks, preserving committed/readable/no-guard/span
+  requirements and scene/object checks without caching regions. Verified the ABI against
+  installed native headers; regression rejects protection, commit, extent, wrap, pointer
+  width and query failures. Contact/credit, shader and native D3D ABI checks pass.
+- Private neutral range-query proof passes at 151 ms mean/208 ms peak. Maintained combined
+  combat regression passes all 42 credits/43 images and restoration, with 185 ms mean
+  but 313 ms peak; the fixed 250 ms deadline still fails. Slow requests are not confined
+  to contacts. No playable capabilities, live producer or host geometry acceptance added.

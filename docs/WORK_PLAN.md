@@ -727,3 +727,8 @@ restores Sol health to 420 after the user's adjustment; persistent typed result 
 remain blocked. Inspect the health setting affecting player-one Sol, including separate
 player settings, before repeating. Fresh proxy derivation rejected persistent-health
 precondition; do not claim a new accepted template or combined combat result.
+Per-match regeneration is now disabled and native damage persists. Fresh proxy template
+and combined combat/image regression pass. Fresh native VirtualQuery actor validation
+removes range-enumeration overhead while retaining protection/bounds checks. Neutral
+deadline proof passes, but combined capture still peaks at 313 ms (mean 185 ms). Investigate
+remaining draw callback costs before deadline acceptance, then host geometry/producer work.

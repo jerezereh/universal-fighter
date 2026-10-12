@@ -83,3 +83,20 @@ clock=98;run(`publish(${state},5,false)`);assert.equal(sent.length,2);
 clock=99;run(`publish(${state},5,false)`);assert.equal(sent.length,3);
 run('config.streaming=false');run(`publish(${state},5,false)`);assert.equal(sent.length,4);
 console.log('Held diagnostic sampling retains every executed state and leaves nonstreaming traces unchanged.');
+
+let region={base:0x1000,size:0x10000,state:0x1000,protect:4},querySize=28,queries=0;
+context.Process={pointerSize:4,getModuleByName(){return {getExportByName(){return {};}};}};
+context.NativeFunction=function(){return ()=>{queries++;return querySize;};};
+context.Memory={alloc(){return {readPointer(){return {toUInt32(){return region.base;}};},
+    add(offset){return {readU32(){return ({12:region.size,16:region.state,20:region.protect})[offset];}};}};}};
+const actor='{toUInt32(){return 0x1100;}}';
+run(`assertReadableActor(${actor},0x2600)`);run(`assertReadableActor(${actor},0x2600)`);
+assert.equal(queries,2); // Never cache a region across reads.
+for(const bad of [{protect:0x104},{protect:1},{protect:16},{state:0x2000},
+        {base:0x1200},{size:0x200},{base:0xffff0000,size:0x20000}]) {
+    const saved=region;region={...region,...bad};
+    assert.throws(()=>run(`assertReadableActor(${actor},0x2600)`));region=saved;
+}
+querySize=0;assert.throws(()=>run(`assertReadableActor(${actor},0x2600)`));querySize=28;
+context.Process.pointerSize=8;assert.throws(()=>run(`assertReadableActor(${actor},0x2600)`));
+console.log('Fresh native actor range checks reject guards, unreadable/uncommitted spans, wrap and query failure.');

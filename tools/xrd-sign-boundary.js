@@ -729,6 +729,23 @@ function bytes(address, size) {
     return new Uint8Array(address.readByteArray(size));
 }
 
+let actorMemoryQuery=null;
+function assertReadableActor(actor,span) {
+    if(Process.pointerSize!==4 || !Number.isInteger(span) || span<1 || span>0x10000)
+        throw new Error('unsupported actor query bounds');
+    if(actorMemoryQuery===null)actorMemoryQuery=new NativeFunction(
+        Process.getModuleByName('kernel32.dll').getExportByName('VirtualQuery'),
+        'uint',['pointer','pointer','uint'],{abi:'stdcall',exceptions:'propagate'});
+    // MEMORY_BASIC_INFORMATION32: query freshly, without enumerating all process ranges.
+    const info=Memory.alloc(28);
+    if(actorMemoryQuery(actor,info,28)!==28)throw new Error('actor VirtualQuery failed');
+    const base=info.readPointer().toUInt32(),size=info.add(12).readU32(),
+        state=info.add(16).readU32(),protect=info.add(20).readU32(),address=actor.toUInt32();
+    if(state!==0x1000 || (protect&0x100) || ![2,4,8,32,64,128].includes(protect&255) ||
+            address<base || base+size>0x100000000 || address+span>base+size)
+        throw new Error('actor snapshot exceeds committed readable memory range');
+}
+
 function snapshot(root) {
     const f = config.state.fields;
     const segments = [];
@@ -749,9 +766,7 @@ function snapshot(root) {
     for (const actor of slots) {
         // One actor block contains both scalar fields and candidate pose/state names.
         const span = config.reaction_memory_bytes || 0x2600;
-        const range = Process.findRangeByAddress(actor);
-        if (!range || !range.protection.includes('r') || actor.add(span).compare(range.base.add(range.size)) > 0)
-            throw new Error('actor snapshot exceeds readable memory range');
+        assertReadableActor(actor,span);
         const data = bytes(actor, span);
         const view = new DataView(data.buffer);
         const hurt = view.getInt32(f.hurt_count, true);
