@@ -1,5 +1,6 @@
 """Unit tests that run without the game. Add your own against recorded source data, never game files."""
 import json
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,6 +12,7 @@ from ufproducer.server import Connection
 
 from sign import attach
 from sign.producer import SignProducer
+from sign.scene import ENGINE_RVA, fighter_pair
 
 SCRATCH = Path(__file__).resolve().parents[1] / 'local-cache'
 SCRATCH.mkdir(exist_ok=True)
@@ -59,6 +61,23 @@ class TemplateTests(unittest.TestCase):
                  patch.object(attach, 'process_image', return_value=Path(folder) / 'REV2' / 'GuiltyGearXrd.exe'):
                 with self.assertRaisesRegex(ValueError, 'different executable'):
                     attach.preflight(42, exe)
+
+    def test_native_pair_requires_sol_and_ky_with_stable_slots(self):
+        base, engine, sol, ky = 0x100000, 0x200000, 0x300000, 0x400000
+        sol_data, ky_data = bytearray(0x2600), bytearray(0x2600)
+        sol_data[0:10] = b'sol000_09\0'
+        ky_data[0:10] = b'kyk000_00\0'
+        struct.pack_into('<3i', sol_data, 572, 0, -252000, 0)
+        struct.pack_into('<3i', ky_data, 572, 1, 252000, 0)
+        memory = {base + ENGINE_RVA: struct.pack('<I', engine),
+                  engine + 176: struct.pack('<i', 2),
+                  engine + 196: struct.pack('<2I', sol, ky),
+                  sol: bytes(sol_data), ky: bytes(ky_data)}
+        read = lambda address, size: memory[address][:size]
+        self.assertEqual(fighter_pair(read, base)[0]['x_raw'], -252000)
+        memory[ky] = bytes(ky_data).replace(b'kyk000_00', b'sol000_00')
+        with self.assertRaisesRegex(ValueError, 'expected kyk'):
+            fighter_pair(read, base)
 
     def test_fake_serves_a_session(self):
         c = Connection(FakeProducer())

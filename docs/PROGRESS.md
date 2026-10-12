@@ -3634,3 +3634,11 @@ read-only timing evidence, not accepted arbitrary host blockstun application.
   and SHA-256 before any hook. Live PID 25640 passed; an authored Rev2-path mismatch
   test and all six scaffold tests pass. It does not prove offline Training, rendering,
   or source capabilities. Persistent source attachment is still fail closed.
+
+## 2026-10-12 SIGN receiver-pivot progress
+
+The SIGN producer now has a read-only native Sol/Ky fighter-pair preflight for the
+pinned live executable. PID 32716 passed exact-image and pair checks, including
+native position and facing, with no hooks installed. This does not establish
+offline Training or a playable producer. Persistent request-driven stepping,
+image transport and combat remain pending in `sign-producer/PROGRESS.md`.

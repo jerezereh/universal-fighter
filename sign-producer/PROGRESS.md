@@ -21,3 +21,15 @@
   not infer offline Training from the process path.
 - Live PID 25640 passes exact SIGN preflight; six unit tests and Python compilation
   pass. Offline scene verification and persistent producer attachment remain open.
+
+## 2026-10-12 — read-only native fighter pair
+
+- Added a dependency-free `--fighters` preflight for the pinned SIGN process. It reads
+  the native engine's two fighter slots and accepts only live Sol/Ky pose names with
+  bounded positions and facing. It verifies slot stability across the read.
+- PID 32716 passed exact-image and Sol/Ky checks in the user's current scene:
+  Sol at raw X -252000, facing right; Ky at 252000, facing left. A separate two-second
+  source observation sampled 197 records and independently found the same pair.
+- This proves the fighter pair, not offline Training mode or a controlled game tick.
+  No hook was installed. Persistent stepping, images, combat and the producer wire
+  remain open; `SignProducer` still advertises no capabilities.

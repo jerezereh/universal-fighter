@@ -11,6 +11,8 @@ IKEMEN runtime is on this path.
 
 `python produce.py --fake` serves the protocol's reference fighter.
 `python preflight.py --pid PID` confirms the pinned executable and exact live SIGN
-process using a read-only handle. `produce.py --exe` currently refuses to attach
+process using a read-only handle. Add `--fighters` to check the live Sol/Ky native
+slots, position and facing. This pair check does not establish offline Training.
+`produce.py --exe` currently refuses to attach
 until a persistent SIGN bridge is implemented. See [PROGRESS.md](PROGRESS.md) for
 verified SIGN work and open gates.
