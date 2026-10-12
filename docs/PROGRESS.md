@@ -3469,3 +3469,11 @@ read-only timing evidence, not accepted arbitrary host blockstun application.
   removed the experiment. Contact-credit and shader-cache regressions pass. Next
   compare the same capture with SIGN foreground to investigate background rendering
   before choosing further throughput work; this is diagnostic, not acceptance.
+- Foreground comparison of the unchanged quarter-resolution neutral stream passes
+  42 credits/43 frames with no errors, restored code and detached hooks. Exact SIGN
+  window status is foreground before, during and after capture, including the capture's
+  own cleanup receipt. Mean request latency is 312 ms, peak 356 ms, still above 250 ms.
+  Foreground operation alone does not establish timing acceptance. Do not infer that
+  background effects are absent or that these sampled statuses prove continuous focus.
+  Continue profiling render callbacks and frame readiness; no additional menu changes
+  are currently required, and playable capabilities remain disabled.

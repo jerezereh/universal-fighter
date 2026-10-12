@@ -702,3 +702,7 @@ before combined contact regression; prior-session evidence must not be relabeled
 Private readback reuse passes correctness but yields no material mean latency gain and
 is discarded. Compare foreground source timing to identify background-render effects
 before further capture optimization; keep the same deadline and readiness checks.
+Foreground comparison passes frame correctness/restoration but remains above deadline
+(312 ms mean, 356 ms peak). Continue render callback/readiness profiling; foreground
+operation alone does not make the source playable. No further menu changes are needed
+for that investigation.
