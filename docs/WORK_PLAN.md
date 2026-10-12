@@ -742,3 +742,9 @@ checks. Isolated defeat, automatic reset and post-reset persistent damage also p
 in this session. Request interactive feedback on the changed quarter-resolution graded
 preview before accepting its presentation, then continue airborne ingress/conversion
 and actual producer/host geometry integration. No further health/reset setup is needed.
+Quarter-resolution colors/facing/silhouette are now user accepted. Maintained airborne
+P0 projection passes owned RPC/native jump and landing checks with bounded height change
+and unchanged airborne X. Grounded P1, neutral input and safe separation remain required.
+Native peak latency 335 ms still fails the default deadline. Continue common-unit host
+coordinate conversion, close-range/typed result ownership and actual producer integration;
+all playable capabilities remain off until lifecycle, timing and human controls pass.

@@ -3595,3 +3595,19 @@ read-only timing evidence, not accepted arbitrary host blockstun application.
   no additional training reset or health setup is required. All playable capabilities
   remain off; producer integration, general typed results, airborne/close-range host
   geometry and sustained timing/human control acceptance remain unfinished.
+- User accepted the quarter-resolution native-grading preview's colors, facing and
+  silhouette. Anatomical pivot, live host placement and human controls remain pending.
+- Maintained owned-step projection now accepts a bounded airborne P0 height correction:
+  integer raw Y 0..600000, at most 25000 change, unchanged airborne X, grounded P1,
+  neutral inputs and safe separation. Both ingress and source-thread application check
+  grounded/airborne planes; writable memory and active-parent checks precede both writes.
+  Regression tests cover malformed requests, takeoff/landing rejection, airborne X,
+  delta limits, stale live plane and successful one-time height application.
+- Native RPC-delivered jump passes 85 credits/86 linked images, exactly +25000 Y at
+  step 10 relative to the baseline jump, and ends grounded. Evidence is ignored local
+  boundary-20261012-035600-952806; loaded code restores and detach succeeds. Mean latency
+  165 ms, peak 335 ms fails the unchanged 250 ms target. Earlier private test-driver
+  syntax/coordinate-key errors were corrected; interrupted native run restored/detached.
+  Node syntax, contact-credit and shader-cache regressions pass. This remains raw-unit
+  diagnostic ingress; no playable capability, generic host producer or close-range
+  geometry acceptance is implied. Continue host coordinate conversion and producer work.

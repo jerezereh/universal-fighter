@@ -747,14 +747,24 @@ function assertReadableActor(actor,span) {
     return protect;
 }
 
+function projectionPlane(value,state) {
+    if(!Array.isArray(state) || state.length!==2 || state.some(v=>!Array.isArray(v) || v.length!==5) ||
+            state[1][2]!==0 || value[1].y!==0 || state[0][2]<0 ||
+            (state[0][2]===0 ? value[0].y!==0 :
+                value[0].y===0 || value[0].x!==state[0][1] || Math.abs(value[0].y-state[0][2])>25000))
+        throw new Error('position projection must preserve grounded/airborne planes and bounded airborne height');
+}
+
 function positionProjection(value,inputs) {
     if(value===null)return null;
     if(!config.streaming || !config.transactions || !gate.ownsState || inputs.some(x=>x!==0) ||
             !Array.isArray(value) || value.length!==2 || value.some(v=>v===null || typeof v!=='object' || Array.isArray(v) ||
-                Object.keys(v).length!==2 || !Number.isInteger(v.x) || Math.abs(v.x)>600000 || v.y!==0) ||
+                Object.keys(v).length!==2 || !Number.isInteger(v.x) || Math.abs(v.x)>600000 ||
+                !Number.isInteger(v.y) || v.y<0 || v.y>600000) ||
             Math.abs(value[0].x-value[1].x)<350000)
-        throw new Error('position projection requires bounded separated grounded neutral actors');
-    return value.map(v=>({x:v.x,y:0}));
+        throw new Error('position projection requires bounded separated neutral actors');
+    projectionPlane(value,gate.heldState);
+    return value.map(v=>({x:v.x,y:v.y}));
 }
 
 function applyPositionProjection(g,p) {
@@ -763,13 +773,14 @@ function applyPositionProjection(g,p) {
     const fields=p.state.fields,guards=p.state.guarded_parents??[];
     const actors=[0,1].map(i=>g.root.add(fields.slots+4*i).readPointer());
     for(const actor of actors) {
-        if(![4,8,64,128].includes(assertReadableActor(actor,0x2600)&255) || actor.add(fields.y).readS32()!==0 ||
+        if(![4,8,64,128].includes(assertReadableActor(actor,0x2600)&255) ||
                 p.state.parents.some(field=>{
                     const guard=guards.find(v=>v.parent_field===field);
                     return guard ? ((actor.add(guard.flags_field).readU32()&guard.required_mask)>>>0)===guard.required_mask : !actor.add(field).readPointer().isNull();
-                }))throw new Error('position projection requires writable grounded unparented actors');
+                }))throw new Error('position projection requires writable unparented actors');
     }
-    actors.forEach((actor,i)=>actor.add(fields.x).writeS32(value[i].x));
+    projectionPlane(value,actors.map(actor=>[null,actor.add(fields.x).readS32(),actor.add(fields.y).readS32(),null,null]));
+    actors.forEach((actor,i)=>{actor.add(fields.x).writeS32(value[i].x);actor.add(fields.y).writeS32(value[i].y);});
     g.pendingProjection=null;
 }
 

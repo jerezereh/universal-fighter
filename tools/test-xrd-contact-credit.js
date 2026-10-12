@@ -101,7 +101,7 @@ querySize=0;assert.throws(()=>run(`assertReadableActor(${actor},0x2600)`));query
 context.Process.pointerSize=8;assert.throws(()=>run(`assertReadableActor(${actor},0x2600)`));
 console.log('Fresh native actor range checks reject guards, unreadable/uncommitted spans, wrap and query failure.');
 
-run('fixture();config.streaming=true;config.transactions=true;gate.ownsState=true;gate.frameReady=4;verifyGateOwner=function(){};');
+run('fixture();config.streaming=true;config.transactions=true;gate.ownsState=true;gate.frameReady=4;gate.heldState=[[null,-252000,0,null,null],[null,252000,0,null,null]];verifyGateOwner=function(){};');
 for(const value of ['false','[]','[{x:0,y:0},{x:1,y:0}]','[{x:true,y:0},{x:400000,y:0}]',
         '[{x:0,y:1},{x:400000,y:0}]','[{x:0,y:0,z:0},{x:400000,y:0}]','[{x:700000,y:0},{x:0,y:0}]']) {
     assert.throws(()=>run(`rpc.exports.step([0,0],4,null,${value})`));
@@ -111,21 +111,36 @@ assert.throws(()=>run('rpc.exports.step([4,0],4,null,[{x:0,y:0},{x:400000,y:0}])
 run('rpc.exports.step([0,0],4,null,[{x:-252000,y:0},{x:252000,y:0}])');
 assert.equal(JSON.stringify(run('gate.pendingProjection')),'[{"x":-252000,"y":0},{"x":252000,"y":0}]');
 assert.throws(()=>run('rpc.exports.step([0,0],4,null,[{x:352000,y:0},{x:-252000,y:0}])'));
-const writes=[];let secondY=1,parentFlags=0;
-const actors=[0,1].map(i=>({add(field){return {readS32(){return field===8 && i===1?secondY:0;},
+const writes=[];let firstY=0,secondY=1,parentFlags=0;
+const actors=[0,1].map(i=>({add(field){return {readS32(){return field===8?(i===1?secondY:firstY):0;},
     readU32(){return parentFlags;},readPointer(){return {isNull(){return true;}};},writeS32(value){writes.push([i,field,value]);}};}}));
 context.actorRoot={add(offset){return {readPointer(){return actors[offset/4];}};}};
 run('assertReadableActor=function(){return 4;};gate.root=actorRoot;');
 const profile='{state:{fields:{slots:0,x:4,y:8},parents:[16],guarded_parents:[]}}';
 assert.throws(()=>run(`applyPositionProjection(gate,${profile})`));assert.equal(writes.length,0);
 secondY=0;run(`applyPositionProjection(gate,${profile})`);
-assert.deepEqual(writes,[[0,4,-252000],[1,4,252000]]);
+assert.deepEqual(writes,[[0,4,-252000],[0,8,0],[1,4,252000],[1,8,0]]);
 assert.equal(run('gate.pendingProjection'),null);
-run(`applyPositionProjection(gate,${profile})`);assert.equal(writes.length,2);
+run(`applyPositionProjection(gate,${profile})`);assert.equal(writes.length,4);
 run('gate.pendingProjection=[{x:352000,y:0},{x:-252000,y:0}]');
 parentFlags=0x80000000;
 assert.throws(()=>run('applyPositionProjection(gate,{state:{fields:{slots:0,x:4,y:8},parents:[16],guarded_parents:[{parent_field:16,flags_field:12,required_mask:2147483648}]}})'));
-assert.equal(writes.length,2);parentFlags=0;
+assert.equal(writes.length,4);parentFlags=0;
 run('assertReadableActor=function(){return 2;}');
-assert.throws(()=>run(`applyPositionProjection(gate,${profile})`));assert.equal(writes.length,2);
+assert.throws(()=>run(`applyPositionProjection(gate,${profile})`));assert.equal(writes.length,4);
 console.log('Owned position ingress validates before credits; native projection checks both actors before one-time writes.');
+
+run('assertReadableActor=function(){return 4;};gate.heldState=[[null,0,100000,null,null],[null,400000,0,null,null]]');
+for(const value of ['[{x:0,y:0},{x:400000,y:0}]','[{x:1,y:100000},{x:400000,y:0}]',
+    '[{x:0,y:125001},{x:400000,y:0}]','[{x:0,y:75000},{x:400000,y:1}]'])
+    assert.throws(()=>run(`positionProjection(${value},[0,0])`));
+assert.equal(JSON.stringify(run('positionProjection([{x:0,y:125000},{x:400000,y:0}],[0,0])')),
+    '[{"x":0,"y":125000},{"x":400000,"y":0}]');
+run('gate.pendingProjection=[{x:0,y:125000},{x:400000,y:0}]');
+assert.throws(()=>run(`applyPositionProjection(gate,${profile})`));
+assert.equal(writes.length,4); // Grounded live source cannot use an earlier airborne receipt.
+console.log('Airborne projection bounds, plane transitions, X ownership and live recheck passed.');
+firstY=100000;
+run(`applyPositionProjection(gate,${profile})`);
+assert.deepEqual(writes.slice(4),[[0,4,0],[0,8,125000],[1,4,400000],[1,8,0]]);
+assert.equal(run('gate.pendingProjection'),null);
