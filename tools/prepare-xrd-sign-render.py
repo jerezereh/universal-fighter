@@ -33,9 +33,10 @@ def scene_identity(probe):
         return dict(pid=state['pid'],module_base=base,root=root,slots=slots)
 
 
-def prepare(pid,candidate,combat,meshes):
+def prepare(pid,candidate,combat,meshes,native_grading_only=False):
     recon=load('xrd-sign-probe.py');_,probe=recon['inspect'](recon['GAME'],pid)
-    receipt=dict(prepared=False,source_capabilities_enabled=False,automatic_live_rebind_verified=False,stages={})
+    receipt=dict(prepared=False,source_capabilities_enabled=False,automatic_live_rebind_verified=False,
+                 native_grading_only=native_grading_only,stages={})
     report=probe/'render-preparation.json'
     try:
         load('xrd-sign-observe.py')['capture'](probe,1,0)
@@ -58,7 +59,7 @@ def prepare(pid,candidate,combat,meshes):
             inspect_screen=True,capture_screen_stages=True)
         stage('verification',28,gate_receipt=owner,combat_path=combat,capture=True,trace_draws=True,
             suppress_path=buffers,layer_path=mesh,normalize=True,settle=True,grade_path=screen,
-            post_color_path=screen,smaa=True,transactions=True)
+            post_color_path=None if native_grading_only else screen,smaa=not native_grading_only,transactions=True)
         receipt['prepared']=True
     except Exception as error:
         receipt['error']=repr(error);raise
@@ -74,6 +75,7 @@ if __name__=='__main__':
     p.add_argument('--candidate',type=Path,required=True,help='ignored local verified update candidate')
     p.add_argument('--combat-candidate',type=Path,required=True,help='ignored local scalar getter/setter candidate')
     p.add_argument('--meshes',type=Path,required=True,help='ignored local Sol mesh metadata directory')
+    p.add_argument('--native-grading-only',action='store_true',help='verify native grading without optional full-screen postprocessing or SMAA')
     args=p.parse_args()
     if args.pid<=0:p.error('pid must be positive')
-    prepare(args.pid,args.candidate.resolve(),args.combat_candidate.resolve(),args.meshes.resolve())
+    prepare(args.pid,args.candidate.resolve(),args.combat_candidate.resolve(),args.meshes.resolve(),args.native_grading_only)

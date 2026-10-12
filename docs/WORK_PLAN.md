@@ -694,3 +694,8 @@ Quarter-resolution correctness now passes, with compensated projection/size, but
 request latency averages 267 ms and peaks at 355 ms against the unchanged 250 ms host
 deadline. Wait for lower source graphics settings and offline training readiness, then
 rebind and repeat timing. Do not enable playable capabilities from correctness-only results.
+
+Reduced-graphics source has restarted; fresh grading-only preparation and neutral rolling
+stream correctness pass. Latency still exceeds the deadline (346 ms mean, 649 ms peak).
+Continue capture throughput work and refresh combat/template witnesses for this process
+before combined contact regression; prior-session evidence must not be relabeled.

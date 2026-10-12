@@ -834,6 +834,11 @@ python tools/prepare-xrd-sign-render.py --pid $signPid `
 ```
 
 Set the variables to the exact SIGN PID and ignored local candidate/mesh paths. The tool
+accepts `--native-grading-only` when optional full-screen postprocessing/SMAA passes are
+disabled in source graphics settings. This verifies the existing native grading path;
+it does not establish visual equivalence to the full postprocessed cached image.
+The default still requires the complete postprocessing inventory.
+The tool
 derives a new module/state probe, update-owner trace, draw identity, mesh shader inventory
 and screen/postprocess inventory, then verifies four settled counter-bound source frames.
 It checks the battle/fighter identity before and after every bounded stage. It never sends

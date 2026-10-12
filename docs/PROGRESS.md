@@ -3447,3 +3447,19 @@ read-only timing evidence, not accepted arbitrary host blockstun application.
 - Rolling source requests now record send-to-ready-arrival latency, using one pending timestamp and aggregate counters for duration streams rather than growing timing history. Receipts separately report the unchanged 250 ms default host deadline and whether every measured credit meets it; correctness success cannot promote failed timing to playable acceptance.
 - Quarter-resolution native grading passes 42 credits/43 matched images at 160 by 192 pixels, both contacts/recoveries/freezes, native history, metadata restoration and clean source/render/contact teardown. Observed elapsed time is approximately 29.14 seconds; the 42 actual request latencies average 267.02 ms and peak at 354.85 ms. Default host deadline acceptance is false. Automatic reset restores healthy centered training.
 - Projection invariance, compensated size, invalid sizing and boundary/stream regressions pass. Asked the user to lower actual SIGN resolution/optional graphics settings and return to offline Sol/Ky training with regeneration disabled before the next timing check. This is pending manual environment setup, not a playable build. Host coordinate/result ownership, producer/lifecycle and mixed-match keyboard acceptance remain unfinished; source capabilities stay off.
+### 2026-10-11 reduced-graphics preparation and fresh timing
+
+- SIGN restarted after the requested graphics adjustment. Refreshed process/state,
+  owner, mesh and screen witnesses; prior-session combat/template witnesses were not
+  reused. Default preparation rejects missing optional postprocessing passes before
+  verification attachment. Added explicit `--native-grading-only` preparation using
+  the already maintained graded rendering path, preserving the full default and all
+  scene/ownership checks. Syntax and diff checks pass; native preparation passes.
+- A fresh neutral quarter-resolution stream passes 42 credits/43 linked frames,
+  ownership, restoration and detach with no errors. Request latency averages 346 ms
+  and peaks at 649 ms, exceeding the unchanged 250 ms host deadline. This is a different
+  session and neutral workload, not a controlled performance comparison with the
+  earlier combined combat capture. New-session combined combat remains pending.
+- Lower source settings alone do not establish latency acceptance. Continue capture
+  throughput investigation, fresh combat witnesses, host coordinate/result ownership
+  and real producer/lifecycle integration. All playable SIGN capabilities remain off.
