@@ -33,3 +33,15 @@
 - This proves the fighter pair, not offline Training mode or a controlled game tick.
   No hook was installed. Persistent stepping, images, combat and the producer wire
   remain open; `SignProducer` still advertises no capabilities.
+
+## 2026-10-12 — fresh source update and lease witnesses
+
+- In the same live PID 32716 session, an initial Frida attach timed out before hooks;
+  its receipt reports no samples and restored code. One bounded retry observed 301
+  consecutive source updates with zero counter gaps/errors and verified code restoration.
+- A separate bounded gate executed exactly three credited native updates, blocked 268
+  others, held both fighters' observed state stable, and kept rendering active. A
+  renewed 28-second hold blocked 1,264 updates and then verified lease recovery and
+  automatic hook removal. Both runs restored source code and detached cleanly.
+- These are current-session diagnostic proofs. They do not make the short-lived
+  script a persistent producer, meet frame latency, or validate the wire lifecycle.

@@ -3642,3 +3642,9 @@ pinned live executable. PID 32716 passed exact-image and pair checks, including
 native position and facing, with no hooks installed. This does not establish
 offline Training or a playable producer. Persistent request-driven stepping,
 image transport and combat remain pending in `sign-producer/PROGRESS.md`.
+
+Fresh PID 32716 diagnostic receipts also verify a 301-update owner trace, three
+exact credited updates with 268 blocked opportunities, and a renewed 28-second
+hold with lease recovery. The first attach attempt timed out before hooks and was
+rejected; the bounded retry and gate runs restored code. These checks remain
+diagnostic and do not promote `SignProducer` capabilities.
