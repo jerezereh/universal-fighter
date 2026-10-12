@@ -66,3 +66,20 @@ assert.equal(context.detachCalls,0);
 run('drawTrace.active=false;retireDrawInventoryHooks();retireDrawInventoryHooks()');
 assert.equal(context.detachCalls,1);
 console.log('Only finished streaming inventory hooks retire, exactly once.');
+
+let clock=0;
+const sent=[];
+context.Date={now(){return clock;}};
+context.send=message=>sent.push(message);
+run('snapshot=function(){return {data:null,segments:[]};};fixture();config.streaming=true;');
+const state='{root:null,before:4,thread:1,depth:0,return_address:"test",this_delta:4,entered_ms:0}';
+run(`publish(${state},4,false)`);
+clock=49;run(`publish(${state},4,false)`);
+assert.equal(sent.length,1);
+// Executed states always publish, even inside the held-copy interval.
+run(`publish(${state},5,true)`);
+assert.equal(sent.length,2);assert.equal(sent[1].executed,true);
+clock=98;run(`publish(${state},5,false)`);assert.equal(sent.length,2);
+clock=99;run(`publish(${state},5,false)`);assert.equal(sent.length,3);
+run('config.streaming=false');run(`publish(${state},5,false)`);assert.equal(sent.length,4);
+console.log('Held diagnostic sampling retains every executed state and leaves nonstreaming traces unchanged.');

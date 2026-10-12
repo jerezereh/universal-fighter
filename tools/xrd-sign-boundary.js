@@ -774,6 +774,12 @@ function ownedCreditReady(g) {
 }
 
 function publish(s, after, executed) {
+    // Held ownership is still checked on every update; only diagnostic copies are sampled.
+    const now=Date.now();
+    if(config.streaming && gate!==null) {
+        if(!executed && gate.lastSnapshotMs!==undefined && now-gate.lastSnapshotMs<50)return;
+        gate.lastSnapshotMs=now;
+    }
     const captured = snapshot(s.root);
     send({kind: 'frame',sequence: ++sequence, before: s.before, after,
         counter_delta: (after - s.before) >>> 0, thread: s.thread, depth: s.depth,

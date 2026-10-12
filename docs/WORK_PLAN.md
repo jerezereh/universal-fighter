@@ -710,3 +710,8 @@ Private callback profiling identifies measurable mesh replay, grading and readba
 with overlapping scopes. State-block reuse passes correctness but provides no reliable
 mean latency gain and is discarded. Continue isolating callback/readiness costs and
 refresh combat witnesses; the unchanged deadline still fails.
+Native timeline profiling exposes repeated held actor copies. Streaming diagnostics now
+sample held copies at 20 Hz while retaining every executed state and all per-update native
+ownership checks. Neutral native regression passes; latency remains 262 ms mean/318 ms
+peak. Refresh session combat witnesses for combined freeze regression and continue
+readiness/render cost work before playable capabilities or host integration acceptance.

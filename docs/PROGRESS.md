@@ -3489,3 +3489,17 @@ read-only timing evidence, not accepted arbitrary host blockstun application.
   No reliable mean improvement is demonstrated; removed the experiment. D3D ABI,
   contact-credit and shader-cache regressions pass. No runtime dependency or playable
   capability added. Continue isolating callback/readiness costs and fresh combat witnesses.
+- Private native timeline profiling passes 42 credits/43 frames with clean restore
+  and detach. Mean native spans are 21 ms ingress-to-update, 136 ms update-to-first
+  readback and 103 ms first-readback-to-readiness; wall-clock/coarse instrumentation
+  is diagnostic and may perturb timing. Full snapshot scopes consume 10,198 ms across
+  startup, the 13-second hold and captures, including blocked updates.
+- Streaming held diagnostic snapshots are now sampled at 20 Hz, preserving every
+  executed-step snapshot and all per-update native caller/scene/counter/held-state
+  ownership checks. Nonstreaming traces remain unchanged. The actual publish regression
+  covers the interval boundary, mandatory executed snapshots and nonstreaming behavior.
+  Native neutral regression passes 42 credits/43 frames with 387 retained states,
+  mean request latency 262 ms, peak 318 ms, no errors and clean restoration/detach.
+  This reduces redundant diagnostic copies; the 250 ms deadline still fails. Combined
+  combat/freeze regression with fresh-session witnesses remains pending; no playable
+  capability is enabled.
