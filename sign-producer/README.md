@@ -9,6 +9,8 @@ the match and receives source state, boxes and an isolated fighter layer through
 host results through native game paths, and exporting native output. No sprite bake or
 IKEMEN runtime is on this path.
 
-`python produce.py --fake` serves the protocol's reference fighter. `--exe` verifies
-the pinned executable and currently refuses to attach until a persistent SIGN bridge
-is implemented. See [PROGRESS.md](PROGRESS.md) for verified SIGN work and open gates.
+`python produce.py --fake` serves the protocol's reference fighter.
+`python preflight.py --pid PID` confirms the pinned executable and exact live SIGN
+process using a read-only handle. `produce.py --exe` currently refuses to attach
+until a persistent SIGN bridge is implemented. See [PROGRESS.md](PROGRESS.md) for
+verified SIGN work and open gates.

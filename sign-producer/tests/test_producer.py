@@ -3,6 +3,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from ufproducer import protocol
 from ufproducer.fake import FakeProducer
@@ -48,6 +49,16 @@ class TemplateTests(unittest.TestCase):
             exe.write_bytes(b'not the pinned build')
             with self.assertRaises(SystemExit):
                 attach.Source(exe)
+
+    def test_preflight_rejects_rev2_pid_without_hooks(self):
+        with tempfile.TemporaryDirectory(dir=SCRATCH) as folder:
+            exe = Path(folder) / 'GuiltyGearXrd.exe'
+            exe.write_bytes(b'SIGN')
+            with patch.object(attach, 'pins', return_value={'game': {'exe_size': 4}}), \
+                 patch.object(attach, 'verify', return_value='verified'), \
+                 patch.object(attach, 'process_image', return_value=Path(folder) / 'REV2' / 'GuiltyGearXrd.exe'):
+                with self.assertRaisesRegex(ValueError, 'different executable'):
+                    attach.preflight(42, exe)
 
     def test_fake_serves_a_session(self):
         c = Connection(FakeProducer())

@@ -12,3 +12,12 @@
 - Pending: long-lived reversible SIGN bridge, on-demand D3D9On12/shared-layer capture,
   unrestricted source input and close-range opponent mirror, native result coverage,
   `ufconform` on the real source, and a playable `uf-arena` match.
+
+## 2026-10-11 — exact-process preflight
+
+- Added a read-only PID check using PROCESS_QUERY_LIMITED_INFORMATION. It verifies
+  the live process image against the pinned SIGN path, file size and SHA-256; a
+  same-name Rev2 process is rejected. It installs no hooks and deliberately does
+  not infer offline Training from the process path.
+- Live PID 25640 passes exact SIGN preflight; six unit tests and Python compilation
+  pass. Offline scene verification and persistent producer attachment remain open.

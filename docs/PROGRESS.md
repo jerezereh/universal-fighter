@@ -3629,3 +3629,8 @@ read-only timing evidence, not accepted arbitrary host blockstun application.
 - Next: persistent SIGN process/scene verification and reversible step/input/render
   bridge, then source-backed ufconform and uf-arena playability/performance checks.
   Earlier IKEMEN and sprite-bake branches are historical, not active implementation.
+
+- A read-only SIGN PID preflight now checks the exact process image, pinned file size
+  and SHA-256 before any hook. Live PID 25640 passed; an authored Rev2-path mismatch
+  test and all six scaffold tests pass. It does not prove offline Training, rendering,
+  or source capabilities. Persistent source attachment is still fail closed.
