@@ -3523,3 +3523,15 @@ read-only timing evidence, not accepted arbitrary host blockstun application.
   before typed result checks. This refreshes original contact evidence only; combined idle-proxy
   combat remains pending. Manual Escape reset is needed to restore the clean baseline
   and witness reset in this restarted session before automatic reset can be rebound.
+- User-confirmed manual reset restores native default positions and full health in
+  the same process. Both previously witnessed reset code prefixes match unchanged;
+  refreshed private session identity while recording that manual age restart was not
+  captured. Automatic background Escape reset then verifies a fresh native age restart,
+  default health/positions, idle recovery and detach. No desktop focus/input required.
+- Repeated fresh original Ky-to-Sol contact passes 85 credits, native eight damage,
+  hitstop/recovery, frozen-state checks and full cleanup. Sol still returns to 420 by
+  the final sample after the user's health-setting adjustment. The private template
+  derivation stops on its explicit persistent-health assertion, before creating a
+  new template. This remains a setup blocker for persistent typed results. Ask the
+  user to inspect the setting affecting player-one Sol (and both players if separate)
+  and provide the exact setting/value; automatic reset can handle subsequent recovery.

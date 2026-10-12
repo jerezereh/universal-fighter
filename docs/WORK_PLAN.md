@@ -722,3 +722,8 @@ after relocation-only dispatch rebinding. Request manual Escape reset to restore
 baseline and re-witness automatic reset, then refresh proxy metadata and combined combat.
 Health also returns to 420 by the original-contact capture's end. Ask the user to disable
 training health regeneration in this instance before persistent result tests resume.
+Automatic reset is now reverified for this process. A repeat original contact still
+restores Sol health to 420 after the user's adjustment; persistent typed result tests
+remain blocked. Inspect the health setting affecting player-one Sol, including separate
+player settings, before repeating. Fresh proxy derivation rejected persistent-health
+precondition; do not claim a new accepted template or combined combat result.
