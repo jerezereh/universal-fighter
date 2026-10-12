@@ -30,3 +30,24 @@ run('coverageShaderCache={shader:copy};releaseLayerShaderCache();releaseLayerSha
 assert.deepEqual(calls.slice(-1),[['copy',2]]);
 assert.equal(run('coverageShaderCache'),null);
 console.log('Shader witness drift, one frame reference, retained cache and one-time owner release passed.');
+
+const nil={isNull(){return true;}},nativeShader={isNull(){return false;},toString(){return 'native';}};
+let released=0;
+const inspect=vm.createContext({Map,Set,ptr(){return nil;},
+    Memory:{alloc(){return {value:0,writePointer(v){this.value=v;},readPointer(){return this.value;},writeU32(v){this.value=v;},readU32(){return this.value;}};}},
+    bytes(){return new Uint8Array(8);},succeeded(hr){assert.equal(hr,0);},
+    Process:{getModuleByName(){throw Error('disassembly requested');}},
+    com(object,slot){return (...args)=>{
+        if(slot===108){args[1].writePointer(nativeShader);return 0;}
+        if(slot===4){if(args[1]===nil)args[2].writeU32(8);return 0;}
+        if(slot===2){released++;return 0;}
+        throw Error('unexpected COM slot');
+    };}
+});
+vm.runInContext(fs.readFileSync(__dirname+'/xrd-sign-layer.js','utf8'),inspect);
+const byteOnly=vm.runInContext("shaderProgram({},'pixel',false)",inspect);
+assert.equal(byteOnly.shader,'native');assert.equal(byteOnly.code.length,8);
+assert.equal(released,1);
+assert.throws(()=>vm.runInContext("shaderProgram({},'pixel')",inspect),/disassembly requested/);
+assert.equal(released,2);
+console.log('Byte-only shader checks retain bounds and release references; inspection still requests assembly.');

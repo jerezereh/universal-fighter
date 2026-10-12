@@ -34,10 +34,10 @@ function gradeLayer(device,d,replaySource=null) {
         g===null || g.resumed || g.executing || renderCapture.counter!==current.counter)return;
     const root=Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
     if(root.add(4+config.candidate.counter_field).readU32()!==current.counter)throw new Error('source advanced before private grading');
-    const program=shaderProgram(device,'pixel');
+    const program=shaderProgram(device,'pixel',false);
     if(program.shader!==p.shader || hex(program.code)!==p.original_hex)throw new Error('native grading program drift');
     if(config.layer.source_color) {
-        if(replaySource===null || hex(shaderProgram(device,'vertex').code)!==p.vertex_original_hex)
+        if(replaySource===null || hex(shaderProgram(device,'vertex',false).code)!==p.vertex_original_hex)
             throw new Error('unverified original color draw/vertex program');
     }
     if(config.layer.source_view) {

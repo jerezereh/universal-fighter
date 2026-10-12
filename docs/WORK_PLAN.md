@@ -715,3 +715,8 @@ sample held copies at 20 Hz while retaining every executed state and all per-upd
 ownership checks. Neutral native regression passes; latency remains 262 ms mean/318 ms
 peak. Refresh session combat witnesses for combined freeze regression and continue
 readiness/render cost work before playable capabilities or host integration acceptance.
+Byte-only runtime shader checks preserve exact witnesses and pass native streaming;
+latency averages 235 ms but peaks at 313 ms, so deadline acceptance remains pending.
+Fresh original Ky-to-Sol contact now verifies damage/hitstop/recovery in this session,
+after relocation-only dispatch rebinding. Request manual Escape reset to restore the
+baseline and re-witness automatic reset, then refresh proxy metadata and combined combat.

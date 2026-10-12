@@ -173,7 +173,7 @@ function observeBodyAnchor(device,d) {
         bodyAnchor && bodyAnchor.counter===counter && bodyAnchor.presentation===presentation) return;
     const binding=p.origins[d.vertexShader];
     if (!binding) throw new Error('unverified native body anchor program');
-    const program=vertexProgram(device);
+    const program=shaderProgram(device,'vertex',false);
     if (program.shader!==d.vertexShader || hex(program.code)!==binding.original_hex) throw new Error('body anchor vertex drift');
     const data=Memory.alloc(16);
     succeeded(com(device,95,'int',['uint','pointer','uint'])(device,binding.local_to_world+3,data,1),'body render origin');
@@ -190,7 +190,7 @@ function privateProjection(device,d) {
     const binding=p.programs[d.vertexShader];
     if (!binding) throw new Error('unverified native vertex projection');
     if (!meshLayer.vertex_seen.has(d.vertexShader)) {
-        const program=vertexProgram(device);
+        const program=shaderProgram(device,'vertex',false);
         if (program.shader!==d.vertexShader || hex(program.code)!==binding.original_hex)
             throw new Error('native vertex program drift');
         meshLayer.vertex_seen.add(d.vertexShader);
@@ -273,7 +273,7 @@ function layerShader(device, sourceShader, program) {
     meshLayer.shaders.set(id, shader); return shader;
 }
 
-function shaderProgram(device,kind='vertex') {
+function shaderProgram(device,kind='vertex',assemblyRequired=true) {
     if (!['vertex','pixel'].includes(kind)) throw new Error('invalid shader kind');
     const output = Memory.alloc(4); output.writePointer(ptr(0));
     let shader = ptr(0), assembly = ptr(0);
@@ -288,6 +288,7 @@ function shaderProgram(device,kind='vertex') {
         const code=Memory.alloc(length);
         succeeded(com(shader,4,'int',['pointer','pointer'])(shader,code,size),'vertex GetFunction');
         if (size.readU32()!==length) throw new Error(kind+' program size drift');
+        if(!assemblyRequired)return {shader:shader.toString(),code:bytes(code,length)};
         const sdk=Process.getModuleByName('d3dx9_43.dll');
         const entry=sdk.enumerateExports().find(e=>e.name==='D3DXDisassembleShader');
         if (!entry) throw new Error('missing native shader disassembler');

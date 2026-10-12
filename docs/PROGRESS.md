@@ -3503,3 +3503,21 @@ read-only timing evidence, not accepted arbitrary host blockstun application.
   This reduces redundant diagnostic copies; the 250 ms deadline still fails. Combined
   combat/freeze regression with fresh-session witnesses remains pending; no playable
   capability is enabled.
+- Runtime projection/anchor and native grading checks now request shader bytes without
+  disassembling them. Shader identity, byte bounds, exact byte witnesses and reference
+  release remain required; preparation/inspection and postprocessing retain assembly.
+  Actual shader-reader regression covers byte-only behavior, default disassembly and
+  cleanup. Shader/cache, contact-credit and D3D ABI checks pass. Native neutral stream
+  passes 42 credits/43 frames with clean restore/detach, mean latency 235 ms, peak 313 ms.
+  Peak still exceeds the unchanged 250 ms deadline; no playable capability is enabled.
+- Fresh combat preparation positions Sol near Ky. The old dispatch hash rejects before
+  contact attachment because the new executable base relocates code operands. Compared
+  the complete private dispatch body using the fingerprinted executable's PE HIGHLOW
+  relocation entries: all 18 changed fields match relocation, with no other changes.
+  Refreshed the private body witness rather than bypassing hash checks. A private path
+  quoting error also rejects before attachment and is corrected without repeated movement.
+- Fresh original Ky standing Punch passes 85 credits: one activation, eight damage
+  (420 to 412), native hitstop countdown, hurt/recovery and frozen-state checks. Hooks
+  restore and detach. This refreshes original contact evidence only; combined idle-proxy
+  combat remains pending. Manual Escape reset is needed to restore the clean baseline
+  and witness reset in this restarted session before automatic reset can be rebound.
