@@ -280,3 +280,19 @@
   playable budget. Development checks still use D3D9 CPU readback to decide
   settling and compare pixels; reusable resource ownership, wire replies,
   native state/contact mapping, and 60 Hz host play remain pending.
+
+## 2026-10-12 — diagnostic latency baseline
+
+- The bounded four-settled-frame retreat was repeated with timing at the
+  independent reader. Three owned request-to-ready notices took 326.594,
+  290.638, and 365.400 ms. Four independent D3D12-to-CPU verification reads
+  took 70.104, 46.834, 44.751, and 54.349 ms. All four images still matched
+  their native D3D9 diagnostic captures; source/render code restored and the
+  post-check battle counter advanced.
+- These are end-to-end **diagnostic** times with draw-inventory hooks, two
+  D3D9 CPU captures for settling, independent CPU pixel verification, and the
+  game's normal background presentation pacing. They do not isolate the GPU
+  copy and cannot be projected to the eventual producer. The current path is
+  far above a 16.7 ms frame budget. A serving path must remove CPU verification,
+  reduce readiness work, and render on host demand before playable latency can
+  be accepted.

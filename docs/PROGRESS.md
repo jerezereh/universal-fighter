@@ -3748,3 +3748,10 @@ distinct, byte-match independent arena D3D12 reads, and were accepted at
 presentations 4, 6, 5, and 6. Source/render hooks restored and SIGN advanced
 afterward. CPU settling diagnostics, persistent producer session ownership,
 wire delivery, release semantics, and playable latency remain open.
+
+The four-frame settled diagnostic now records latency. In one bounded retreat,
+owned request-to-ready notices took 291–365 ms and independent CPU verification
+reads 45–70 ms per image. Images still matched exactly and SIGN recovered.
+These numbers include instrumentation, CPU settling and background rendering;
+they are a baseline for removing that work, not a measurement of the final
+GPU-only producer or a playable frame budget.

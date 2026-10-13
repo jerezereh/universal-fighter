@@ -726,10 +726,14 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         if not on12_readback or type(index)!=int or not 0<=index<on12_frames or index in early_gpu or data is not None or not all(
                             native.get(key) for key in ('memory','fence','value','width','height')):
                             raise ValueError('unexpected early shared-layer receipt')
+                        read_started=time.perf_counter()
                         reader=Reader()
                         try: pixels=reader.read(native)
                         finally: reader.close()
-                        early_gpu[index]=(native,pixels)
+                        early_gpu[index]=(native,pixels,dict(
+                            read_ms=round((time.perf_counter()-read_started)*1000,3),
+                            **({'request_to_ready_ms':round((wall-request_times[index])*1000,3)}
+                               if index in request_times else {})))
                         continue
                     if message['type']=='send' and message['payload'].get('kind')=='on12-candidate':
                         native=message['payload'];index=native.get('request_index')
@@ -742,7 +746,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         pixels=early[1];expected=data[native['state_size']:]
                         gpu_readback.append(dict(request_index=index,equal=pixels==expected,bytes=len(pixels),
                             gpu_sha256=hashlib.sha256(pixels).hexdigest(),d3d9_sha256=hashlib.sha256(expected).hexdigest(),
-                            read_before_candidate_receipt=True))
+                            read_before_candidate_receipt=True,**early[2]))
                         gpu_candidates.append(index)
                         continue
                     if message['type']=='send' and message['payload'].get('kind')=='layer-transform':
