@@ -61,3 +61,14 @@
 - Next implementation gate is a persistent source-owned render/control path that
   avoids the diagnostic CPU capture cost; then integrate with uf-arena's wire and
   validate match lifecycle and human controls.
+
+## 2026-10-12 — launcher edition isolation
+
+- `tools/play-xrd-source.ps1` now rejects duplicate SIGN instances and selects the
+  launched SIGN window by full executable path; a concurrent Rev2 process no longer
+  blocks or misidentifies the launcher. PowerShell syntax and a mixed-edition
+  selector check pass. It still opens the normal menu; no verified command-line
+  shortcut enters Training or chooses characters.
+- The next native-grading timing comparison could not start because PID 32716 had
+  exited. No matching Windows Application fault event was found in the recent log.
+  Cause is unknown; fresh live bindings are needed after the next SIGN launch.

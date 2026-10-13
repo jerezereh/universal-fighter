@@ -13,7 +13,12 @@ $bootstrap = Join-Path $binaryDirectory 'BootGGXrd.exe'
 if ((Get-FileHash -LiteralPath $bootstrap -Algorithm SHA256).Hash -ne '998ECE44B49FD9F4442304ADE6AB71BA14A4F6DCA5B0E000D668FE934BA8F59B') {
     throw 'Unverified SIGN bootstrap build.'
 }
-if (Get-Process -Name GuiltyGearXrd -ErrorAction SilentlyContinue) { throw 'Close the existing SIGN instance before launching a source check.' }
+function Get-SignProcess {
+    @(Get-Process -Name GuiltyGearXrd -ErrorAction SilentlyContinue | Where-Object {
+        $_.Path -and [IO.Path]::GetFullPath($_.Path) -eq [IO.Path]::GetFullPath($executable)
+    })
+}
+if (Get-SignProcess) { throw 'Close the existing SIGN instance before launching a source check.' }
 $receiptPath = Join-Path $root 'local-cache/xrd-tools/oracle-dependencies.json'
 if (!(Test-Path -LiteralPath $receiptPath)) { throw 'Run gather-xrd-oracle.ps1 first.' }
 $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
@@ -31,7 +36,8 @@ try {
 $deadline = (Get-Date).AddSeconds(20)
 do {
     Start-Sleep -Milliseconds 250
-    $game = Get-Process -Name GuiltyGearXrd -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 }
+    $game = @(Get-SignProcess | Where-Object { $_.MainWindowHandle -ne 0 })
 } until ($game -or (Get-Date) -ge $deadline)
 if (!$game) { throw "SIGN did not create a window; bootstrap PID was $($launcher.Id)." }
+if ($game.Count -ne 1) { throw 'Expected exactly one launched SIGN window.' }
 Write-Output "Original SIGN window ready (PID $($game.Id)). Use offline Practice/Training for source comparisons."

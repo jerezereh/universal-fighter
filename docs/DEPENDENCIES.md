@@ -60,5 +60,8 @@ This fixes the observed missing-library loader stage, not every SIGN startup fai
 The subsequent working route uses the **official BootGGXrd bootstrap** with that
 child-only PATH. `./tools/play-xrd-source.ps1` fingerprints both executables, verifies
 the cached DLL hashes, rejects duplicate instances and restores the caller's PATH.
+It identifies SIGN by its full executable path, so a separate Rev2 process may run
+at the same time. It opens SIGN's normal menu; selecting offline Training and the
+fighters still requires UI navigation.
 It opens the original game for manual offline checks; the game creates its normal player
 data. Bootstrap command-line window/audio flags were not observed to reach the child.

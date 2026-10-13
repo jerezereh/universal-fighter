@@ -3653,3 +3653,8 @@ Full-quality native render preparation in PID 32716 passed, followed by a 20-ste
 21-image linked stream at quarter resolution. Mean request latency was 311 ms,
 peak 331 ms, with clean code restoration/detach; 60 Hz acceptance remains open.
 SIGN's producer preflight now also reports six read-only source-counter samples.
+
+The SIGN launcher now distinguishes the pinned SIGN path from a concurrent Rev2
+process; its parser and mixed-edition selector check pass. The source process had
+exited before the next native-grading comparison, with no matching recent Windows
+Application fault event. Its cause is unknown and a fresh session is required.
