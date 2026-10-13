@@ -590,6 +590,9 @@ function finishMeshLayer(device) {
         if(on12 && config.layer.on12_readback)
             send({kind:'on12-ready',counter:current.counter,request_index:requestIndex,...on12});
         const captured = captureBackBuffer(device, root, current.counter, false, current.graded??current.target);
+        if(on12 && config.layer.on12_readback)
+            send({...captured.metadata,kind:'on12-candidate',presentation_index:renderCapture.presentations+1,
+                diagnostic_settling:true,hresult:0,request_index:requestIndex,on12_resource_probe:on12},captured.data);
         const metadata={...captured.metadata, kind: config.layer.hdr&&!config.layer.grade?'render-hdr-layer':'render-layer', presentation_index: renderCapture.presentations + 1,
             diagnostic_settling: config.layer.settle || config.layer.presentations.length > 1, native_coverage_verified: false,
             request_index: (current.counter - gate.initialCounter) >>> 0,

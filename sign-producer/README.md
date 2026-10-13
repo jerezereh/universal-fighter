@@ -34,6 +34,10 @@ check performs one temporary render-thread GPU copy of the isolated fighter
 texture and compares it through uf-arena's independent D3D12 reader.
 Add `--on12-frames 4` for a bounded four-step check using a separate shared
 texture per step; it does not reuse textures or run as a persistent producer.
+For a changing-pose diagnostic, pair it with `--input-candidate` and a
+three-step `--input-plan` of retreat inputs. The GPU pixels are compared with
+each immediate native candidate; only the separate settling check decides
+which candidates become render-ready frames.
 It needs the same ignored local `--candidate`, `--combat-candidate` and `--meshes`
 inputs as normal render preparation and the sibling `uf-arena/python` checkout
 for the development-only reader. The temporary handle is closed during the

@@ -3733,3 +3733,10 @@ one per owned counter, with no receiver-release wait. All four early arena
 D3D12 reads matched the corresponding D3D9 layers; hooks restored, errors were
 zero, and SIGN's clock advanced afterward. The neutral images were identical,
 so changing-pose delivery and sustained playable performance remain open.
+
+A native three-step retreat then produced four different shared GPU candidate
+images; each matched its corresponding D3D9 diagnostic capture exactly, with
+the arena reader consuming the ready notice before the candidate receipt. The
+movement oracle, settled source frames, hook restoration, and post-check clock
+passed. Candidate comparison is distinct from deciding which images have
+settled enough for host publication. The probe remains bounded and not playable.

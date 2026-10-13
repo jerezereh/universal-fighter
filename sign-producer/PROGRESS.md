@@ -237,3 +237,23 @@
   frame rate, bounded reusable buffers, or a playable producer. These unique
   textures are a diagnostic; a production bridge still needs release-fence
   ownership and continuous session handling.
+
+## 2026-10-12 — changing-pose GPU candidates
+
+- A three-step native retreat exposed that the first private render candidate
+  for a source counter does not always become one of its two settled packets.
+  Comparing only settled packets accounted for two of four GPU copies. A
+  subsequent diagnostic rejected incomplete immediate-candidate metadata;
+  both failed runs restored hooks and left SIGN advancing. Candidate-level
+  validation now keeps settlement as a separate check.
+- The corrected bounded check in PID 27192 passed: native input history linked
+  all three retreat credits, four immediate GPU readbacks matched their own
+  D3D9 candidates byte-for-byte, and the four SHA256 hashes differed. The
+  independent reader consumed each early resource notice before processing
+  its candidate packet. Eight separate settled layer packets were linked to
+  four source counters. Errors were zero; source/render code restored, Frida
+  detached, and a post-check clock advanced.
+- This is still a development-only four-frame probe with CPU comparison and
+  per-frame allocations. It does not establish a reusable production buffer,
+  settled-frame GPU publication for all actions, a 16.7 ms budget, or uf-arena
+  protocol conformance.

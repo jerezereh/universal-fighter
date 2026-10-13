@@ -513,7 +513,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     def receive(message,data):
         try: messages.put_nowait((message,data,time.perf_counter()))
         except queue.Full: overflow.set()
-    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];vertices=[];screens=[];layers=[];transforms=[];scene_packets=[];layer_packets=[];gpu_readback=[];early_gpu={};render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
+    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];vertices=[];screens=[];layers=[];transforms=[];scene_packets=[];layer_packets=[];gpu_readback=[];early_gpu={};gpu_candidates=[];render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
     if on12_readback:
         sys.path.insert(0,str(ROOT.parent/'uf-arena/python'))  # pinned receiver-side reader; development diagnostic only
         from ufproducer.d3d12 import Reader
@@ -728,6 +728,20 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         finally: reader.close()
                         early_gpu[index]=(native,pixels)
                         continue
+                    if message['type']=='send' and message['payload'].get('kind')=='on12-candidate':
+                        native=message['payload'];index=native.get('request_index')
+                        if not on12_readback or index not in early_gpu or index in gpu_candidates:
+                            raise ValueError('unexpected shared-layer candidate')
+                        probe=native['on12_resource_probe'];early=early_gpu[index]
+                        if any(early[0].get(key)!=probe.get(key) for key in ('memory','fence','value','width','height')) or early[0]['counter']!=native['counter']:
+                            raise ValueError('early shared-layer receipt does not match candidate')
+                        render_pixels(native,data)
+                        pixels=early[1];expected=data[native['state_size']:]
+                        gpu_readback.append(dict(request_index=index,equal=pixels==expected,bytes=len(pixels),
+                            gpu_sha256=hashlib.sha256(pixels).hexdigest(),d3d9_sha256=hashlib.sha256(expected).hexdigest(),
+                            read_before_candidate_receipt=True))
+                        gpu_candidates.append(index)
+                        continue
                     if message['type']=='send' and message['payload'].get('kind')=='layer-transform':
                         if not inspect_transforms or len(transforms)>=8: raise ValueError('vertex observation limit')
                         native=message['payload'];code,constants,analysis=transform_packet(native,data)
@@ -769,17 +783,6 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         if native['kind']=='render-hdr-layer':
                             if not hdr or not 1<=native['state_size']<=0x80000: raise ValueError('unexpected/unbounded HDR layer')
                         else: render_pixels(native,data)
-                        if on12_readback and 'on12_resource_probe' in native:
-                            probe=native['on12_resource_probe']
-                            early=early_gpu.get(native['request_index'])
-                            if early is None or any(early[0].get(key)!=probe.get(key) for key in
-                                ('memory','fence','value','width','height')) or early[0]['counter']!=native['counter']:
-                                raise ValueError('early shared-layer receipt does not match settled layer')
-                            pixels=early[1]
-                            expected=data[native['state_size']:]
-                            gpu_readback.append(dict(equal=pixels==expected,bytes=len(pixels),
-                                gpu_sha256=hashlib.sha256(pixels).hexdigest(),d3d9_sha256=hashlib.sha256(expected).hexdigest(),
-                                read_before_settled_layer=True))
                         if len(layers)>=len(layer['capture_steps'])*per_step: raise ValueError('private layer capture limit')
                         render_bytes+=len(data)
                         if render_bytes>128<<20: raise ValueError('render packet byte limit')
@@ -975,7 +978,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         if len(layers)<2 or not result['layer_check']['held_counter_state_linked'] or not result['private_layer_state_restored']:
             errors.append(dict(layer_error='missing/unlinked private layer or graphics-state restoration'))
         if on12_probe:
-            probes=[image['on12_resource_probe'] for image in layers if 'on12_resource_probe' in image]
+            probes=([image[0] for image in early_gpu.values()] if on12_readback else
+                [image['on12_resource_probe'] for image in layers if 'on12_resource_probe' in image])
             expected_probe={'unwrapped':True,'returned':True,'copied':True,'shared_handle_created':True,
                 'source':'private graded fighter texture'}
             result['on12_resource_probe']=dict(unwrapped_and_returned=len(probes)==on12_frames and all(
@@ -984,7 +988,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                 errors.append(dict(on12_error='missing or invalid private fighter texture interop proof'))
             if on12_readback:
                 result['on12_readback']=gpu_readback
-                if len(gpu_readback)!=on12_frames or not all(row['equal'] for row in gpu_readback):
+                if len(gpu_readback)!=on12_frames or sorted(gpu_candidates)!=list(range(on12_frames)) or not all(row['equal'] for row in gpu_readback):
                     errors.append(dict(on12_error='independent shared-texture pixels differ from D3D9 layer'))
     if observe_contact:
         result['external_pair_events']=external_events
