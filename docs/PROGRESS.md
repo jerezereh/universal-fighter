@@ -3710,3 +3710,13 @@ ready fence by name through the pinned uf-arena D3D12 helper. Its 1,966,080
 BGRA bytes match the same native D3D9 layer exactly; the bounded trace restores
 all hooks. This verifies one shared GPU frame, not persistent producer delivery
 or playable latency.
+
+A subsequent multi-frame texture-reuse experiment is rejected: the source
+counter held, no layer reached the independent reader, and renderer teardown
+did not finish. A release wait before settled-frame publication is the likely
+cause, not yet confirmed by a native wait trace. Its unvalidated code was
+reverted. The exact stalled SIGN process was closed after normal close failed;
+the verified D3D9On12 launcher produced a responsive replacement PID 27192.
+Sol/Ky Training was re-entered in PID 27192; preflight verified the pair and
+an advancing battle counter. The single-frame cross-device pixel proof remains
+accepted.

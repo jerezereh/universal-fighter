@@ -184,3 +184,24 @@
   upload. The probe still has a bounded lifetime and retains legacy CPU
   diagnostic capture. It is not a persistent producer, does not negotiate
   `shared-layer:d3d12`, and has no measured playable frame budget.
+
+## 2026-10-12 — rejected multi-frame release experiment
+
+- An uncommitted experiment tried reusing one named texture across the settled
+  layer sequence with a receiver release fence. Its bounded trace recorded no
+  completed layer or reader result, stopped at five held source samples, and
+  failed renderer teardown. SIGN PID 24740 stayed at a fixed battle counter.
+  The likely ordering flaw is that the GPU queue waited for release before the
+  settled-frame path had published a frame for the reader to release; this is
+  an inference from the trace, not a verified native wait stack.
+- Reverted only that unvalidated experiment. A normal close request did not
+  terminate the stalled PID, so the exact process was stopped. The pinned
+  launcher then created responsive PID 27192, with D3D9On12 loaded and both
+  `IDirect3DDevice9On12` and `GetD3D12Device` verified. Preflight then verified
+  Sol/Ky and an advancing battle counter in Training. The earlier one-frame
+  cross-device pixel proof is unaffected and remains the last accepted GPU
+  result.
+- Before retrying reuse, publish each ready value to the reader before a queue
+  wait can depend on its release, and provide an out-of-band recovery signal
+  for teardown if rendering stalls. No multi-frame or playable capability is
+  accepted from the failed run.
