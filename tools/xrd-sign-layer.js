@@ -11,6 +11,7 @@ const layerSkipSeen = new Set();
 const layerCapturedSteps = new Set();
 let bodyAnchor=null;
 let pendingLayer=null, previousCandidate=null;
+let on12SettledInFlight=null;
 let pixelCompare=null, pixelScratch=null;
 let privateViewOffset=null;
 const layerShaderCache=new Map();
@@ -69,6 +70,7 @@ function equalPixels(a,b) {
 function finishSettledPair(scene) {
     if (pendingLayer===null) return;
     const layer=pendingLayer;pendingLayer=null;
+    if(config.layer.on12_settled)on12SettledInFlight=layer;
     if (scene.metadata.counter!==layer.metadata.counter || scene.metadata.presentation_index!==layer.metadata.presentation_index)
         throw new Error('unpaired settling candidate');
     const prior=previousCandidate;
@@ -82,10 +84,20 @@ function finishSettledPair(scene) {
         presentation_index:layer.metadata.presentation_index,pixels_equal:pixelsMatch,
         source_render_origin:layer.metadata.source_render_origin,ready});
     if (ready) {
+        try {
         if (config.transactions && (gate === null || gate.resumed || gate.executing || gate.pending ||
             Date.now()>gate.deadline || gate.frameReady !== null))
             throw new Error('transaction owner changed during frame readiness');
         const pair=[prior.layer.metadata.presentation_index,layer.metadata.presentation_index];
+        if(config.layer.on12_settled) {
+            const gpu=probeOn12Resource(layer.gpuDevice,layer.gpuTexture,layer.metadata.width,
+                layer.metadata.height,true,layer.metadata.request_index);
+            if(gpu) {
+                layer.metadata.on12_resource_probe=gpu;
+                send({kind:'on12-ready',counter:layer.metadata.counter,request_index:layer.metadata.request_index,...gpu});
+                send({...layer.metadata,kind:'on12-candidate'},layer.data);
+            }
+        }
         for(const candidate of (config.streaming ? [{layer,scene}] : [prior,{layer,scene}])) {
             const proof={settled_pair:pair,identical_native_pixels:true,frame_readiness_candidate:true,diagnostic_settling:true};
             send({...candidate.layer.metadata,...proof},candidate.layer.data);
@@ -98,14 +110,25 @@ function finishSettledPair(scene) {
         if (config.transactions) {
             gate.frameReady=layer.metadata.counter;
         }
+        } finally {
+            releaseSettledGpu(prior.layer);
+            releaseSettledGpu(layer);
+            on12SettledInFlight=null;
+        }
     } else {
+        if(prior!==null)releaseSettledGpu(prior.layer);
         previousCandidate={layer,scene};
+        on12SettledInFlight=null;
         if(layer.metadata.presentation_index>=24) {
             send({...layer.metadata,frame_readiness_candidate:false,settle_failed:true},layer.data);
             send({...scene.metadata,diagnostic_settling:true,frame_readiness_candidate:false,settle_failed:true},scene.data);
             throw new Error('native layer did not settle within bounded presentations');
         }
     }
+}
+
+function releaseSettledGpu(layer) {
+    if(layer?.gpuTexture) {com(layer.gpuTexture,2,'uint',[])(layer.gpuTexture);layer.gpuTexture=null;}
 }
 
 function releaseLayer() {
@@ -586,7 +609,8 @@ function finishMeshLayer(device) {
         if(config.layer.grade && !current.graded)throw new Error('private mesh lacks native grading');
         if(config.layer.post_color && !current.post?.complete)throw new Error('private post-color chain incomplete');
         const requestIndex=(current.counter-gate.initialCounter)>>>0;
-        const on12=config.layer.on12_probe?probeOn12Resource(device,current.gradedTexture,current.width,current.height,config.layer.on12_readback,requestIndex):null;
+        const on12=config.layer.on12_probe && !config.layer.on12_settled?
+            probeOn12Resource(device,current.gradedTexture,current.width,current.height,config.layer.on12_readback,requestIndex):null;
         if(on12 && config.layer.on12_readback)
             send({kind:'on12-ready',counter:current.counter,request_index:requestIndex,...on12});
         const captured = captureBackBuffer(device, root, current.counter, false, current.graded??current.target);
@@ -614,7 +638,11 @@ function finishMeshLayer(device) {
                 native_pre_view_translation:current.pre_view_translation,
                 private_view_offset:privateViewOffset,
                 canonical_right_facing:true,pivot_verified:false,units_verified:false} : {})};
-        if (config.layer.settle) pendingLayer={metadata,data:captured.data};
+        if (config.layer.settle) {
+            if(config.layer.on12_settled)com(current.gradedTexture,1,'uint',[])(current.gradedTexture);
+            pendingLayer={metadata,data:captured.data,
+                ...(config.layer.on12_settled?{gpuTexture:current.gradedTexture,gpuDevice:device}:{})};
+        }
         else {
             send(metadata,captured.data);++layerCaptures;
             layerCapturedSteps.add(((current.counter-gate.initialCounter)>>>0)+':'+(renderCapture.presentations+1));

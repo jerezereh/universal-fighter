@@ -257,3 +257,26 @@
   per-frame allocations. It does not establish a reusable production buffer,
   settled-frame GPU publication for all actions, a 16.7 ms budget, or uf-arena
   protocol conformance.
+
+## 2026-10-12 — accepted settled frames shared on GPU
+
+- A new opt-in bounded path retains each private graded D3D9 texture through
+  the two-presentation settling check, then copies only the accepted second
+  texture through D3D9On12 into a named D3D12 resource. Retained source COM
+  references and temporary shared outputs are released on the render thread.
+  It does not wait on a receiver-release fence.
+- The first one-frame trial copied and matched its settled GPU layer but then
+  treated later, intentionally uncopied source counters as errors. That check
+  restored hooks and left SIGN advancing; the bounded frame limit now skips
+  those later counters.
+- A corrected neutral check passed one accepted frame, followed by a three-step
+  retreat check that passed four accepted frames. In the retreat, native input
+  history linked all three credits; the four distinct 1,966,080-byte arena
+  D3D12 reads matched their corresponding settled D3D9 images. Accepted
+  presentation indices were 4, 6, 5, and 6. Both checks reported zero errors,
+  restored source/render code, detached cleanly, and left PID 27192 with an
+  advancing battle counter.
+- This verifies bounded settled GPU delivery, not a persistent producer or
+  playable budget. Development checks still use D3D9 CPU readback to decide
+  settling and compare pixels; reusable resource ownership, wire replies,
+  native state/contact mapping, and 60 Hz host play remain pending.

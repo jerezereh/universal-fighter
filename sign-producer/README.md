@@ -38,6 +38,9 @@ For a changing-pose diagnostic, pair it with `--input-candidate` and a
 three-step `--input-plan` of retreat inputs. The GPU pixels are compared with
 each immediate native candidate; only the separate settling check decides
 which candidates become render-ready frames.
+Add `--on12-settled` to copy the accepted settled image instead. This is also
+a bounded diagnostic with CPU comparison and temporary handles; it does not
+enable `shared-layer:d3d12` in the SIGN producer.
 It needs the same ignored local `--candidate`, `--combat-candidate` and `--meshes`
 inputs as normal render preparation and the sibling `uf-arena/python` checkout
 for the development-only reader. The temporary handle is closed during the

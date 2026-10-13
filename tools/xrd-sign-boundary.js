@@ -1041,7 +1041,8 @@ function armGateRemoval() {
         if (gate !== null) {
             if (gate.renewable) {
                 gate.resumed = true; gate.credits = 0;
-                if (config.layer && (meshLayer !== null || config.layer.on12_probe && on12Outputs.length)) {
+                if (config.layer && (meshLayer !== null || config.layer.on12_probe &&
+                    (on12Outputs.length || pendingLayer?.gpuTexture || previousCandidate?.layer?.gpuTexture || on12SettledInFlight?.gpuTexture))) {
                     // COM resources belong to the render thread. Ordinary updates resume now;
                     // resource/hook teardown completes at the next EndScene/Present callback.
                     stopRequested = true; layerStopping = true;
@@ -1084,6 +1085,11 @@ function finishStop() {
     if(contactObserver) {
         contactObserver.detach();contactObserver=null;Interceptor.flush();
         contactRestored=contactRestored && hex(bytes(Process.mainModule.base.add(config.contact.rva),32))===config.contact.before;
+    }
+    if(config.layer?.on12_settled) {
+        releaseSettledGpu(pendingLayer);releaseSettledGpu(previousCandidate?.layer);
+        releaseSettledGpu(on12SettledInFlight);
+        pendingLayer=null;previousCandidate=null;on12SettledInFlight=null;
     }
     if (config?.streaming) { pendingLayer=null; previousCandidate=null; pixelScratch=null; }
     const skipped = drawFilter === null ? 0 : drawFilter.skipped;

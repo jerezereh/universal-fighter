@@ -3740,3 +3740,11 @@ the arena reader consuming the ready notice before the candidate receipt. The
 movement oracle, settled source frames, hook restoration, and post-check clock
 passed. Candidate comparison is distinct from deciding which images have
 settled enough for host publication. The probe remains bounded and not playable.
+
+An opt-in settled On12 path now holds the private native texture through the
+readiness decision and copies the accepted second presentation on the GPU.
+One neutral and four moving accepted-frame checks pass; the moving images are
+distinct, byte-match independent arena D3D12 reads, and were accepted at
+presentations 4, 6, 5, and 6. Source/render hooks restored and SIGN advanced
+afterward. CPU settling diagnostics, persistent producer session ownership,
+wire delivery, release semantics, and playable latency remain open.
