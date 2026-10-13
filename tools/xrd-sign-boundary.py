@@ -510,7 +510,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     def receive(message,data):
         try: messages.put_nowait((message,data,time.perf_counter()))
         except queue.Full: overflow.set()
-    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];vertices=[];screens=[];layers=[];transforms=[];scene_packets=[];layer_packets=[];gpu_readback=[];render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
+    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];vertices=[];screens=[];layers=[];transforms=[];scene_packets=[];layer_packets=[];gpu_readback=[];early_gpu=None;render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
     if on12_readback:
         sys.path.insert(0,str(ROOT.parent/'uf-arena/python'))  # pinned receiver-side reader; development diagnostic only
         from ufproducer.d3d12 import Reader
@@ -714,6 +714,16 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         if stream_mode: continue
                         if not settle or len(diagnostics)>=128: raise ValueError('readiness diagnostic limit')
                         diagnostics.append(message['payload']);continue
+                    if message['type']=='send' and message['payload'].get('kind')=='on12-ready':
+                        native=message['payload']
+                        if not on12_readback or early_gpu is not None or data is not None or not all(
+                            native.get(key) for key in ('memory','fence','value','width','height')):
+                            raise ValueError('unexpected early shared-layer receipt')
+                        reader=Reader()
+                        try: pixels=reader.read(native)
+                        finally: reader.close()
+                        early_gpu=(native,pixels)
+                        continue
                     if message['type']=='send' and message['payload'].get('kind')=='layer-transform':
                         if not inspect_transforms or len(transforms)>=8: raise ValueError('vertex observation limit')
                         native=message['payload'];code,constants,analysis=transform_packet(native,data)
@@ -757,12 +767,14 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         else: render_pixels(native,data)
                         if on12_readback and 'on12_resource_probe' in native:
                             probe=native['on12_resource_probe']
-                            reader=Reader()
-                            try: pixels=reader.read(probe)
-                            finally: reader.close()
+                            if early_gpu is None or any(early_gpu[0].get(key)!=probe.get(key) for key in
+                                ('memory','fence','value','width','height')) or early_gpu[0]['counter']!=native['counter']:
+                                raise ValueError('early shared-layer receipt does not match settled layer')
+                            pixels=early_gpu[1]
                             expected=data[native['state_size']:]
                             gpu_readback.append(dict(equal=pixels==expected,bytes=len(pixels),
-                                gpu_sha256=hashlib.sha256(pixels).hexdigest(),d3d9_sha256=hashlib.sha256(expected).hexdigest()))
+                                gpu_sha256=hashlib.sha256(pixels).hexdigest(),d3d9_sha256=hashlib.sha256(expected).hexdigest(),
+                                read_before_settled_layer=True))
                         if len(layers)>=len(layer['capture_steps'])*per_step: raise ValueError('private layer capture limit')
                         render_bytes+=len(data)
                         if render_bytes>128<<20: raise ValueError('render packet byte limit')

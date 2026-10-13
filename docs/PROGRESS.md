@@ -3720,3 +3720,10 @@ the verified D3D9On12 launcher produced a responsive replacement PID 27192.
 Sol/Ky Training was re-entered in PID 27192; preflight verified the pair and
 an advancing battle counter. The single-frame cross-device pixel proof remains
 accepted.
+
+The On12 diagnostic now publishes the shared resource before its settled CPU
+layer packet. In a fresh bounded PID 27192 check, the independent arena reader
+read 1,966,080 BGRA bytes at that early notice and matched the subsequent D3D9
+layer exactly. Source/render hooks restored and the battle counter kept
+advancing. This validates one-frame delivery order, not reusable GPU buffers or
+a playable producer.

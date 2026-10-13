@@ -205,3 +205,18 @@
   wait can depend on its release, and provide an out-of-band recovery signal
   for teardown if rendering stalls. No multi-frame or playable capability is
   accepted from the failed run.
+
+## 2026-10-12 — early shared GPU frame publication
+
+- The bounded On12 diagnostic now emits a shared-texture ready notice on the
+  render thread before its legacy CPU layer capture and settled-frame packet.
+  The independent `uf-arena` D3D12 reader consumes that notice immediately.
+- Fresh PID 27192 preparation passed owner, draw, mesh, screen, and final
+  verification stages. One early GPU read yielded 1,966,080 BGRA bytes with
+  SHA256 `e18e3ca04d7d8d6b99576edc8ac8f58b86de0d83c715301d72ba0a1ff9a049c0`,
+  exactly matching the subsequent D3D9 diagnostic layer. Three owned steps,
+  eight linked layers, restored render/source code, zero errors, clean detach,
+  and an advancing post-check battle counter were observed.
+- This establishes publication order for one frame only. Repeated buffer reuse,
+  release-fence ownership, playable frame budget, and a persistent SIGN
+  producer remain unverified.
