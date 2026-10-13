@@ -11,6 +11,7 @@ from ufproducer.fake import FakeProducer
 from ufproducer.server import Connection
 
 from sign import attach
+from sign.inputs import encode
 from sign.producer import SignProducer
 from sign.scene import COUNTER_OFFSET, ENGINE_RVA, fighter_pair, source_clock
 
@@ -89,6 +90,12 @@ class TemplateTests(unittest.TestCase):
             self.assertEqual(address, engine + COUNTER_OFFSET)
             return struct.pack('<I', next(samples))
         self.assertTrue(source_clock(read, base, lambda _: None)['advancing'])
+
+    def test_host_buttons_and_opposing_directions_map_to_sign_bits(self):
+        self.assertEqual(encode(dict(left=True, up=True, punch=True, heavy=True)), 149)
+        self.assertEqual(encode(dict(left=True, right=True, up=True, down=True, dust=True)), 256)
+        with self.assertRaises(ValueError):
+            encode(dict(special=True))
 
     def test_fake_serves_a_session(self):
         c = Connection(FakeProducer())

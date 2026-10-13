@@ -72,3 +72,12 @@
 - The next native-grading timing comparison could not start because PID 32716 had
   exited. No matching Windows Application fault event was found in the recent log.
   Cause is unknown; fresh live bindings are needed after the next SIGN launch.
+
+## 2026-10-12 — host input word mapping
+
+- Added the producer-owned mapping for uf-arena's absolute directions and five
+  attack buttons to SIGN's inspected native input bits. Simultaneous opposite
+  directions cancel. All 512 held-input combinations match the previously
+  verified diagnostic mapper; nine unit tests pass.
+- This is an adaptation primitive. No persistent SIGN input ingress or arena
+  step is connected yet, so capabilities remain disabled.

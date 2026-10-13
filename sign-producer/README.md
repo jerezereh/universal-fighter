@@ -17,3 +17,7 @@ report whether it is advancing. These checks do not establish offline Training.
 `produce.py --exe` currently refuses to attach
 until a persistent SIGN bridge is implemented. See [PROGRESS.md](PROGRESS.md) for
 verified SIGN work and open gates.
+
+`sign/inputs.py` translates uf-arena's absolute held directions and five buttons
+to SIGN's inspected native input bits. It is ready for the source bridge but is
+not yet connected to a playable step.

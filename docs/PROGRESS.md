@@ -3658,3 +3658,7 @@ The SIGN launcher now distinguishes the pinned SIGN path from a concurrent Rev2
 process; its parser and mixed-edition selector check pass. The source process had
 exited before the next native-grading comparison, with no matching recent Windows
 Application fault event. Its cause is unknown and a fresh session is required.
+
+The SIGN producer now has a host-to-native held-input word mapping for directions
+and five attacks. All 512 combinations match the prior diagnostic mapper, but a
+persistent source step is still unconnected and no capability was promoted.
