@@ -3669,3 +3669,9 @@ also passed with restored code and clean detach. Quarter-scale requests averaged
 208 ms and peaked at 301 ms, below the earlier full-quality mean of 311 ms in a
 different process but still far from playable 60 Hz. The peak exceeds the 250 ms
 diagnostic deadline. No persistent host producer or capability is claimed.
+
+A same-process half-scale native-grading check also passed 20 steps/21 images,
+averaging 201 ms and peaking at 240 ms with clean restoration. The quarter-
+versus half-scale means differ little; reducing pixel volume alone is unlikely
+to reach 60 Hz. The next path is persistent, on-demand source rendering and
+transport, then a real producer conformance and playable match check.

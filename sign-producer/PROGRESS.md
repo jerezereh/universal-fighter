@@ -96,3 +96,9 @@
   60 Hz budget by a wide margin. It is a short-lived diagnostic, with no live
   producer, negotiated image transport or playable capability. The persistent
   source-owned render/control bridge remains the next implementation gate.
+- A second bounded stream in the same PID at half scale also passed 20 steps/21
+  images, with restored code and clean detach. Its mean was 201 ms, peak 240 ms.
+  The near-equal means at quarter and half scale suggest that merely reducing
+  transferred pixels will not solve frame pacing; source rendering/settlement
+  and transport still need profiling and an on-demand path. A one-eighth-scale
+  request was rejected by the tool's existing input validation before attach.
