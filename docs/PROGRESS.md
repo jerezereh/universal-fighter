@@ -3704,3 +3704,9 @@ temporary shared-capable BGRA8 texture now passes with a completed fence,
 named handle creation and clean render-thread teardown. The handle is closed
 before any receiver reads it, so output pixels and persistent arena delivery
 remain unverified.
+
+An opt-in independent reader check now opens that temporary SIGN texture and
+ready fence by name through the pinned uf-arena D3D12 helper. Its 1,966,080
+BGRA bytes match the same native D3D9 layer exactly; the bounded trace restores
+all hooks. This verifies one shared GPU frame, not persistent producer delivery
+or playable latency.

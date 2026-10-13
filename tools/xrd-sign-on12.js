@@ -1,4 +1,4 @@
-// Bounded render-thread interop probe. No shared handle or producer capability.
+// Bounded render-thread interop probe. No producer capability.
 const on12Ids = {
     device9: 'e7fda234-b589-4049-940d-8878977531c8',
     device12: '189819f1-1db6-4b57-be54-1821339b85f7',
@@ -18,11 +18,17 @@ function on12Guid(id) {
 }
 function on12Cell() { const p=Memory.alloc(4);p.writePointer(ptr(0));return p; }
 let on12Probed=false;
-function probeOn12Resource(device, texture, width, height) {
+let on12Output=null;
+function closeOn12Output(output) {
+    const close=new NativeFunction(Module.getGlobalExportByName('CloseHandle'),'int',['pointer'],'stdcall');
+    for(const object of output.held.reverse())com(object,2,'uint',[])(object);
+    for(const handle of output.handles)close(handle);
+}
+function probeOn12Resource(device, texture, width, height, retain) {
     if(on12Probed)return null;
     on12Probed=true;
-    const held=[];
-    let on12=ptr(0), resource=ptr(0), returned=false, fence=ptr(0), queue=ptr(0), signaled=false, handle=ptr(0);
+    const held=[],handles=[];
+    let on12=ptr(0), resource=ptr(0), returned=false, fence=ptr(0), queue=ptr(0), signaled=false, keepOutput=false;
     const keep=(cell,name)=>{const p=cell.readPointer();if(p.isNull())throw new Error(name+' returned null');held.push(p);return p;};
     try {
         let cell=on12Cell();
@@ -36,7 +42,7 @@ function probeOn12Resource(device, texture, width, height) {
         succeeded(com(d12,8,'int',['pointer','pointer','pointer'])(d12,desc,on12Guid(on12Ids.queue),cell),'CreateCommandQueue');
         queue=keep(cell,'D3D12 queue');
         cell=on12Cell();
-        succeeded(com(d12,36,'int',['uint64','uint','pointer','pointer'])(d12,uint64(0),0,on12Guid(on12Ids.fence),cell),'CreateFence');
+        succeeded(com(d12,36,'int',['uint64','uint','pointer','pointer'])(d12,uint64(0),1,on12Guid(on12Ids.fence),cell),'CreateFence');
         fence=keep(cell,'D3D12 fence');
         cell=on12Cell();
         succeeded(com(d12,9,'int',['uint','pointer','pointer'])(d12,0,on12Guid(on12Ids.allocator),cell),'CreateCommandAllocator');
@@ -57,8 +63,16 @@ function probeOn12Resource(device, texture, width, height) {
         cell=on12Cell();
         const name='sign-probe-'+Process.id+'-'+Date.now();
         succeeded(com(d12,31,'int',['pointer','pointer','uint','pointer','pointer'])(
-            d12,output,ptr(0),0x10000000,Memory.allocUtf16String(name),cell),'CreateSharedHandle');
-        handle=cell.readPointer();if(handle.isNull())throw new Error('shared handle returned null');
+            d12,output,ptr(0),0x10000000,Memory.allocUtf16String(name+'-memory'),cell),'CreateSharedHandle');
+        if(cell.readPointer().isNull())throw new Error('shared handle returned null');
+        handles.push(cell.readPointer());
+        if(retain) {
+            cell=on12Cell();
+            succeeded(com(d12,31,'int',['pointer','pointer','uint','pointer','pointer'])(
+                d12,fence,ptr(0),0x10000000,Memory.allocUtf16String(name+'-fence'),cell),'CreateSharedHandle(fence)');
+            if(cell.readPointer().isNull())throw new Error('shared fence handle returned null');
+            handles.push(cell.readPointer());
+        }
         cell=on12Cell();
         succeeded(com(on12,4,'int',['pointer','pointer','pointer','pointer'])(on12,texture,queue,on12Guid(on12Ids.resource),cell),'UnwrapUnderlyingResource');
         resource=keep(cell,'unwrapped fighter texture');
@@ -74,8 +88,10 @@ function probeOn12Resource(device, texture, width, height) {
         const until=Date.now()+1000;
         while(com(fence,8,'uint64',[])(fence).toNumber()<1&&Date.now()<until)Thread.sleep(0.001);
         if(com(fence,8,'uint64',[])(fence).toNumber()<1)throw new Error('On12 fence did not complete');
+        if(retain) {on12Output={held,handles};keepOutput=true;}
         return {unwrapped:true,returned:true,copied:true,shared_handle_created:true,
-            source:'private graded fighter texture'};
+            source:'private graded fighter texture',
+            ...(retain?{memory:name+'-memory',fence:name+'-fence',value:1,width,height}: {})};
     } finally {
         if(!resource.isNull()&&!returned)
             try {
@@ -84,7 +100,6 @@ function probeOn12Resource(device, texture, width, height) {
                     signaled?1:0,signaled?value:ptr(0),signaled?fences:ptr(0));
             }
             catch (_) { /* preserve the original failure for the bounded diagnostic */ }
-        for(const object of held.reverse())com(object,2,'uint',[])(object);
-        if(!handle.isNull())new NativeFunction(Module.getGlobalExportByName('CloseHandle'),'int',['pointer'],'stdcall')(handle);
+        if(!keepOutput)closeOn12Output({held,handles});
     }
 }

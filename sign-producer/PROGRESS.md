@@ -168,3 +168,19 @@
   The handle is intentionally short-lived and is not offered to uf-arena.
   Persistent texture/fence ownership, receiver readback, release coordination
   and frame timing remain pending.
+
+## 2026-10-12 — independent receiver-side pixel proof
+
+- Added opt-in `--on12-readback` on top of the bounded On12 probe. It retains the
+  temporary output texture and ready fence until render-thread teardown. The
+  pinned `uf-arena` D3D12 reader opens both by name on an independent device,
+  waits for the fence, and compares the shared texture against the same frame's
+  D3D9 diagnostic capture. Resources and handles release on the render thread.
+- Live PID 24740 passed one independent comparison of 1,966,080 BGRA bytes
+  with identical SHA-256 (`5a8e9c85c432dd47eb002787854ce092053dfa4e0f0441901224507f6d12b742`).
+  Eight linked layer captures, exactly three native steps, clean detach and
+  source/render code restoration also passed; the local receipt has no errors.
+- This proves the receiver can consume a single SIGN GPU layer without CPU
+  upload. The probe still has a bounded lifetime and retains legacy CPU
+  diagnostic capture. It is not a persistent producer, does not negotiate
+  `shared-layer:d3d12`, and has no measured playable frame budget.

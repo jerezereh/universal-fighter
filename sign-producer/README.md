@@ -29,8 +29,10 @@ then intercepts only its SIGN child before D3D9 device creation. It verifies
 `IDirect3DDevice9On12` and `GetD3D12Device`, detaches after 30 seconds and leaves
 the game open. `--check` performs only the read-only input and process checks.
 For an already prepared offline Sol/Ky session, the development-only
-`tools/prepare-xrd-sign-render.py --native-grading-only --on12-probe` check
-performs one temporary render-thread GPU copy of the isolated fighter texture.
+`tools/prepare-xrd-sign-render.py --native-grading-only --on12-probe --on12-readback`
+check performs one temporary render-thread GPU copy of the isolated fighter
+texture and compares it through uf-arena's independent D3D12 reader.
 It needs the same ignored local `--candidate`, `--combat-candidate` and `--meshes`
-inputs as normal render preparation. The temporary handle is closed during
-the check; arena delivery is still under development.
+inputs as normal render preparation and the sibling `uf-arena/python` checkout
+for the development-only reader. The temporary handle is closed during the
+check; arena delivery is still under development.
