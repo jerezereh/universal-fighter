@@ -3,6 +3,8 @@ const on12Ids = {
     device9: 'e7fda234-b589-4049-940d-8878977531c8',
     device12: '189819f1-1db6-4b57-be54-1821339b85f7',
     queue: '0ec870a6-5d7e-4c22-8cfc-5baae07616ed',
+    allocator: '6102dee4-af59-4b09-b999-b44d73f09b24',
+    list: '5b160d0f-ac1b-4185-8ba8-b3ae42a5a455',
     resource: '696442be-a72e-4059-bc79-5b5c98040fad',
     fence: '0a753dcf-c4d8-4b91-adf6-be5a60d95a76'
 };
@@ -16,11 +18,11 @@ function on12Guid(id) {
 }
 function on12Cell() { const p=Memory.alloc(4);p.writePointer(ptr(0));return p; }
 let on12Probed=false;
-function probeOn12Resource(device, texture) {
+function probeOn12Resource(device, texture, width, height) {
     if(on12Probed)return null;
     on12Probed=true;
     const held=[];
-    let on12=ptr(0), resource=ptr(0), returned=false, fence=ptr(0), queue=ptr(0), signaled=false;
+    let on12=ptr(0), resource=ptr(0), returned=false, fence=ptr(0), queue=ptr(0), signaled=false, handle=ptr(0);
     const keep=(cell,name)=>{const p=cell.readPointer();if(p.isNull())throw new Error(name+' returned null');held.push(p);return p;};
     try {
         let cell=on12Cell();
@@ -37,8 +39,33 @@ function probeOn12Resource(device, texture) {
         succeeded(com(d12,36,'int',['uint64','uint','pointer','pointer'])(d12,uint64(0),0,on12Guid(on12Ids.fence),cell),'CreateFence');
         fence=keep(cell,'D3D12 fence');
         cell=on12Cell();
+        succeeded(com(d12,9,'int',['uint','pointer','pointer'])(d12,0,on12Guid(on12Ids.allocator),cell),'CreateCommandAllocator');
+        const allocator=keep(cell,'D3D12 allocator');
+        cell=on12Cell();
+        succeeded(com(d12,12,'int',['uint','uint','pointer','pointer','pointer','pointer'])(
+            d12,0,0,allocator,ptr(0),on12Guid(on12Ids.list),cell),'CreateCommandList');
+        const list=keep(cell,'D3D12 list');
+        const heap=Memory.alloc(20);heap.writeByteArray(new Array(20).fill(0));heap.writeU32(1);
+        const resourceDesc=Memory.alloc(56);resourceDesc.writeByteArray(new Array(56).fill(0));
+        resourceDesc.writeU32(3);resourceDesc.add(16).writeU64(uint64(width));resourceDesc.add(24).writeU32(height);
+        resourceDesc.add(28).writeU16(1);resourceDesc.add(30).writeU16(1);resourceDesc.add(32).writeU32(87);
+        resourceDesc.add(36).writeU32(1);resourceDesc.add(48).writeU32(0x21);
+        cell=on12Cell();
+        succeeded(com(d12,27,'int',['pointer','uint','pointer','uint','pointer','pointer','pointer'])(
+            d12,heap,1,resourceDesc,0,ptr(0),on12Guid(on12Ids.resource),cell),'CreateCommittedResource');
+        const output=keep(cell,'shared output texture');
+        cell=on12Cell();
+        const name='sign-probe-'+Process.id+'-'+Date.now();
+        succeeded(com(d12,31,'int',['pointer','pointer','uint','pointer','pointer'])(
+            d12,output,ptr(0),0x10000000,Memory.allocUtf16String(name),cell),'CreateSharedHandle');
+        handle=cell.readPointer();if(handle.isNull())throw new Error('shared handle returned null');
+        cell=on12Cell();
         succeeded(com(on12,4,'int',['pointer','pointer','pointer','pointer'])(on12,texture,queue,on12Guid(on12Ids.resource),cell),'UnwrapUnderlyingResource');
         resource=keep(cell,'unwrapped fighter texture');
+        com(list,17,'void',['pointer','pointer'])(list,output,resource);
+        succeeded(com(list,9,'int',[])(list),'CommandList.Close');
+        const lists=on12Cell();lists.writePointer(list);
+        com(queue,10,'void',['uint','pointer'])(queue,1,lists);
         succeeded(com(queue,14,'int',['pointer','uint64'])(queue,fence,uint64(1)),'Queue.Signal');
         signaled=true;
         const value=Memory.alloc(8), fences=on12Cell();value.writeU64(uint64(1));fences.writePointer(fence);
@@ -47,7 +74,8 @@ function probeOn12Resource(device, texture) {
         const until=Date.now()+1000;
         while(com(fence,8,'uint64',[])(fence).toNumber()<1&&Date.now()<until)Thread.sleep(0.001);
         if(com(fence,8,'uint64',[])(fence).toNumber()<1)throw new Error('On12 fence did not complete');
-        return {unwrapped:true,returned:true,source:'private graded fighter texture'};
+        return {unwrapped:true,returned:true,copied:true,shared_handle_created:true,
+            source:'private graded fighter texture'};
     } finally {
         if(!resource.isNull()&&!returned)
             try {
@@ -57,5 +85,6 @@ function probeOn12Resource(device, texture) {
             }
             catch (_) { /* preserve the original failure for the bounded diagnostic */ }
         for(const object of held.reverse())com(object,2,'uint',[])(object);
+        if(!handle.isNull())new NativeFunction(Module.getGlobalExportByName('CloseHandle'),'int',['pointer'],'stdcall')(handle);
     }
 }

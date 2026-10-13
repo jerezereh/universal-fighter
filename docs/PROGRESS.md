@@ -3698,3 +3698,9 @@ resource and returns through D3D9On12 with a completed caller fence; native
 three-step/layer checks and hook restoration also pass. This is a source
 texture ownership proof. A GPU copy into a named shared texture, receiver
 consumption and playable frame timing have not been verified.
+
+A one-shot D3D12 `CopyResource` from the private graded Sol texture into a
+temporary shared-capable BGRA8 texture now passes with a completed fence,
+named handle creation and clean render-thread teardown. The handle is closed
+before any receiver reads it, so output pixels and persistent arena delivery
+remain unverified.

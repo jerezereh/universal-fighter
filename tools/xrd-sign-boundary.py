@@ -947,7 +947,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         if on12_probe:
             probes=[image['on12_resource_probe'] for image in layers if 'on12_resource_probe' in image]
             result['on12_resource_probe']=dict(unwrapped_and_returned=len(probes)==1 and probes[0]=={
-                'unwrapped':True,'returned':True,'source':'private graded fighter texture'},count=len(probes))
+                'unwrapped':True,'returned':True,'copied':True,'shared_handle_created':True,
+                'source':'private graded fighter texture'},count=len(probes))
             if not result['on12_resource_probe']['unwrapped_and_returned']:
                 errors.append(dict(on12_error='missing or invalid private fighter texture interop proof'))
     if observe_contact:

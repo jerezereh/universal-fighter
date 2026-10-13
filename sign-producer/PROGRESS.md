@@ -152,3 +152,19 @@
 - This proves ownership transfer for the source-owned fighter resource. It
   does not create a shared output texture or fence handle, copy pixels on the
   GPU, publish a frame to uf-arena, or demonstrate playable latency.
+
+## 2026-10-12 — one-shot D3D12 fighter copy
+
+- Extended the same bounded render-thread probe to create a shared-capable
+  BGRA8 D3D12 output texture, a named shared handle, a command allocator/list,
+  and a caller fence. It unwraps the private graded Sol texture, records a
+  `CopyResource` into that output, signals and completes the fence, returns the
+  source texture, and closes/releases all temporary objects on the render
+  thread.
+- One live final-stage check on PID 24740 passed eight linked layers and exact
+  three native steps with no errors and full hook/code restoration. Its receipt
+  reports one unwrap/return, scheduled copy and shared-handle creation.
+- This does not verify the output pixels through an independent D3D12 reader.
+  The handle is intentionally short-lived and is not offered to uf-arena.
+  Persistent texture/fence ownership, receiver readback, release coordination
+  and frame timing remain pending.

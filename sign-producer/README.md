@@ -28,4 +28,9 @@ fingerprints the installed game, official bootstrap and cached DirectX libraries
 then intercepts only its SIGN child before D3D9 device creation. It verifies
 `IDirect3DDevice9On12` and `GetD3D12Device`, detaches after 30 seconds and leaves
 the game open. `--check` performs only the read-only input and process checks.
-This proves D3D9On12 launch compatibility, not a shared fighter layer or arena play.
+For an already prepared offline Sol/Ky session, the development-only
+`tools/prepare-xrd-sign-render.py --native-grading-only --on12-probe` check
+performs one temporary render-thread GPU copy of the isolated fighter texture.
+It needs the same ignored local `--candidate`, `--combat-candidate` and `--meshes`
+inputs as normal render preparation. The temporary handle is closed during
+the check; arena delivery is still under development.
