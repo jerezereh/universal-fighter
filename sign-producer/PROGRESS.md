@@ -134,3 +134,21 @@
 - This verifies the private fighter render path still works under On12. The
   prepared layer is not yet unwrapped or shared with uf-arena. GPU copy/fence
   correctness, frame pacing and a playable SIGN producer remain pending.
+
+## 2026-10-12 — private fighter resource interop
+
+- Added an opt-in `--on12-probe` to the bounded native-grading preparation. On
+  SIGN's render thread it queries `IDirect3DDevice9On12`, unwraps the private
+  graded Sol texture to `ID3D12Resource`, signals a caller fence, returns the
+  texture, and releases temporary references. The probe runs once per session
+  and the receipt requires exactly one successful unwrap/return pair.
+- Two live final-stage checks on redirected PID 24740 passed with eight linked
+  layer captures each, exact three native steps, no errors, restored code and
+  clean detach. The second receipt records `unwrapped_and_returned: true` and
+  `count: 1`; subsequent read-only preflight found an advancing Sol/Ky clock.
+  The first attempted check stopped before hook installation because the local
+  D3D9 ABI checker treated `REFIID` as an integer; its header parser and test
+  now correctly treat that argument as a pointer.
+- This proves ownership transfer for the source-owned fighter resource. It
+  does not create a shared output texture or fence handle, copy pixels on the
+  GPU, publish a frame to uf-arena, or demonstrate playable latency.

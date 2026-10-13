@@ -12,7 +12,7 @@ def device_methods(header):
         arguments=re.sub(r'^THIS_?\s*','',arguments.strip())
         types=[]
         for argument in arguments.split(',') if arguments else []:
-            types.append('pointer' if '*' in argument else 'float' if re.search(r'\bfloat\b',argument) else 'integer')
+            types.append('pointer' if '*' in argument or re.search(r'\bREFIID\b',argument) else 'float' if re.search(r'\bfloat\b',argument) else 'integer')
         result.append((first or second,types))
     return result
 

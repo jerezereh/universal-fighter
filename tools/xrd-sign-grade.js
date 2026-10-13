@@ -141,6 +141,7 @@ function gradeLayer(device,d,replaySource=null) {
         succeeded(com(device,83,'int',['uint','uint','pointer','uint'])(device,5,2,mask,48),'native coverage draw');
         }
         current.graded=colored.surface;
+        current.gradedTexture=colored.texture;
     } finally {
         try {succeeded(com(device,39,'int',['pointer'])(device,ptr(0)),'grading detach private depth');}catch(error){failure=error;}
         for(const [slot,target] of targets)try{succeeded(com(device,37,'int',['uint','pointer'])(device,slot,target),'grading restore target');}catch(error){failure=error;}

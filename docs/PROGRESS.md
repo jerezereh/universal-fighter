@@ -3691,3 +3691,10 @@ The held-counter draw/mesh/screen inventories and private graded-layer check
 pass with clean hook restoration. This proves On12 compatibility of the existing
 diagnostic render boundary; D3D12 resource unwrapping and arena delivery remain
 unverified.
+
+The first render-thread resource-interop probe now passes twice on the same
+redirected SIGN instance. The private graded Sol texture unwraps to a D3D12
+resource and returns through D3D9On12 with a completed caller fence; native
+three-step/layer checks and hook restoration also pass. This is a source
+texture ownership proof. A GPU copy into a named shared texture, receiver
+consumption and playable frame timing have not been verified.

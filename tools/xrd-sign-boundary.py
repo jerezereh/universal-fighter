@@ -267,7 +267,7 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None,capture_reaction_memory=False,reaction_memory_bytes=0x2600,external_stun=0,reaction_timer_path=None,external_pair_phase='post-update',external_recoil=None,recoil_path=None,motion_units_path=None,motion_display_scale=None,vertical_path=None,jump_velocity=None,jump_gravity=None,defender_jump_step=0,launch_path=None,launch_horizontal_path=None,launch_velocity_x=None,defeat_input_check=False,proxy_path=None,external_steps=None,contact_results_path=None,renewable_contacts=False,render_contacts=False,layer_scale=1):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None,capture_reaction_memory=False,reaction_memory_bytes=0x2600,external_stun=0,reaction_timer_path=None,external_pair_phase='post-update',external_recoil=None,recoil_path=None,motion_units_path=None,motion_display_scale=None,vertical_path=None,jump_velocity=None,jump_gravity=None,defender_jump_step=0,launch_path=None,launch_horizontal_path=None,launch_velocity_x=None,defeat_input_check=False,proxy_path=None,external_steps=None,contact_results_path=None,renewable_contacts=False,render_contacts=False,layer_scale=1,on12_probe=False):
     if defeat_input_check and (not external_ko or not isolate_ko_path or not ko_reaction_path or host_result_path or launch_path or vertical_path or controlled_slot!=1):raise ValueError('defeat input check requires exclusive isolated KO reaction')
     if external_pair_phase not in ('post-update','dispatch') or external_pair_phase=='dispatch' and not external_pair_step:raise ValueError('dispatch phase requires a requested native pair')
     if launch_path and (not (external_damage or host_result_path) or not vertical_path or not external_pair_step or not external_host_stop or external_pair_phase!='dispatch' or defender_jump_step or external_stun or external_ko or external_guard or ko_reaction_path):raise ValueError('ground launch requires exclusive nonfatal motion and dispatch requested contact')
@@ -433,6 +433,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if post_color_path and (not (source_view or normalize) or source_color):raise ValueError('private post-color replay requires private original-camera or normalized grading')
     if smaa and not post_color_path:raise ValueError('SMAA requires private post-color replay')
     if grade_path and (not layer_path or not (normalize or source_view) or hdr):raise ValueError('native grading requires normalized or diagnostic source-view A8 output')
+    if on12_probe and (not grade_path or post_color_path or not layer_path or not normalize or not settle):
+        raise ValueError('On12 probe requires exclusive normalized settled native grading')
     if inspect_screen and (not trace_draws or not capture or suppress_path and not layer_path or plan_path):
         raise ValueError('screen shader observation requires exclusive neutral capture/draw trace')
     identity=None
@@ -459,6 +461,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         if grade_path:layer['grade']=grading_programs(grade_path,state)
         if post_color_path:layer['post_color']=post_color_programs(post_color_path,state,layer['grade'],smaa,layer.get('projection'))
         layer['smaa']=smaa
+        layer['on12_probe']=on12_probe
         if source_color and (not layer['grade']['vertex_original_hex'] or not layer['grade']['source_quad_observed']):
             raise ValueError('source color replay requires inspected native vertex/quad inputs')
         layer['capture_steps']=capture_steps(layer_steps or '0,1,2,3')
@@ -560,6 +563,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             phase='load'
             source=(ROOT/'tools/xrd-sign-boundary.js').read_text()
             if layer or inspect_shaders or inspect_screen: source+='\n'+(ROOT/'tools/xrd-sign-layer.js').read_text()
+            if on12_probe: source+='\n'+(ROOT/'tools/xrd-sign-on12.js').read_text()
             if grade_path: source+='\n'+(ROOT/'tools/xrd-sign-grade.js').read_text()
             abi=validate_device_calls([source],(ROOT/'local-cache/msys64/mingw64/include/d3d9.h').read_text())
             script=session.create_script(source)
@@ -940,6 +944,12 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         result['private_layer_state_restored']=bool(layers) and all(c['source_graphics_state_verified'] for c in layers)
         if len(layers)<2 or not result['layer_check']['held_counter_state_linked'] or not result['private_layer_state_restored']:
             errors.append(dict(layer_error='missing/unlinked private layer or graphics-state restoration'))
+        if on12_probe:
+            probes=[image['on12_resource_probe'] for image in layers if 'on12_resource_probe' in image]
+            result['on12_resource_probe']=dict(unwrapped_and_returned=len(probes)==1 and probes[0]=={
+                'unwrapped':True,'returned':True,'source':'private graded fighter texture'},count=len(probes))
+            if not result['on12_resource_probe']['unwrapped_and_returned']:
+                errors.append(dict(on12_error='missing or invalid private fighter texture interop proof'))
     if observe_contact:
         result['external_pair_events']=external_events
         result['native_contact_observations']=contacts

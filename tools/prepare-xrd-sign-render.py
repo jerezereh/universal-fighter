@@ -33,10 +33,11 @@ def scene_identity(probe):
         return dict(pid=state['pid'],module_base=base,root=root,slots=slots)
 
 
-def prepare(pid,candidate,combat,meshes,native_grading_only=False):
+def prepare(pid,candidate,combat,meshes,native_grading_only=False,on12_probe=False):
+    if on12_probe and not native_grading_only: raise ValueError('On12 resource probe requires native grading only')
     recon=load('xrd-sign-probe.py');_,probe=recon['inspect'](recon['GAME'],pid)
     receipt=dict(prepared=False,source_capabilities_enabled=False,automatic_live_rebind_verified=False,
-                 native_grading_only=native_grading_only,stages={})
+                 native_grading_only=native_grading_only,on12_probe=on12_probe,stages={})
     report=probe/'render-preparation.json'
     try:
         load('xrd-sign-observe.py')['capture'](probe,1,0)
@@ -59,7 +60,8 @@ def prepare(pid,candidate,combat,meshes,native_grading_only=False):
             inspect_screen=True,capture_screen_stages=True)
         stage('verification',28,gate_receipt=owner,combat_path=combat,capture=True,trace_draws=True,
             suppress_path=buffers,layer_path=mesh,normalize=True,settle=True,grade_path=screen,
-            post_color_path=None if native_grading_only else screen,smaa=not native_grading_only,transactions=True)
+            post_color_path=None if native_grading_only else screen,smaa=not native_grading_only,transactions=True,
+            on12_probe=on12_probe)
         receipt['prepared']=True
     except Exception as error:
         receipt['error']=repr(error);raise
@@ -76,6 +78,7 @@ if __name__=='__main__':
     p.add_argument('--combat-candidate',type=Path,required=True,help='ignored local scalar getter/setter candidate')
     p.add_argument('--meshes',type=Path,required=True,help='ignored local Sol mesh metadata directory')
     p.add_argument('--native-grading-only',action='store_true',help='verify native grading without optional full-screen postprocessing or SMAA')
+    p.add_argument('--on12-probe',action='store_true',help='unwrap and return one private graded fighter texture on the render thread')
     args=p.parse_args()
     if args.pid<=0:p.error('pid must be positive')
-    prepare(args.pid,args.candidate.resolve(),args.combat_candidate.resolve(),args.meshes.resolve(),args.native_grading_only)
+    prepare(args.pid,args.candidate.resolve(),args.combat_candidate.resolve(),args.meshes.resolve(),args.native_grading_only,args.on12_probe)
