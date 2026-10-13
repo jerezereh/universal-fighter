@@ -21,3 +21,11 @@ verified SIGN work and open gates.
 `sign/inputs.py` translates uf-arena's absolute held directions and five buttons
 to SIGN's inspected native input bits. It is ready for the source bridge but is
 not yet connected to a playable step.
+
+For the experimental direct-GPU route, close SIGN and run
+`python tools/launch-xrd-sign-on12.py` from the repository root. The launcher
+fingerprints the installed game, official bootstrap and cached DirectX libraries,
+then intercepts only its SIGN child before D3D9 device creation. It verifies
+`IDirect3DDevice9On12` and `GetD3D12Device`, detaches after 30 seconds and leaves
+the game open. `--check` performs only the read-only input and process checks.
+This proves D3D9On12 launch compatibility, not a shared fighter layer or arena play.

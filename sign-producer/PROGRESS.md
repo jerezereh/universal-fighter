@@ -102,3 +102,20 @@
   transferred pixels will not solve frame pacing; source rendering/settlement
   and transport still need profiling and an on-demand path. A one-eighth-scale
   request was rejected by the tool's existing input validation before attach.
+
+## 2026-10-12 — D3D9On12 launch and device access
+
+- Added `tools/launch-xrd-sign-on12.py`, a development-only launcher based on the
+  verified Rev2 redirect. It fingerprints SIGN, BootGGXrd and the three cached
+  x86 DirectX DLLs, rejects an existing SIGN process without rejecting Rev2,
+  gates the bootstrap's exact SIGN child, and redirects its early
+  `Direct3DCreate9` call to `Direct3DCreate9On12`. No game files are changed.
+- A 30-second launch of PID 24740 reports a successful redirect, loaded
+  `d3d9on12.dll`, successful `IDirect3DDevice9On12` query and successful
+  `GetD3D12Device`. The window remained responsive after hook teardown; an
+  earlier launch rendered SIGN's opening screen. Python and embedded JavaScript
+  syntax checks pass. The first attempt failed before spawn because Frida's
+  child callback had the wrong signature; it was corrected before live launch.
+- This establishes access to the underlying D3D12 device only. An isolated
+  source-owned fighter texture, GPU copy/shared handle, ready/release fences,
+  one-tick frame linkage, throughput and arena conformance remain unverified.

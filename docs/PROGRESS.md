@@ -3675,3 +3675,12 @@ averaging 201 ms and peaking at 240 ms with clean restoration. The quarter-
 versus half-scale means differ little; reducing pixel volume alone is unlikely
 to reach 60 Hz. The next path is persistent, on-demand source rendering and
 transport, then a real producer conformance and playable match check.
+
+The first SIGN direct-GPU prerequisite now passes: a fingerprinted
+`BootGGXrd` child-gated launch redirects the pinned SIGN process to D3D9On12.
+Live PID 24740 exposes `IDirect3DDevice9On12` and its D3D12 device; the window
+remains responsive after the bounded launcher detaches. A prior redirected
+launch visibly rendered the opening screen. This is device access, not yet a
+shared fighter texture or a playable producer. The next GPU step is a private
+fighter target copied through the source's D3D12 device into the arena's named
+shared texture/fence, with tick-linked readiness and measured frame latency.
