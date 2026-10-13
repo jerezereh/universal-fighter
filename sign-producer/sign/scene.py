@@ -4,12 +4,14 @@ from ctypes import wintypes as w
 from pathlib import Path
 import re
 import struct
+import time
 
 
 ENGINE_RVA = 22569420  # Derived from the pinned SIGN build; see docs/XRD_SIGN_NATIVE_PROBE.md.
 SLOTS_OFFSET = 196
 COUNT_OFFSET = 176
 POSE_BYTES = 0x2600
+COUNTER_OFFSET = 4 + 3964520  # Verified by same-session owner/gate traces.
 
 
 def fighter_pair(read, base):
@@ -41,6 +43,23 @@ def fighter_pair(read, base):
             struct.unpack('<2I', read(engine + SLOTS_OFFSET, 8)) != slots:
         raise ValueError('SIGN scene changed during observation')
     return fighters
+
+
+def source_clock(read, base, pause=time.sleep):
+    """Six read-only samples of the pinned native update counter."""
+    engine, = struct.unpack('<I', read(base + ENGINE_RVA, 4))
+    if not engine:
+        raise ValueError('SIGN battle engine is absent')
+    samples = []
+    for index in range(6):
+        if struct.unpack('<I', read(base + ENGINE_RVA, 4))[0] != engine:
+            raise ValueError('SIGN battle engine changed during clock check')
+        samples.append(struct.unpack('<I', read(engine + COUNTER_OFFSET, 4))[0])
+        if index < 5:
+            pause(.06)
+    deltas = [(b - a) & 0xffffffff for a, b in zip(samples, samples[1:])]
+    return dict(samples=samples, paused=not any(deltas),
+                advancing=all(0 < delta < 0x80000000 for delta in deltas))
 
 
 class ProcessReader:
@@ -81,7 +100,7 @@ class ProcessReader:
         self.close()
 
 
-def observe(pid, executable):
+def observe(pid, executable, clock=False):
     """Check a pinned, live process and read its current fighter pair without hooks."""
     from .attach import preflight
 
@@ -114,6 +133,8 @@ def observe(pid, executable):
                 raise ValueError('pinned SIGN main module is absent or changed')
             receipt['fighters'] = fighter_pair(process.read, row.base)
             receipt['fighter_pair_verified'] = True
+            if clock:
+                receipt['clock'] = source_clock(process.read, row.base)
         finally:
             api.CloseHandle(snapshot)
     return receipt

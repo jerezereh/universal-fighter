@@ -12,7 +12,7 @@ from ufproducer.server import Connection
 
 from sign import attach
 from sign.producer import SignProducer
-from sign.scene import ENGINE_RVA, fighter_pair
+from sign.scene import COUNTER_OFFSET, ENGINE_RVA, fighter_pair, source_clock
 
 SCRATCH = Path(__file__).resolve().parents[1] / 'local-cache'
 SCRATCH.mkdir(exist_ok=True)
@@ -78,6 +78,17 @@ class TemplateTests(unittest.TestCase):
         memory[ky] = bytes(ky_data).replace(b'kyk000_00', b'sol000_00')
         with self.assertRaisesRegex(ValueError, 'expected kyk'):
             fighter_pair(read, base)
+
+    def test_source_clock_requires_monotonic_updates(self):
+        base, engine = 0x100000, 0x200000
+        samples = iter((41, 42, 43, 44, 45, 46))
+        def read(address, size):
+            self.assertEqual(size, 4)
+            if address == base + ENGINE_RVA:
+                return struct.pack('<I', engine)
+            self.assertEqual(address, engine + COUNTER_OFFSET)
+            return struct.pack('<I', next(samples))
+        self.assertTrue(source_clock(read, base, lambda _: None)['advancing'])
 
     def test_fake_serves_a_session(self):
         c = Connection(FakeProducer())

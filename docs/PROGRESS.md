@@ -3648,3 +3648,8 @@ exact credited updates with 268 blocked opportunities, and a renewed 28-second
 hold with lease recovery. The first attach attempt timed out before hooks and was
 rejected; the bounded retry and gate runs restored code. These checks remain
 diagnostic and do not promote `SignProducer` capabilities.
+
+Full-quality native render preparation in PID 32716 passed, followed by a 20-step,
+21-image linked stream at quarter resolution. Mean request latency was 311 ms,
+peak 331 ms, with clean code restoration/detach; 60 Hz acceptance remains open.
+SIGN's producer preflight now also reports six read-only source-counter samples.

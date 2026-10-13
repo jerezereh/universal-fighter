@@ -45,3 +45,19 @@
   automatic hook removal. Both runs restored source code and detached cleanly.
 - These are current-session diagnostic proofs. They do not make the short-lived
   script a persistent producer, meet frame latency, or validate the wire lifecycle.
+
+## 2026-10-12 — full-quality image and source clock
+
+- With source graphics quality restored, fresh same-session render preparation
+  passed owner, mesh identity, screen-stage and four-frame transaction checks.
+  A full-postprocess quarter-resolution stream then passed 20 credits/21 linked
+  images with code restoration and detach. Request latency averaged 311 ms and
+  peaked at 331 ms; this fails the existing 250 ms diagnostic limit and is far
+  above the 16.7 ms 60 Hz target. It is not playable throughput or host transport.
+- `preflight.py --clock` now reads six samples of the verified native counter
+  alongside the fighter pair without hooks. On PID 32716 it advanced from 40779
+  to 40797 in five intervals. A paused or intermittent result is reported, not
+  silently treated as a ready source. Eight unit tests and Python compilation pass.
+- Next implementation gate is a persistent source-owned render/control path that
+  avoids the diagnostic CPU capture cost; then integrate with uf-arena's wire and
+  validate match lifecycle and human controls.
