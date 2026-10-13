@@ -54,7 +54,7 @@ def prepare(pid,candidate,combat,meshes,native_grading_only=False):
         draws=stage('draws',4.5,gate_receipt=owner,capture=True,trace_draws=True)
         load('xrd-sign-draw-identity.py')['derive'](draws,meshes)
         buffers=draws/'draw-identity.json'
-        mesh=stage('mesh',4.5,gate_receipt=owner,capture=True,trace_draws=True,suppress_path=buffers,inspect_shaders=True)
+        mesh=stage('mesh',6,gate_receipt=owner,capture=True,trace_draws=True,suppress_path=buffers,inspect_shaders=True)
         screen=stage('screen',8,gate_receipt=owner,capture=True,trace_draws=True,capture_passes=True,
             inspect_screen=True,capture_screen_stages=True)
         stage('verification',28,gate_receipt=owner,combat_path=combat,capture=True,trace_draws=True,

@@ -119,3 +119,18 @@
 - This establishes access to the underlying D3D12 device only. An isolated
   source-owned fighter texture, GPU copy/shared handle, ready/release fences,
   one-tick frame linkage, throughput and arena conformance remain unverified.
+
+## 2026-10-12 — On12 training render preparation
+
+- The redirected PID 24740 entered offline Sol/Ky Training: exact executable and
+  fighter pair passed preflight, and the battle counter advanced. A bare Frida
+  attach took 4.16 seconds, close to the former five-second timeout, so only
+  the attach allowance is now 15 seconds.
+- The existing draw recorder sometimes captured a Present interval crossing an
+  owned update. It now discards that transitional interval and retains two
+  complete held-counter intervals. Fresh native-grading preparation passed its
+  owner, draw, mesh, screen and three-step private-layer stages in the same
+  On12 process; cleanup reported restored source/render code and no errors.
+- This verifies the private fighter render path still works under On12. The
+  prepared layer is not yet unwrapped or shared with uf-arena. GPU copy/fence
+  correctness, frame pacing and a playable SIGN producer remain pending.

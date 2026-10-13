@@ -3684,3 +3684,10 @@ launch visibly rendered the opening screen. This is device access, not yet a
 shared fighter texture or a playable producer. The next GPU step is a private
 fighter target copied through the source's D3D12 device into the arena's named
 shared texture/fence, with tick-linked readiness and measured frame latency.
+
+Fresh offline Sol/Ky Training in the redirected SIGN process also passes native
+render preparation after discarding draw intervals that straddle an owned update.
+The held-counter draw/mesh/screen inventories and private graded-layer check
+pass with clean hook restoration. This proves On12 compatibility of the existing
+diagnostic render boundary; D3D12 resource unwrapping and arena delivery remain
+unverified.

@@ -463,8 +463,10 @@ function drawInterval(device, counter, entering, hresult = 0) {
     if (d === null || !device.equals(d.device)) return;
     if (entering && d.active) {
         d.active = false;
-        send({kind: 'draw-trace', frame: ++d.frames, counter_before: d.counter, counter_after: counter,
-            device: device.toString(), events: d.events, isolated_rgba: false});
+        // An owned source step may land between two Presents. Keep only held intervals.
+        if (counter === d.counter)
+            send({kind: 'draw-trace', frame: ++d.frames, counter_before: d.counter, counter_after: counter,
+                device: device.toString(), events: d.events, isolated_rgba: false});
         d.events = [];
     } else if (!entering && hresult === 0 && d.frames < 2 && gate !== null && !gate.resumed) {
         d.counter = counter; d.active = true;

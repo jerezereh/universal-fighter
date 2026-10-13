@@ -555,7 +555,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                 clock_preflight=read_clock(process,state,candidate)
                 if not clock_preflight['advancing']: raise ValueError('original source clock is held or discontinuous; resume offline training before stepping')
             started=time.perf_counter();phase='attach'
-            session=bounded_call(frida,lambda:frida.attach(state['pid']))
+            # A D3D9On12 SIGN instance can take over four seconds to attach.
+            session=bounded_call(frida,lambda:frida.attach(state['pid']),seconds=15)
             phase='load'
             source=(ROOT/'tools/xrd-sign-boundary.js').read_text()
             if layer or inspect_shaders or inspect_screen: source+='\n'+(ROOT/'tools/xrd-sign-layer.js').read_text()
