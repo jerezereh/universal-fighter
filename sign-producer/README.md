@@ -32,6 +32,8 @@ For an already prepared offline Sol/Ky session, the development-only
 `tools/prepare-xrd-sign-render.py --native-grading-only --on12-probe --on12-readback`
 check performs one temporary render-thread GPU copy of the isolated fighter
 texture and compares it through uf-arena's independent D3D12 reader.
+Add `--on12-frames 4` for a bounded four-step check using a separate shared
+texture per step; it does not reuse textures or run as a persistent producer.
 It needs the same ignored local `--candidate`, `--combat-candidate` and `--meshes`
 inputs as normal render preparation and the sibling `uf-arena/python` checkout
 for the development-only reader. The temporary handle is closed during the

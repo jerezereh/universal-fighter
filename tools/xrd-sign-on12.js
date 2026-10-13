@@ -17,16 +17,16 @@ function on12Guid(id) {
     return p;
 }
 function on12Cell() { const p=Memory.alloc(4);p.writePointer(ptr(0));return p; }
-let on12Probed=false;
-let on12Output=null;
+const on12Probed=new Set();
+const on12Outputs=[];
 function closeOn12Output(output) {
     const close=new NativeFunction(Module.getGlobalExportByName('CloseHandle'),'int',['pointer'],'stdcall');
     for(const object of output.held.reverse())com(object,2,'uint',[])(object);
     for(const handle of output.handles)close(handle);
 }
-function probeOn12Resource(device, texture, width, height, retain) {
-    if(on12Probed)return null;
-    on12Probed=true;
+function probeOn12Resource(device, texture, width, height, retain, requestIndex) {
+    if(on12Probed.has(requestIndex) || on12Probed.size>=config.layer.on12_frames)return null;
+    on12Probed.add(requestIndex);
     const held=[],handles=[];
     let on12=ptr(0), resource=ptr(0), returned=false, fence=ptr(0), queue=ptr(0), signaled=false, keepOutput=false;
     const keep=(cell,name)=>{const p=cell.readPointer();if(p.isNull())throw new Error(name+' returned null');held.push(p);return p;};
@@ -61,7 +61,7 @@ function probeOn12Resource(device, texture, width, height, retain) {
             d12,heap,1,resourceDesc,0,ptr(0),on12Guid(on12Ids.resource),cell),'CreateCommittedResource');
         const output=keep(cell,'shared output texture');
         cell=on12Cell();
-        const name='sign-probe-'+Process.id+'-'+Date.now();
+        const name='sign-probe-'+Process.id+'-'+Date.now()+'-'+requestIndex;
         succeeded(com(d12,31,'int',['pointer','pointer','uint','pointer','pointer'])(
             d12,output,ptr(0),0x10000000,Memory.allocUtf16String(name+'-memory'),cell),'CreateSharedHandle');
         if(cell.readPointer().isNull())throw new Error('shared handle returned null');
@@ -88,7 +88,7 @@ function probeOn12Resource(device, texture, width, height, retain) {
         const until=Date.now()+1000;
         while(com(fence,8,'uint64',[])(fence).toNumber()<1&&Date.now()<until)Thread.sleep(0.001);
         if(com(fence,8,'uint64',[])(fence).toNumber()<1)throw new Error('On12 fence did not complete');
-        if(retain) {on12Output={held,handles};keepOutput=true;}
+        if(retain) {on12Outputs.push({held,handles});keepOutput=true;}
         return {unwrapped:true,returned:true,copied:true,shared_handle_created:true,
             source:'private graded fighter texture',
             ...(retain?{memory:name+'-memory',fence:name+'-fence',value:1,width,height}: {})};

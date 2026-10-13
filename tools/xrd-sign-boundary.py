@@ -267,7 +267,7 @@ def post_color_programs(folder,state,grade,smaa=False,projection=None):
     return result
 
 
-def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None,capture_reaction_memory=False,reaction_memory_bytes=0x2600,external_stun=0,reaction_timer_path=None,external_pair_phase='post-update',external_recoil=None,recoil_path=None,motion_units_path=None,motion_display_scale=None,vertical_path=None,jump_velocity=None,jump_gravity=None,defender_jump_step=0,launch_path=None,launch_horizontal_path=None,launch_velocity_x=None,defeat_input_check=False,proxy_path=None,external_steps=None,contact_results_path=None,renewable_contacts=False,render_contacts=False,layer_scale=1,on12_probe=False,on12_readback=False):
+def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path=None,plan_path=None,oracle='movement',scalar_path=None,combat_path=None,capture=False,trace_draws=False,capture_passes=False,suppress_path=None,inspect_shaders=False,layer_path=None,layer_steps=None,layer_presentations=None,inspect_transforms=False,normalize=False,settle=False,inspect_screen=False,hdr=False,grade_path=None,source_view=False,source_color=False,capture_screen_stages=False,post_color_path=None,smaa=False,renewable=False,transactions=False,transaction_loss=False,transaction_hold=13,reset_observation=False,stream_frames=0,stream_duration=False,frame_tap=False,frame_control=False,observe_contact=False,dispatch_path=None,suppress_contact_path=None,callees_path=None,controlled_slot=0,external_pair_step=0,external_damage=0,external_host_stop=False,external_guard=False,external_pair_control=False,external_guard_commit=False,external_ko=False,isolate_ko_path=None,ko_reaction_path=None,host_result_path=None,capture_reaction_memory=False,reaction_memory_bytes=0x2600,external_stun=0,reaction_timer_path=None,external_pair_phase='post-update',external_recoil=None,recoil_path=None,motion_units_path=None,motion_display_scale=None,vertical_path=None,jump_velocity=None,jump_gravity=None,defender_jump_step=0,launch_path=None,launch_horizontal_path=None,launch_velocity_x=None,defeat_input_check=False,proxy_path=None,external_steps=None,contact_results_path=None,renewable_contacts=False,render_contacts=False,layer_scale=1,on12_probe=False,on12_readback=False,on12_frames=1):
     if defeat_input_check and (not external_ko or not isolate_ko_path or not ko_reaction_path or host_result_path or launch_path or vertical_path or controlled_slot!=1):raise ValueError('defeat input check requires exclusive isolated KO reaction')
     if external_pair_phase not in ('post-update','dispatch') or external_pair_phase=='dispatch' and not external_pair_step:raise ValueError('dispatch phase requires a requested native pair')
     if launch_path and (not (external_damage or host_result_path) or not vertical_path or not external_pair_step or not external_host_stop or external_pair_phase!='dispatch' or defender_jump_step or external_stun or external_ko or external_guard or ko_reaction_path):raise ValueError('ground launch requires exclusive nonfatal motion and dispatch requested contact')
@@ -436,6 +436,8 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     if on12_probe and (not grade_path or post_color_path or not layer_path or not normalize or not settle):
         raise ValueError('On12 probe requires exclusive normalized settled native grading')
     if on12_readback and not on12_probe: raise ValueError('On12 readback requires the GPU resource probe')
+    if on12_frames not in (1,4) or on12_frames==4 and (not on12_readback or not transactions):
+        raise ValueError('four On12 frames require bounded transaction readback')
     if inspect_screen and (not trace_draws or not capture or suppress_path and not layer_path or plan_path):
         raise ValueError('screen shader observation requires exclusive neutral capture/draw trace')
     identity=None
@@ -464,6 +466,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
         layer['smaa']=smaa
         layer['on12_probe']=on12_probe
         layer['on12_readback']=on12_readback
+        layer['on12_frames']=on12_frames
         if source_color and (not layer['grade']['vertex_original_hex'] or not layer['grade']['source_quad_observed']):
             raise ValueError('source color replay requires inspected native vertex/quad inputs')
         layer['capture_steps']=capture_steps(layer_steps or '0,1,2,3')
@@ -510,7 +513,7 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
     def receive(message,data):
         try: messages.put_nowait((message,data,time.perf_counter()))
         except queue.Full: overflow.set()
-    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];vertices=[];screens=[];layers=[];transforms=[];scene_packets=[];layer_packets=[];gpu_readback=[];early_gpu=None;render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
+    errors=[];records=[];states=[];presents=[];inputs=[];diagnostics=[];captures=[];draws=[];passes=[];shaders=[];vertices=[];screens=[];layers=[];transforms=[];scene_packets=[];layer_packets=[];gpu_readback=[];early_gpu={};render_bytes=0;pass_bytes=0;session=script=None;detached=False;requests=0;cleanup_receipt=None;automatic_restore=False
     if on12_readback:
         sys.path.insert(0,str(ROOT.parent/'uf-arena/python'))  # pinned receiver-side reader; development diagnostic only
         from ufproducer.d3d12 import Reader
@@ -716,13 +719,14 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         diagnostics.append(message['payload']);continue
                     if message['type']=='send' and message['payload'].get('kind')=='on12-ready':
                         native=message['payload']
-                        if not on12_readback or early_gpu is not None or data is not None or not all(
+                        index=native.get('request_index')
+                        if not on12_readback or type(index)!=int or not 0<=index<on12_frames or index in early_gpu or data is not None or not all(
                             native.get(key) for key in ('memory','fence','value','width','height')):
                             raise ValueError('unexpected early shared-layer receipt')
                         reader=Reader()
                         try: pixels=reader.read(native)
                         finally: reader.close()
-                        early_gpu=(native,pixels)
+                        early_gpu[index]=(native,pixels)
                         continue
                     if message['type']=='send' and message['payload'].get('kind')=='layer-transform':
                         if not inspect_transforms or len(transforms)>=8: raise ValueError('vertex observation limit')
@@ -767,10 +771,11 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
                         else: render_pixels(native,data)
                         if on12_readback and 'on12_resource_probe' in native:
                             probe=native['on12_resource_probe']
-                            if early_gpu is None or any(early_gpu[0].get(key)!=probe.get(key) for key in
-                                ('memory','fence','value','width','height')) or early_gpu[0]['counter']!=native['counter']:
+                            early=early_gpu.get(native['request_index'])
+                            if early is None or any(early[0].get(key)!=probe.get(key) for key in
+                                ('memory','fence','value','width','height')) or early[0]['counter']!=native['counter']:
                                 raise ValueError('early shared-layer receipt does not match settled layer')
-                            pixels=early_gpu[1]
+                            pixels=early[1]
                             expected=data[native['state_size']:]
                             gpu_readback.append(dict(equal=pixels==expected,bytes=len(pixels),
                                 gpu_sha256=hashlib.sha256(pixels).hexdigest(),d3d9_sha256=hashlib.sha256(expected).hexdigest(),
@@ -973,13 +978,13 @@ def trace(probe,candidate_path,seconds,gate_receipt=None,expire=False,input_path
             probes=[image['on12_resource_probe'] for image in layers if 'on12_resource_probe' in image]
             expected_probe={'unwrapped':True,'returned':True,'copied':True,'shared_handle_created':True,
                 'source':'private graded fighter texture'}
-            result['on12_resource_probe']=dict(unwrapped_and_returned=len(probes)==1 and all(
+            result['on12_resource_probe']=dict(unwrapped_and_returned=len(probes)==on12_frames and all(
                 probe.get(key)==value for key,value in expected_probe.items() for probe in probes),count=len(probes))
             if not result['on12_resource_probe']['unwrapped_and_returned']:
                 errors.append(dict(on12_error='missing or invalid private fighter texture interop proof'))
             if on12_readback:
                 result['on12_readback']=gpu_readback
-                if len(gpu_readback)!=1 or not gpu_readback[0]['equal']:
+                if len(gpu_readback)!=on12_frames or not all(row['equal'] for row in gpu_readback):
                     errors.append(dict(on12_error='independent shared-texture pixels differ from D3D9 layer'))
     if observe_contact:
         result['external_pair_events']=external_events

@@ -220,3 +220,20 @@
 - This establishes publication order for one frame only. Repeated buffer reuse,
   release-fence ownership, playable frame budget, and a persistent SIGN
   producer remain unverified.
+
+## 2026-10-12 — four unique shared GPU frames
+
+- The bounded diagnostic now optionally allocates one shared texture for each
+  of four owned source counters, reads it through the independent arena D3D12
+  reader before the corresponding settled packet, and closes all four resources
+  on the render thread at teardown. No GPU queue waits for a receiver release.
+- Fresh PID 27192 verification observed four early reads of 1,966,080 BGRA
+  bytes each, each exactly equal to its D3D9 diagnostic layer; four On12
+  unwrap/return/copy receipts, three exact source steps, eight linked layer
+  packets, zero errors, clean detach, and restored source/render code. A
+  post-check preflight verified Sol/Ky and an advancing battle counter.
+- All four image hashes were identical in the idle neutral scene. This proves
+  repeated resource delivery and cleanup, not changing-pose imagery, sustained
+  frame rate, bounded reusable buffers, or a playable producer. These unique
+  textures are a diagnostic; a production bridge still needs release-fence
+  ownership and continuous session handling.

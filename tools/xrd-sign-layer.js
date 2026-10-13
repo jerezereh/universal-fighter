@@ -585,9 +585,10 @@ function finishMeshLayer(device) {
         const root = Process.mainModule.base.add(config.state.engine_global_rva).readPointer();
         if(config.layer.grade && !current.graded)throw new Error('private mesh lacks native grading');
         if(config.layer.post_color && !current.post?.complete)throw new Error('private post-color chain incomplete');
-        const on12=config.layer.on12_probe?probeOn12Resource(device,current.gradedTexture,current.width,current.height,config.layer.on12_readback):null;
+        const requestIndex=(current.counter-gate.initialCounter)>>>0;
+        const on12=config.layer.on12_probe?probeOn12Resource(device,current.gradedTexture,current.width,current.height,config.layer.on12_readback,requestIndex):null;
         if(on12 && config.layer.on12_readback)
-            send({kind:'on12-ready',counter:current.counter,request_index:(current.counter-gate.initialCounter)>>>0,...on12});
+            send({kind:'on12-ready',counter:current.counter,request_index:requestIndex,...on12});
         const captured = captureBackBuffer(device, root, current.counter, false, current.graded??current.target);
         const metadata={...captured.metadata, kind: config.layer.hdr&&!config.layer.grade?'render-hdr-layer':'render-layer', presentation_index: renderCapture.presentations + 1,
             diagnostic_settling: config.layer.settle || config.layer.presentations.length > 1, native_coverage_verified: false,

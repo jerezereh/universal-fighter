@@ -1041,7 +1041,7 @@ function armGateRemoval() {
         if (gate !== null) {
             if (gate.renewable) {
                 gate.resumed = true; gate.credits = 0;
-                if (config.layer && (meshLayer !== null || config.layer.on12_probe && on12Output !== null)) {
+                if (config.layer && (meshLayer !== null || config.layer.on12_probe && on12Outputs.length)) {
                     // COM resources belong to the render thread. Ordinary updates resume now;
                     // resource/hook teardown completes at the next EndScene/Present callback.
                     stopRequested = true; layerStopping = true;
@@ -1091,7 +1091,7 @@ function finishStop() {
     removeInputHooks();
     for (const h of renderHooks) if(!h.retired)h.listener.detach();
     Interceptor.flush();
-    if(config.layer?.on12_probe && on12Output!==null) {closeOn12Output(on12Output);on12Output=null;}
+    if(config.layer?.on12_probe) for(const output of on12Outputs.splice(0))closeOn12Output(output);
     const cachedShaders=config.layer?layerShaderCache.size+(coverageShaderCache!==null?1:0):0;
     if(config.layer)releaseLayerShaderCache();
     const renderRestored = renderHooks.every(h => hex(bytes(h.target, 32)) === h.before);

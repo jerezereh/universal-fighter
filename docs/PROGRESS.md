@@ -3727,3 +3727,9 @@ read 1,966,080 BGRA bytes at that early notice and matched the subsequent D3D9
 layer exactly. Source/render hooks restored and the battle counter kept
 advancing. This validates one-frame delivery order, not reusable GPU buffers or
 a playable producer.
+
+A later bounded four-step On12 diagnostic used four distinct shared textures,
+one per owned counter, with no receiver-release wait. All four early arena
+D3D12 reads matched the corresponding D3D9 layers; hooks restored, errors were
+zero, and SIGN's clock advanced afterward. The neutral images were identical,
+so changing-pose delivery and sustained playable performance remain open.

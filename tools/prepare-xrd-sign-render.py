@@ -33,12 +33,14 @@ def scene_identity(probe):
         return dict(pid=state['pid'],module_base=base,root=root,slots=slots)
 
 
-def prepare(pid,candidate,combat,meshes,native_grading_only=False,on12_probe=False,on12_readback=False):
+def prepare(pid,candidate,combat,meshes,native_grading_only=False,on12_probe=False,on12_readback=False,on12_frames=1):
     if on12_probe and not native_grading_only: raise ValueError('On12 resource probe requires native grading only')
     if on12_readback and not on12_probe: raise ValueError('On12 readback requires --on12-probe')
+    if on12_frames not in (1,4) or on12_frames==4 and not on12_readback:
+        raise ValueError('four On12 frames require independent readback')
     recon=load('xrd-sign-probe.py');_,probe=recon['inspect'](recon['GAME'],pid)
     receipt=dict(prepared=False,source_capabilities_enabled=False,automatic_live_rebind_verified=False,
-                 native_grading_only=native_grading_only,on12_probe=on12_probe,on12_readback=on12_readback,stages={})
+                 native_grading_only=native_grading_only,on12_probe=on12_probe,on12_readback=on12_readback,on12_frames=on12_frames,stages={})
     report=probe/'render-preparation.json'
     try:
         load('xrd-sign-observe.py')['capture'](probe,1,0)
@@ -62,7 +64,7 @@ def prepare(pid,candidate,combat,meshes,native_grading_only=False,on12_probe=Fal
         stage('verification',28,gate_receipt=owner,combat_path=combat,capture=True,trace_draws=True,
             suppress_path=buffers,layer_path=mesh,normalize=True,settle=True,grade_path=screen,
             post_color_path=None if native_grading_only else screen,smaa=not native_grading_only,transactions=True,
-            on12_probe=on12_probe,on12_readback=on12_readback)
+            on12_probe=on12_probe,on12_readback=on12_readback,on12_frames=on12_frames)
         receipt['prepared']=True
     except Exception as error:
         receipt['error']=repr(error);raise
@@ -81,6 +83,7 @@ if __name__=='__main__':
     p.add_argument('--native-grading-only',action='store_true',help='verify native grading without optional full-screen postprocessing or SMAA')
     p.add_argument('--on12-probe',action='store_true',help='unwrap and return one private graded fighter texture on the render thread')
     p.add_argument('--on12-readback',action='store_true',help='open the temporary shared texture through an independent D3D12 reader')
+    p.add_argument('--on12-frames',type=int,choices=(1,4),default=1,help='bounded unique shared textures per owned request (one or four)')
     args=p.parse_args()
     if args.pid<=0:p.error('pid must be positive')
-    prepare(args.pid,args.candidate.resolve(),args.combat_candidate.resolve(),args.meshes.resolve(),args.native_grading_only,args.on12_probe,args.on12_readback)
+    prepare(args.pid,args.candidate.resolve(),args.combat_candidate.resolve(),args.meshes.resolve(),args.native_grading_only,args.on12_probe,args.on12_readback,args.on12_frames)
