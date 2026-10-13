@@ -81,3 +81,18 @@
   verified diagnostic mapper; nine unit tests pass.
 - This is an adaptation primitive. No persistent SIGN input ingress or arena
   step is connected yet, so capabilities remain disabled.
+
+## 2026-10-12 — fresh native-grading render timing
+
+- After the user reopened offline Sol/Ky Training, exact-image, fighter-pair and
+  advancing-clock preflight passed on SIGN PID 30904. Fresh source-owner, draw,
+  mesh and screen-stage preparation passed, followed by a four-frame native-
+  grading transaction. A bounded quarter-scale native-grading stream then
+  completed 20 credited steps and 21 linked images, restoring loaded code and
+  detaching cleanly. Its mean request latency was 208 ms, peak 301 ms; the
+  previous full-quality stream on a different process averaged 311 ms, peak
+  331 ms. This comparison is indicative, not a controlled same-process benchmark.
+- The stream still misses the 250 ms diagnostic deadline at peak and the 16.7 ms
+  60 Hz budget by a wide margin. It is a short-lived diagnostic, with no live
+  producer, negotiated image transport or playable capability. The persistent
+  source-owned render/control bridge remains the next implementation gate.

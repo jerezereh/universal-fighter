@@ -3662,3 +3662,10 @@ Application fault event. Its cause is unknown and a fresh session is required.
 The SIGN producer now has a host-to-native held-input word mapping for directions
 and five attacks. All 512 combinations match the prior diagnostic mapper, but a
 persistent source step is still unconnected and no capability was promoted.
+
+On reopened SIGN PID 30904, exact-image, Sol/Ky and advancing-clock preflight
+passed. Fresh native-grading preparation and a bounded 20-step/21-image stream
+also passed with restored code and clean detach. Quarter-scale requests averaged
+208 ms and peaked at 301 ms, below the earlier full-quality mean of 311 ms in a
+different process but still far from playable 60 Hz. The peak exceeds the 250 ms
+diagnostic deadline. No persistent host producer or capability is claimed.
