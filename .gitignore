@@ -6,3 +6,6 @@
 /artifacts/
 *.exe
 __pycache__/
+
+# Session Story pages (local session transcripts)
+.session-stories/
